@@ -9,7 +9,7 @@ import { localizeMediaRows } from '@/lib/i18n/clientMediaLocalization'
 function formatNumber(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return n.toLocaleString('it')
+  return n.toLocaleString()
 }
 
 type PopularTitle = {
@@ -36,7 +36,7 @@ export function PopularTitlesList({ titles }: { titles: PopularTitle[] }) {
     <section className="mt-8">
       <div className="mb-4 flex items-center gap-2">
         <Trophy size={15} className="text-[var(--accent)]" />
-        <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Più aggiunti dalla community</h2>
+        <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{locale === 'en' ? 'Most added by the community' : 'Più aggiunti dalla community'}</h2>
       </div>
       <div className="space-y-2.5">
         {localizedTitles.map((title, index) => (

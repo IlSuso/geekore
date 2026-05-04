@@ -41,8 +41,13 @@ export default function EditProfilePage() {
   const supabase = createClient()
   const router = useRouter()
   const { csrfFetch } = useCsrf()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const pe = t.profileEdit
+  const ui = locale === 'it' ? {
+    title: 'Modifica profilo', subtitle: 'Aggiorna identità, avatar e pochi segnali di gusto essenziali.', invalidFile: 'Formato file non valido.', avatarHint: 'JPEG, PNG, GIF o WebP · max 5MB. Usa un avatar leggibile anche in piccolo.', dataSecurity: 'Dati e sicurezza', exporting: 'Esportazione...', exportData: 'Esporta dati', exportHint: 'Scarica una copia JSON dei dati del tuo account.', publicIdentity: 'Identità pubblica', publicIdentityHint: 'Nome, username e bio visibili nel profilo.', quickTaste: 'Gusti rapidi', likedExcluded: (liked: number, disliked: number) => `${liked} amati · ${disliked} esclusi`, like: 'Ami', avoid: 'Eviti', uploadingAvatar: 'Caricamento avatar...'
+  } : {
+    title: 'Edit profile', subtitle: 'Update identity, avatar, and a few essential taste signals.', invalidFile: 'Invalid file format.', avatarHint: 'JPEG, PNG, GIF, or WebP · max 5MB. Use an avatar that stays readable when small.', dataSecurity: 'Data and security', exporting: 'Exporting...', exportData: 'Export data', exportHint: 'Download a JSON copy of your account data.', publicIdentity: 'Public identity', publicIdentityHint: 'Name, username, and bio visible on your profile.', quickTaste: 'Quick taste', likedExcluded: (liked: number, disliked: number) => `${liked} liked · ${disliked} excluded`, like: 'Like', avoid: 'Avoid', uploadingAvatar: 'Uploading avatar...'
+  }
 
   const validateUsername = (value: string): string | null => {
     if (value.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
@@ -254,7 +259,7 @@ export default function EditProfilePage() {
       setMessage(
         err.message?.includes('profiles_username') ? pe.usernameTaken :
         err.message?.includes('Formato non supportato') ? err.message :
-        err.message?.includes('magic') ? 'Formato file non valido.' :
+        err.message?.includes('magic') ? ui.invalidFile :
         pe.saveError
       )
       setMessageType('error')
@@ -282,8 +287,8 @@ export default function EditProfilePage() {
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
             <p className="gk-section-eyebrow mb-2"><Sparkles size={12} /> Account</p>
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Modifica profilo</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">Aggiorna identità, avatar e pochi segnali di gusto essenziali.</p>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">{ui.title}</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">{ui.subtitle}</p>
           </div>
           <Link
             href={`/profile/${profile?.username || 'me'}`}
@@ -358,11 +363,11 @@ export default function EditProfilePage() {
                 onChange={handleAvatarChange}
                 className="hidden"
               />
-              <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">JPEG, PNG, GIF o WebP · max 5MB. Usa un avatar leggibile anche in piccolo.</p>
+              <p className="mt-4 text-[11px] leading-5 text-[var(--text-muted)]">{ui.avatarHint}</p>
             </div>
 
             <div className="rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-4 ring-1 ring-white/5">
-              <p className="gk-label mb-3">Dati e sicurezza</p>
+              <p className="gk-label mb-3">{ui.dataSecurity}</p>
               <button
                 type="button"
                 onClick={handleExportData}
@@ -370,18 +375,18 @@ export default function EditProfilePage() {
                 className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-black text-[var(--text-secondary)] transition-colors hover:text-white disabled:opacity-50"
               >
                 {exporting
-                  ? <><Loader2 size={16} className="animate-spin" /> Esportazione...</>
-                  : <><Download size={16} /> Esporta dati</>}
+                  ? <><Loader2 size={16} className="animate-spin" /> {ui.exporting}</>
+                  : <><Download size={16} /> {ui.exportData}</>}
               </button>
-              <p className="mt-3 text-[11px] leading-5 text-[var(--text-muted)]">Scarica una copia JSON dei dati del tuo account.</p>
+              <p className="mt-3 text-[11px] leading-5 text-[var(--text-muted)]">{ui.exportHint}</p>
             </div>
           </aside>
 
           <section className="rounded-[30px] border border-[var(--border)] bg-[var(--bg-card)] p-5 ring-1 ring-white/5 md:p-6">
             <div className="mb-6 flex items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
               <div>
-                <p className="gk-label">Identità pubblica</p>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">Nome, username e bio visibili nel profilo.</p>
+                <p className="gk-label">{ui.publicIdentity}</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">{ui.publicIdentityHint}</p>
               </div>
               <button
                 type="submit"
@@ -454,8 +459,8 @@ export default function EditProfilePage() {
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} className="text-[var(--accent)]" />
                   <div>
-                    <p className="text-sm font-black text-[var(--text-primary)]">Gusti rapidi</p>
-                    <p className="text-xs text-[var(--text-muted)]">{likedCount} amati · {dislikedCount} esclusi</p>
+                    <p className="text-sm font-black text-[var(--text-primary)]">{ui.quickTaste}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{ui.likedExcluded(likedCount, dislikedCount)}</p>
                   </div>
                 </div>
                 <Link href="/for-you" className="inline-flex h-8 items-center justify-center rounded-full border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-3 text-xs font-black text-[var(--accent)] transition-opacity hover:opacity-80">Taste DNA →</Link>
@@ -464,7 +469,7 @@ export default function EditProfilePage() {
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/55 p-3">
                   <div className="mb-3 flex items-center justify-between gap-2">
-                    <p className="gk-label">Ami</p>
+                    <p className="gk-label">{ui.like}</p>
                     <span className="font-mono-data text-[10px] font-black text-[var(--accent)]">{likedCount}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -482,7 +487,7 @@ export default function EditProfilePage() {
                 </div>
                 <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/55 p-3">
                   <div className="mb-3 flex items-center justify-between gap-2">
-                    <p className="gk-label">Eviti</p>
+                    <p className="gk-label">{ui.avoid}</p>
                     <span className="font-mono-data text-[10px] font-black text-red-300">{dislikedCount}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -507,7 +512,7 @@ export default function EditProfilePage() {
               className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.01] disabled:opacity-50 md:hidden"
             >
               {isBusy
-                ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? 'Caricamento avatar...' : pe.saving}</>
+                ? <><Loader2 size={18} className="animate-spin" /> {uploadingAvatar ? ui.uploadingAvatar : pe.saving}</>
                 : pe.save
               }
             </button>

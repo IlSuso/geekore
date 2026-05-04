@@ -26,6 +26,168 @@ import { useLocale } from "@/lib/locale";
 
 const TOTAL_STEPS = 4;
 
+const ONBOARDING_COPY = {
+  it: {
+    step: (current: number, total: number) => `Passo ${current} di ${total}`,
+    brand: [
+      {
+        title: ["Scegli i media", "che contano."],
+        sub: "Partiamo dalle categorie che vuoi davvero tracciare.",
+      },
+      {
+        title: ["Importa la storia,", "non ripartire da zero."],
+        sub: "AniList, Steam, Letterboxd e BGG diventano il tuo cold-start intelligente.",
+      },
+      {
+        title: ["Dai segnali forti", "al tuo DNA."],
+        sub: "Valuta, salva o scarta titoli: il feed parte già con una direzione.",
+      },
+      {
+        title: ["Preferenze pronte,", "entra nel feed."],
+        sub: "Conferma il tuo profilo iniziale e scopri utenti da seguire.",
+      },
+    ],
+    features: [
+      "Raccomandazioni personalizzate basate sui tuoi gusti",
+      "Segui amici e scopri cosa stanno guardando",
+      "Traccia i progressi su tutti i tuoi media preferiti",
+    ],
+    media: {
+      anime: "Anime",
+      manga: "Manga",
+      game: "Videogiochi",
+      tv: "Serie TV",
+      movie: "Film",
+      boardgame: "Boardgame",
+    },
+    importDetails: {
+      anilist: "Anime e manga già visti",
+      steam: "Ore giocate e libreria PC",
+      letterboxd: "Film e rating",
+      bgg: "Boardgame collection",
+    },
+    wait: "Attendi",
+    following: "Seguito",
+    follow: "Segui",
+    onboarding: "onboarding",
+    step0Title: "Cosa tracci?",
+    step0Body:
+      "Scegli i mondi che vuoi usare per costruire il tuo primo Taste DNA.",
+    selectAtLeastOne: "Seleziona almeno un tipo media per continuare.",
+    continue: "Continua",
+    back: "Indietro",
+    skip: "Salta",
+    loading: "Caricamento…",
+    step1Title: "Importa la tua storia",
+    step1Body:
+      "Collega o importa le librerie che hai già. Puoi saltare e farlo dopo dal profilo.",
+    selectedSourcePrefix: "Hai selezionato",
+    selectedSourceSuffix:
+      "Per non interrompere l’onboarding, il collegamento vero lo apriremo dal profilo dopo la configurazione iniziale.",
+    chooseSourceLater:
+      "Puoi selezionare una fonte da collegare più tardi, oppure saltare e continuare subito con lo swipe.",
+    readyBadge: "Geekore è pronto",
+    readyTitle: "Il tuo profilo iniziale è configurato.",
+    readyBody:
+      "Partiremo dai mondi che hai scelto e continueremo a imparare da rating, wishlist e swipe mentre usi l’app.",
+    categoriesLater: "Potrai scegliere nuove categorie dal profilo.",
+    firstDna: "Primo DNA",
+    signals: "segnali",
+    wishlist: "wishlist",
+    skipped: "skip",
+    profileConfigured: "Profilo configurato",
+    profileConfiguredBody:
+      "Non hai ancora dato segnali nello swipe, quindi la home partirà dalle categorie selezionate. Potrai raffinarla subito con voti, salvataggi e nuovi swipe.",
+    peopleToFollow: "Persone da seguire",
+    followHint: "Scegli qualcuno ora, oppure fallo più tardi da Friends.",
+    suggested: (count: number) => `${count} suggeriti`,
+    noSuggestions: "Nessun suggerimento ancora",
+    noSuggestionsBody:
+      "Entrerai comunque nella home e potrai seguire utenti dalla sezione Friends.",
+    enter: "Entra in Geekore",
+  },
+  en: {
+    step: (current: number, total: number) => `Step ${current} of ${total}`,
+    brand: [
+      {
+        title: ["Choose the media", "that matter."],
+        sub: "We start from the categories you actually want to track.",
+      },
+      {
+        title: ["Import your history,", "do not start from zero."],
+        sub: "AniList, Steam, Letterboxd and BGG become your smart cold start.",
+      },
+      {
+        title: ["Give strong signals", "to your DNA."],
+        sub: "Rate, save or skip titles: the feed starts with a direction already.",
+      },
+      {
+        title: ["Preferences ready,", "enter the feed."],
+        sub: "Confirm your initial profile and discover people to follow.",
+      },
+    ],
+    features: [
+      "Personalized recommendations based on your taste",
+      "Follow friends and discover what they are watching",
+      "Track progress across all your favorite media",
+    ],
+    media: {
+      anime: "Anime",
+      manga: "Manga",
+      game: "Games",
+      tv: "TV Shows",
+      movie: "Movies",
+      boardgame: "Board Games",
+    },
+    importDetails: {
+      anilist: "Anime and manga you already watched/read",
+      steam: "Playtime and PC library",
+      letterboxd: "Movies and ratings",
+      bgg: "Board game collection",
+    },
+    wait: "Wait",
+    following: "Following",
+    follow: "Follow",
+    onboarding: "onboarding",
+    step0Title: "What do you track?",
+    step0Body:
+      "Choose the worlds you want to use to build your first Taste DNA.",
+    selectAtLeastOne: "Select at least one media type to continue.",
+    continue: "Continue",
+    back: "Back",
+    skip: "Skip",
+    loading: "Loading…",
+    step1Title: "Import your history",
+    step1Body:
+      "Connect or import the libraries you already have. You can skip this and do it later from your profile.",
+    selectedSourcePrefix: "You selected",
+    selectedSourceSuffix:
+      "To avoid interrupting onboarding, the real connection will open from your profile after the initial setup.",
+    chooseSourceLater:
+      "You can choose a source to connect later, or skip and continue straight to swiping.",
+    readyBadge: "Geekore is ready",
+    readyTitle: "Your initial profile is configured.",
+    readyBody:
+      "We will start from the worlds you chose and keep learning from ratings, wishlist and swipes as you use the app.",
+    categoriesLater:
+      "You will be able to choose new categories from your profile.",
+    firstDna: "First DNA",
+    signals: "signals",
+    wishlist: "wishlist",
+    skipped: "skips",
+    profileConfigured: "Profile configured",
+    profileConfiguredBody:
+      "You have not given swipe signals yet, so Home will start from the selected categories. You can refine it immediately with ratings, saves and new swipes.",
+    peopleToFollow: "People to follow",
+    followHint: "Choose someone now, or do it later from Friends.",
+    suggested: (count: number) => `${count} suggested`,
+    noSuggestions: "No suggestions yet",
+    noSuggestionsBody:
+      "You will still enter Home and can follow users from Friends.",
+    enter: "Enter Geekore",
+  },
+} as const;
+
 const MEDIA_TYPES = [
   { id: "anime", label: "Anime", icon: Swords, color: "var(--type-anime)" },
   { id: "manga", label: "Manga", icon: Layers, color: "var(--type-manga)" },
@@ -139,7 +301,10 @@ function recToSwipeItem(r: any): SwipeItem {
   };
 }
 
-async function localizeSwipeItems(items: SwipeItem[], locale: string): Promise<SwipeItem[]> {
+async function localizeSwipeItems(
+  items: SwipeItem[],
+  locale: string,
+): Promise<SwipeItem[]> {
   if (items.length === 0) return items;
   const res = await fetch(`/api/media/localize?lang=${locale}`, {
     method: "POST",
@@ -223,12 +388,14 @@ function setOnboardingCookie() {
 }
 
 function StepDots({ current, total }: { current: number; total: number }) {
+  const { locale } = useLocale();
+  const oc = ONBOARDING_COPY[locale];
   const pct = Math.round(((current + 1) / total) * 100);
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="gk-mono text-[var(--text-muted)]">
-          Passo {current + 1} di {total}
+          {oc.step(current + 1, total)}
         </span>
         <span className="font-mono-data text-[11px] font-bold text-[var(--accent)]">
           {pct}%
@@ -245,24 +412,9 @@ function StepDots({ current, total }: { current: number; total: number }) {
 }
 
 function BrandPanel({ step }: { step: number }) {
-  const copy = [
-    {
-      title: ["Scegli i media", "che contano."],
-      sub: "Partiamo dalle categorie che vuoi davvero tracciare.",
-    },
-    {
-      title: ["Importa la storia,", "non ripartire da zero."],
-      sub: "AniList, Steam, Letterboxd e BGG diventano il tuo cold-start intelligente.",
-    },
-    {
-      title: ["Dai segnali forti", "al tuo DNA."],
-      sub: "Valuta, salva o scarta titoli: il feed parte già con una direzione.",
-    },
-    {
-      title: ["Preferenze pronte,", "entra nel feed."],
-      sub: "Conferma il tuo profilo iniziale e scopri utenti da seguire.",
-    },
-  ][Math.min(step, 3)];
+  const { locale } = useLocale();
+  const oc = ONBOARDING_COPY[locale];
+  const copy = oc.brand[Math.min(step, 3)];
 
   return (
     <div
@@ -318,7 +470,7 @@ function BrandPanel({ step }: { step: number }) {
       </div>
       <div className="relative z-10 space-y-5">
         <p className="gk-section-eyebrow mb-2 inline-flex">
-          <Sparkles size={12} /> onboarding
+          <Sparkles size={12} /> {oc.onboarding}
         </p>
         <h2
           key={step}
@@ -341,7 +493,7 @@ function BrandPanel({ step }: { step: number }) {
         </p>
         {step === 0 && (
           <div className="space-y-2 pt-1">
-            {FEATURES.map(({ icon: Icon, label }) => (
+            {FEATURES.map(({ icon: Icon, label }, index) => (
               <div
                 key={label}
                 className="flex items-center gap-3 rounded-2xl p-3"
@@ -354,7 +506,7 @@ function BrandPanel({ step }: { step: number }) {
                   <Icon size={15} className="text-[var(--accent)]" />
                 </div>
                 <span className="text-xs font-medium leading-relaxed text-zinc-300">
-                  {label}
+                  {oc.features[index] || label}
                 </span>
               </div>
             ))}
@@ -382,6 +534,8 @@ function UserSuggestionCard({
   pendingFollowId: string | null;
   onToggleFollow: (profileId: string) => void;
 }) {
+  const { locale } = useLocale();
+  const oc = ONBOARDING_COPY[locale];
   const username = user.username || user.id;
   const name = user.display_name || user.username || "Geekore user";
   const initial = name.trim().slice(0, 1).toUpperCase() || "G";
@@ -437,7 +591,7 @@ function UserSuggestionCard({
               }
         }
       >
-        {isPending ? "Attendi" : isFollowing ? "Seguito" : "Segui"}
+        {isPending ? oc.wait : isFollowing ? oc.following : oc.follow}
       </button>
     </div>
   );
@@ -445,6 +599,7 @@ function UserSuggestionCard({
 
 export default function OnboardingPage() {
   const { locale } = useLocale();
+  const oc = ONBOARDING_COPY[locale];
   const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState(0);
@@ -655,7 +810,13 @@ export default function OnboardingPage() {
         "boardgame",
       ];
       for (const cat of specificTypes) {
-        const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK, locale);
+        const items = await fetchCategoryTitles(
+          cat,
+          [],
+          new Set(),
+          POOL_QUICK,
+          locale,
+        );
         if (items.length > 0)
           await fetch("/api/swipe/queue", {
             method: "POST",
@@ -883,7 +1044,9 @@ export default function OnboardingPage() {
     }).catch(() => null);
     if (!res?.ok) return;
     setOnboardingCookie();
-    fetch(`/api/recommendations?refresh=1&onboarding=1&lang=${locale}`).catch(() => {});
+    fetch(`/api/recommendations?refresh=1&onboarding=1&lang=${locale}`).catch(
+      () => {},
+    );
     router.push("/home");
   }, [selectedTypes, importSkipped, router, locale]);
 
@@ -910,7 +1073,11 @@ export default function OnboardingPage() {
   }
 
   const selectedLabels = selectedTypes
-    .map((id) => MEDIA_TYPES.find((t) => t.id === id)?.label)
+    .map(
+      (id) =>
+        oc.media[id as keyof typeof oc.media] ||
+        MEDIA_TYPES.find((t) => t.id === id)?.label,
+    )
     .filter(Boolean);
   const signalCount = acceptedItemsRef.current.size;
   const wishlistCount = wishlistItemsRef.current.size;
@@ -942,11 +1109,8 @@ export default function OnboardingPage() {
           {step === 0 && (
             <>
               <div className="mb-5">
-                <h1 className="gk-title mb-2 text-white">Cosa tracci?</h1>
-                <p className="gk-body">
-                  Scegli i mondi che vuoi usare per costruire il tuo primo Taste
-                  DNA.
-                </p>
+                <h1 className="gk-title mb-2 text-white">{oc.step0Title}</h1>
+                <p className="gk-body">{oc.step0Body}</p>
               </div>
               <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {MEDIA_TYPES.map(({ id, label, icon: Icon, color }) => {
@@ -998,7 +1162,7 @@ export default function OnboardingPage() {
               </div>
               {selectedTypes.length === 0 && (
                 <p className="gk-caption mb-5 text-[var(--text-muted)]">
-                  Seleziona almeno un tipo media per continuare.
+                  {oc.selectAtLeastOne}
                 </p>
               )}
               <button
@@ -1008,7 +1172,7 @@ export default function OnboardingPage() {
                 disabled={selectedTypes.length === 0}
                 className="gk-btn gk-btn-primary gk-focus-ring w-full disabled:opacity-50"
               >
-                Continua <ArrowRight size={18} />
+                {oc.continue} <ArrowRight size={18} />
               </button>
             </>
           )}
@@ -1016,13 +1180,8 @@ export default function OnboardingPage() {
           {step === 1 && (
             <>
               <div className="mb-7">
-                <h1 className="gk-title mb-2 text-white">
-                  Importa la tua storia
-                </h1>
-                <p className="gk-body">
-                  Collega o importa le librerie che hai già. Puoi saltare e
-                  farlo dopo dal profilo.
-                </p>
+                <h1 className="gk-title mb-2 text-white">{oc.step1Title}</h1>
+                <p className="gk-body">{oc.step1Body}</p>
               </div>
               <div className="mb-7 grid gap-2 sm:grid-cols-2">
                 {IMPORT_SOURCES.map(
@@ -1065,7 +1224,9 @@ export default function OnboardingPage() {
                             {label}
                           </p>
                           <p className="text-xs text-[var(--text-muted)]">
-                            {detail}
+                            {oc.importDetails[
+                              id as keyof typeof oc.importDetails
+                            ] || detail}
                           </p>
                         </div>
                         {selected ? (
@@ -1090,7 +1251,7 @@ export default function OnboardingPage() {
               <div className="mb-6 rounded-[20px] border border-[rgba(230,255,61,0.13)] bg-[rgba(230,255,61,0.045)] p-4 text-sm leading-6 text-[var(--text-secondary)]">
                 {selectedImportSource ? (
                   <>
-                    Hai selezionato{" "}
+                    {oc.selectedSourcePrefix}{" "}
                     <span className="font-bold text-white">
                       {
                         IMPORT_SOURCES.find(
@@ -1098,14 +1259,10 @@ export default function OnboardingPage() {
                         )?.label
                       }
                     </span>
-                    . Per non interrompere l’onboarding, il collegamento vero lo
-                    apriremo dal profilo dopo la configurazione iniziale.
+                    . {oc.selectedSourceSuffix}
                   </>
                 ) : (
-                  <>
-                    Puoi selezionare una fonte da collegare più tardi, oppure
-                    saltare e continuare subito con lo swipe.
-                  </>
+                  <>{oc.chooseSourceLater}</>
                 )}
               </div>
               <div className="flex gap-3">
@@ -1115,7 +1272,7 @@ export default function OnboardingPage() {
                   onClick={() => setStep(0)}
                   className="gk-btn gk-btn-secondary gk-focus-ring px-5"
                 >
-                  <ArrowLeft size={16} /> Indietro
+                  <ArrowLeft size={16} /> {oc.back}
                 </button>
                 <button
                   type="button"
@@ -1127,7 +1284,7 @@ export default function OnboardingPage() {
                   disabled={!poolReady}
                   className="gk-btn gk-btn-secondary gk-focus-ring flex-1 disabled:cursor-wait disabled:opacity-50"
                 >
-                  Salta
+                  {oc.skip}
                 </button>
                 <button
                   type="button"
@@ -1139,7 +1296,7 @@ export default function OnboardingPage() {
                   disabled={!poolReady}
                   className="gk-btn gk-btn-primary gk-focus-ring flex-1 disabled:cursor-wait disabled:opacity-50"
                 >
-                  {!poolReady ? "Caricamento…" : "Continua"}{" "}
+                  {!poolReady ? oc.loading : oc.continue}{" "}
                   <ArrowRight size={18} />
                 </button>
               </div>
@@ -1150,14 +1307,13 @@ export default function OnboardingPage() {
             <>
               <div className="mb-6 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[radial-gradient(circle_at_top_left,rgba(230,255,61,0.10),transparent_42%),rgba(255,255,255,0.035)] p-5 ring-1 ring-white/5">
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.25)] bg-[rgba(230,255,61,0.08)] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[var(--accent)]">
-                  <Sparkles size={13} /> Geekore è pronto
+                  <Sparkles size={13} /> {oc.readyBadge}
                 </div>
                 <h1 className="font-display text-[38px] font-black leading-[0.92] tracking-[-0.055em] text-white sm:text-[46px]">
-                  Il tuo profilo iniziale è configurato.
+                  {oc.readyTitle}
                 </h1>
                 <p className="mt-4 max-w-[520px] text-[15px] leading-7 text-[var(--text-secondary)]">
-                  Partiremo dai mondi che hai scelto e continueremo a imparare
-                  da rating, wishlist e swipe mentre usi l’app.
+                  {oc.readyBody}
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -1169,14 +1325,16 @@ export default function OnboardingPage() {
                     ))
                   ) : (
                     <span className="gk-caption text-[var(--text-muted)]">
-                      Potrai scegliere nuove categorie dal profilo.
+                      {oc.categoriesLater}
                     </span>
                   )}
                 </div>
               </div>
 
               <div className="mb-6 rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/76 p-4 ring-1 ring-white/5">
-                <p className="gk-label mb-3 text-[var(--accent)]">Primo DNA</p>
+                <p className="gk-label mb-3 text-[var(--accent)]">
+                  {oc.firstDna}
+                </p>
                 {hasSwipeSignals ? (
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-2xl bg-black/18 p-3">
@@ -1184,7 +1342,7 @@ export default function OnboardingPage() {
                         {signalCount}
                       </p>
                       <p className="gk-mono text-[var(--text-muted)]">
-                        segnali
+                        {oc.signals}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-black/18 p-3">
@@ -1192,25 +1350,25 @@ export default function OnboardingPage() {
                         {wishlistCount}
                       </p>
                       <p className="gk-mono text-[var(--text-muted)]">
-                        wishlist
+                        {oc.wishlist}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-black/18 p-3">
                       <p className="font-mono-data text-xl font-black text-white">
                         {skippedCount}
                       </p>
-                      <p className="gk-mono text-[var(--text-muted)]">skip</p>
+                      <p className="gk-mono text-[var(--text-muted)]">
+                        {oc.skipped}
+                      </p>
                     </div>
                   </div>
                 ) : (
                   <div className="rounded-[22px] border border-[rgba(230,255,61,0.14)] bg-[rgba(230,255,61,0.045)] p-4">
                     <p className="text-sm font-black text-white">
-                      Profilo configurato
+                      {oc.profileConfigured}
                     </p>
                     <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-                      Non hai ancora dato segnali nello swipe, quindi la home
-                      partirà dalle categorie selezionate. Potrai raffinarla
-                      subito con voti, salvataggi e nuovi swipe.
+                      {oc.profileConfiguredBody}
                     </p>
                   </div>
                 )}
@@ -1220,14 +1378,14 @@ export default function OnboardingPage() {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="gk-label text-[var(--text-secondary)]">
-                      Persone da seguire
+                      {oc.peopleToFollow}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      Scegli qualcuno ora, oppure fallo più tardi da Friends.
+                      {oc.followHint}
                     </p>
                   </div>
                   <span className="font-mono-data text-[10px] text-[var(--text-muted)]">
-                    {visibleSuggestedUsers.length} suggeriti
+                    {oc.suggested(visibleSuggestedUsers.length)}
                   </span>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1244,12 +1402,9 @@ export default function OnboardingPage() {
                   ) : (
                     <div className="gk-empty-state sm:col-span-2">
                       <Users className="gk-empty-state-icon" />
-                      <p className="gk-empty-state-title">
-                        Nessun suggerimento ancora
-                      </p>
+                      <p className="gk-empty-state-title">{oc.noSuggestions}</p>
                       <p className="gk-empty-state-subtitle">
-                        Entrerai comunque nella home e potrai seguire utenti
-                        dalla sezione Friends.
+                        {oc.noSuggestionsBody}
                       </p>
                     </div>
                   )}
@@ -1263,7 +1418,7 @@ export default function OnboardingPage() {
                   onClick={() => setStep(2)}
                   className="gk-btn gk-btn-secondary gk-focus-ring px-5"
                 >
-                  <ArrowLeft size={16} /> Indietro
+                  <ArrowLeft size={16} /> {oc.back}
                 </button>
                 <button
                   type="button"
@@ -1271,7 +1426,7 @@ export default function OnboardingPage() {
                   onClick={completeOnboarding}
                   className="gk-btn gk-btn-primary gk-focus-ring flex-1"
                 >
-                  Entra in Geekore <ArrowRight size={18} />
+                  {oc.enter} <ArrowRight size={18} />
                 </button>
               </div>
             </>

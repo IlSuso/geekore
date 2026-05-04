@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 export default function Error({
   error,
@@ -11,6 +12,11 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const { locale } = useLocale()
+  const copy = locale === 'en'
+    ? { title: 'Something went wrong', body: 'An unexpected error occurred. You can try again or go back home.', retry: 'Try again', home: 'Back home' }
+    : { title: 'Qualcosa è andato storto', body: 'Si è verificato un errore inaspettato. Puoi riprovare o tornare alla home.', retry: 'Riprova', home: 'Torna alla home' }
+
   useEffect(() => {
     console.error(error)
   }, [error])
@@ -23,9 +29,9 @@ export default function Error({
             <AlertTriangle size={40} className="text-red-400" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold mb-3">Qualcosa è andato storto</h1>
+        <h1 className="text-3xl font-bold mb-3">{copy.title}</h1>
         <p className="text-zinc-500 mb-10">
-          Si è verificato un errore inaspettato. Puoi riprovare o tornare alla home.
+          {copy.body}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button

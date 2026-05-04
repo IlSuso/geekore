@@ -4,10 +4,62 @@
 // Slides verticali fullscreen animate con View Transitions API
 // Card 9:16 condivisibile come immagine via canvas
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Share2, X, Download, Tv, Gamepad2, Film, Trophy, Gem, Layers } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
+
+type WrappedCopy = {
+  ranks: { legend: string; expert: string; passionate: string; novice: string }
+  hello: string
+  tapToDiscover: string
+  totalTime: string
+  hours: string
+  wholeDays: (days: number) => string
+  differentTitles: (count: number) => string
+  yourNumbers: string
+  animeEpisodes: string
+  gameHours: string
+  mangaChapters: string
+  moviesWatched: string
+  tvEpisodes: string
+  favoriteGenre: string
+  varied: string
+  favoriteGenreHint: string
+  yourRank: string
+  totalHours: string
+  titles: string
+  topGenre: string
+  shareWrapped: string
+  loading: (year: number) => string
+  shareText: (year: number, rank: string, hours: number, count: number) => string
+  shareTitle: (year: number) => string
+}
+
+function getWrappedCopy(locale: 'it' | 'en'): WrappedCopy {
+  return locale === 'en' ? {
+    ranks: { legend: 'Legend', expert: 'Expert', passionate: 'Enthusiast', novice: 'Novice' },
+    hello: 'Hi', tapToDiscover: 'Tap to discover your year', totalTime: 'Total time', hours: 'hours',
+    wholeDays: (days) => `That is ${days} full days`, differentTitles: (count) => `Across ${count} different titles`,
+    yourNumbers: 'Your numbers', animeEpisodes: 'Anime episodes', gameHours: 'Game hours', mangaChapters: 'Manga chapters read', moviesWatched: 'Movies watched', tvEpisodes: 'TV episodes',
+    favoriteGenre: 'Your favorite genre', varied: 'Varied', favoriteGenreHint: 'The genre you loved the most this year',
+    yourRank: 'Your rank', totalHours: 'Total hours', titles: 'Titles', topGenre: 'Top genre', shareWrapped: 'Share your Wrapped',
+    loading: (year) => `Building your ${year} Wrapped…`,
+    shareText: (year, rank, hours, count) => `My ${year} Wrapped on Geekore!\n[${rank}] ${hours}h • ${count} titles\ngeekore.it`,
+    shareTitle: (year) => `Geekore Wrapped ${year}`
+  } : {
+    ranks: { legend: 'Leggenda', expert: 'Esperto', passionate: 'Appassionato', novice: 'Novizio' },
+    hello: 'Ciao', tapToDiscover: 'Tocca per scoprire il tuo anno', totalTime: 'Tempo totale', hours: 'ore',
+    wholeDays: (days) => `Ovvero ${days} giorni interi`, differentTitles: (count) => `Su ${count} titoli diversi`,
+    yourNumbers: 'I tuoi numeri', animeEpisodes: 'Episodi anime', gameHours: 'Ore di gioco', mangaChapters: 'Cap. manga letti', moviesWatched: 'Film guardati', tvEpisodes: 'Ep. serie TV',
+    favoriteGenre: 'Il tuo genere preferito', varied: 'Vario', favoriteGenreHint: `Il genere che hai più amato quest'anno`,
+    yourRank: 'Il tuo rango', totalHours: 'Ore totali', titles: 'Titoli', topGenre: 'Genere top', shareWrapped: 'Condividi il tuo Wrapped',
+    loading: (year) => `Costruendo il tuo ${year} Wrapped…`,
+    shareText: (year, rank, hours, count) => `Il mio ${year} Wrapped su Geekore!\n[${rank}] ${hours}h • ${count} titoli\ngeekore.it`,
+    shareTitle: (year) => `Geekore Wrapped ${year}`
+  }
+}
 
 interface WrappedData {
   username: string
@@ -33,16 +85,16 @@ const AVG_MANGA_CH_MIN = 5
 const AVG_MOVIE_MIN = 110
 const AVG_TV_EP_MIN = 45
 
-function calcRank(totalHours: number): { rank: string; rankEmoji: string } {
-  if (totalHours >= 2000) return { rank: 'Leggenda', rankEmoji: 'gem' }
-  if (totalHours >= 500)  return { rank: 'Esperto',  rankEmoji: 'gold' }
-  if (totalHours >= 100)  return { rank: 'Appassionato', rankEmoji: 'silver' }
-  return { rank: 'Novizio', rankEmoji: 'bronze' }
+function calcRank(totalHours: number, copy: WrappedCopy): { rank: string; rankEmoji: string } {
+  if (totalHours >= 2000) return { rank: copy.ranks.legend, rankEmoji: 'gem' }
+  if (totalHours >= 500)  return { rank: copy.ranks.expert,  rankEmoji: 'gold' }
+  if (totalHours >= 100)  return { rank: copy.ranks.passionate, rankEmoji: 'silver' }
+  return { rank: copy.ranks.novice, rankEmoji: 'bronze' }
 }
 
 // ── Slides ─────────────────────────────────────────────────────────────────────
 
-function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
+function Slide1({ data, onNext, copy }: { data: WrappedData; onNext: () => void; copy: WrappedCopy }) {
   return (
     <div
       onClick={onNext}
@@ -61,15 +113,15 @@ function Slide1({ data, onNext }: { data: WrappedData; onNext: () => void }) {
             Wrapped
           </span>
         </h2>
-        <p className="text-zinc-400 text-lg">Ciao, <strong className="text-white">{data.displayName}</strong></p>
-        <p className="text-zinc-500 text-sm mt-2">Tocca per scoprire il tuo anno</p>
+        <p className="text-zinc-400 text-lg">{copy.hello}, <strong className="text-white">{data.displayName}</strong></p>
+        <p className="text-zinc-500 text-sm mt-2">{copy.tapToDiscover}</p>
       </div>
       <ChevronDown size={24} className="absolute bottom-8 text-zinc-600 animate-bounce" />
     </div>
   )
 }
 
-function Slide2({ data, onNext }: { data: WrappedData; onNext: () => void }) {
+function Slide2({ data, onNext, copy, locale }: { data: WrappedData; onNext: () => void; copy: WrappedCopy; locale: 'it' | 'en' }) {
   const [displayed, setDisplayed] = useState(0)
   useEffect(() => {
     let start: number | null = null
@@ -89,28 +141,28 @@ function Slide2({ data, onNext }: { data: WrappedData; onNext: () => void }) {
       className="h-full flex flex-col items-center justify-center text-center px-8 cursor-pointer select-none"
       style={{ background: 'linear-gradient(160deg, #0a1a2e 0%, #0d0a1a 100%)' }}
     >
-      <p className="text-cyan-400 text-xs font-semibold uppercase tracking-widest mb-6">Tempo totale</p>
+      <p className="text-cyan-400 text-xs font-semibold uppercase tracking-widest mb-6">{copy.totalTime}</p>
       <p className="text-[80px] sm:text-[100px] font-black leading-none tabular-nums text-white mb-2">
-        {displayed.toLocaleString('it')}
+        {displayed.toLocaleString(locale)}
       </p>
-      <p className="text-3xl font-bold text-cyan-400 mb-6">ore</p>
+      <p className="text-3xl font-bold text-cyan-400 mb-6">{copy.hours}</p>
       <p className="text-zinc-400 text-lg">
-        Ovvero <strong className="text-white">{data.totalDays}</strong> giorni interi
+        {copy.wholeDays(data.totalDays)}
       </p>
       <p className="text-zinc-600 text-sm mt-3">
-        Su {data.mediaCount} titoli diversi
+        {copy.differentTitles(data.mediaCount)}
       </p>
     </div>
   )
 }
 
-function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
+function Slide3({ data, onNext, copy, locale }: { data: WrappedData; onNext: () => void; copy: WrappedCopy; locale: 'it' | 'en' }) {
   const stats = [
-    { Icon: Tv,       label: 'Episodi anime',         value: data.animeEpisodes,  color: 'var(--type-anime)' },
-    { Icon: Gamepad2, label: 'Ore di gioco',          value: data.gameHours,      color: 'var(--type-game)' },
-    { Icon: Layers,   label: 'Cap. manga letti',      value: data.mangaChapters,  color: 'var(--type-manga)' },
-    { Icon: Film,     label: 'Film guardati',         value: data.movieCount,     color: 'var(--type-movie)' },
-    { Icon: Tv,       label: 'Ep. serie TV',          value: data.tvEpisodes,     color: 'var(--type-tv)' },
+    { Icon: Tv,       label: copy.animeEpisodes,         value: data.animeEpisodes,  color: 'var(--type-anime)' },
+    { Icon: Gamepad2, label: copy.gameHours,          value: data.gameHours,      color: 'var(--type-game)' },
+    { Icon: Layers,   label: copy.mangaChapters,      value: data.mangaChapters,  color: 'var(--type-manga)' },
+    { Icon: Film,     label: copy.moviesWatched,         value: data.movieCount,     color: 'var(--type-movie)' },
+    { Icon: Tv,       label: copy.tvEpisodes,          value: data.tvEpisodes,     color: 'var(--type-tv)' },
   ].filter(s => s.value > 0)
 
   return (
@@ -119,7 +171,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
       className="h-full flex flex-col justify-center px-8 cursor-pointer select-none"
       style={{ background: 'linear-gradient(160deg, #1a0a0e 0%, #0d0a1a 100%)' }}
     >
-      <p className="text-xs font-semibold uppercase tracking-widest mb-8 text-center" style={{ color: 'var(--accent)' }}>I tuoi numeri</p>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-8 text-center" style={{ color: 'var(--accent)' }}>{copy.yourNumbers}</p>
       <div className="space-y-4">
         {stats.map((s, i) => (
           <div
@@ -131,7 +183,7 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
             <div className="flex-1">
               <p className="text-xs text-zinc-500">{s.label}</p>
               <p className="text-2xl font-black tabular-nums" style={{ color: s.color }}>
-                {s.value.toLocaleString('it')}
+                {s.value.toLocaleString(locale)}
               </p>
             </div>
           </div>
@@ -141,23 +193,23 @@ function Slide3({ data, onNext }: { data: WrappedData; onNext: () => void }) {
   )
 }
 
-function Slide4({ data, onNext }: { data: WrappedData; onNext: () => void }) {
+function Slide4({ data, onNext, copy }: { data: WrappedData; onNext: () => void; copy: WrappedCopy }) {
   return (
     <div
       onClick={onNext}
       className="h-full flex flex-col items-center justify-center text-center px-8 cursor-pointer select-none"
       style={{ background: 'linear-gradient(160deg, #0a1a0e 0%, #0d0a1a 100%)' }}
     >
-      <p className="text-emerald-400 text-xs font-semibold uppercase tracking-widest mb-6">Il tuo genere preferito</p>
-      <p className="text-5xl font-black text-white mb-4">{data.topGenre || 'Vario'}</p>
+      <p className="text-emerald-400 text-xs font-semibold uppercase tracking-widest mb-6">{copy.favoriteGenre}</p>
+      <p className="text-5xl font-black text-white mb-4">{data.topGenre || copy.varied}</p>
       <div className="w-16 h-1 bg-emerald-400 rounded-full mb-6" />
-      <p className="text-zinc-400">Il genere che hai più amato quest'anno</p>
+      <p className="text-zinc-400">{copy.favoriteGenreHint}</p>
     </div>
   )
 }
 
-function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
-  const { rank, rankEmoji } = calcRank(data.totalHours)
+function Slide5({ data, onShare, copy, locale }: { data: WrappedData; onShare: () => void; copy: WrappedCopy; locale: 'it' | 'en' }) {
+  const { rank, rankEmoji } = calcRank(data.totalHours, copy)
 
   return (
     <div
@@ -169,20 +221,20 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
       </div>
       <div className="relative z-10 w-full">
         <p className="text-4xl mb-4">{rankEmoji}</p>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--accent)' }}>Il tuo rango</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--accent)' }}>{copy.yourRank}</p>
         <p className="text-5xl font-black text-white mb-8">{rank}</p>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-8 space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-zinc-500 text-sm">Ore totali</span>
-            <span className="text-white font-bold">{data.totalHours.toLocaleString('it')}h</span>
+            <span className="text-zinc-500 text-sm">{copy.totalHours}</span>
+            <span className="text-white font-bold">{data.totalHours.toLocaleString(locale)}h</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-zinc-500 text-sm">Titoli</span>
+            <span className="text-zinc-500 text-sm">{copy.titles}</span>
             <span className="text-white font-bold">{data.mediaCount}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-zinc-500 text-sm">Genere top</span>
-            <span className="font-bold" style={{ color: 'var(--accent)' }}>{data.topGenre || 'Vario'}</span>
+            <span className="text-zinc-500 text-sm">{copy.topGenre}</span>
+            <span className="font-bold" style={{ color: 'var(--accent)' }}>{data.topGenre || copy.varied}</span>
           </div>
         </div>
         <button
@@ -191,7 +243,7 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
           style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           <Share2 size={16} />
-          Condividi il tuo Wrapped
+          {copy.shareWrapped}
         </button>
       </div>
     </div>
@@ -201,6 +253,8 @@ function Slide5({ data, onShare }: { data: WrappedData; onShare: () => void }) {
 // ── Pagina principale ──────────────────────────────────────────────────────────
 
 export default function WrappedPage() {
+  const { locale } = useLocale()
+  const copy = useMemo(() => getWrappedCopy(locale), [locale])
   const [data, setData] = useState<WrappedData | null>(null)
   const [loading, setLoading] = useState(true)
   const [slide, setSlide] = useState(0)
@@ -241,7 +295,7 @@ export default function WrappedPage() {
         }
       }
       const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
-      const { rank, rankEmoji } = calcRank(totalHours)
+      const { rank, rankEmoji } = calcRank(totalHours, copy)
 
       setData({
         username: profile?.username || '',
@@ -262,24 +316,24 @@ export default function WrappedPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [copy, router, year])
 
   const handleShare = useCallback(async () => {
     if (!data) return
-    const text = `Il mio ${data.year} Wrapped su Geekore!\n[${data.rank}] ${data.totalHours}h • ${data.mediaCount} titoli\ngeekore.it`
+    const text = copy.shareText(data.year, data.rank, data.totalHours, data.mediaCount)
     if (navigator.share) {
-      await navigator.share({ title: `Geekore Wrapped ${data.year}`, text })
+      await navigator.share({ title: copy.shareTitle(data.year), text })
     } else {
       await navigator.clipboard.writeText(text)
     }
-  }, [data])
+  }, [copy, data])
 
   const SLIDES = data ? [
-    <Slide1 key={0} data={data} onNext={() => setSlide(1)} />,
-    <Slide2 key={1} data={data} onNext={() => setSlide(2)} />,
-    <Slide3 key={2} data={data} onNext={() => setSlide(3)} />,
-    <Slide4 key={3} data={data} onNext={() => setSlide(4)} />,
-    <Slide5 key={4} data={data} onShare={handleShare} />,
+    <Slide1 key={0} data={data} onNext={() => setSlide(1)} copy={copy} />,
+    <Slide2 key={1} data={data} onNext={() => setSlide(2)} copy={copy} locale={locale} />,
+    <Slide3 key={2} data={data} onNext={() => setSlide(3)} copy={copy} locale={locale} />,
+    <Slide4 key={3} data={data} onNext={() => setSlide(4)} copy={copy} />,
+    <Slide5 key={4} data={data} onShare={handleShare} copy={copy} locale={locale} />,
   ] : []
 
   if (loading) {
@@ -287,7 +341,7 @@ export default function WrappedPage() {
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-          <p className="text-zinc-400 text-sm">Costruendo il tuo {year} Wrapped…</p>
+          <p className="text-zinc-400 text-sm">{copy.loading(year)}</p>
         </div>
       </div>
     )
@@ -319,7 +373,7 @@ export default function WrappedPage() {
         <X size={18} />
       </button>
 
-      {/* Slide corrente */}
+      {/* Current slide */}
       <div className="flex-1 relative overflow-hidden">
         {data && SLIDES[slide]}
       </div>

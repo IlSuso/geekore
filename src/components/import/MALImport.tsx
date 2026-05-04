@@ -4,6 +4,7 @@
 // Integrare in /settings accanto ad AniListImport.
 
 import { useState, useRef } from 'react'
+import { useLocale } from '@/lib/locale'
 import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, FileText } from 'lucide-react'
 
 interface ImportResult {
@@ -23,7 +24,55 @@ type ProgressState = {
   message: string
 } | null
 
+
+const MAL_COPY = {
+  it: {
+    selectXml: 'Seleziona un file .xml (export di MyAnimeList)',
+    fileTooLarge: 'File troppo grande (max 5MB)',
+    importError: "Errore durante l'importazione",
+    networkError: 'Errore di rete. Riprova tra qualche secondo.',
+    howToExport: 'Come esportare da MAL:',
+    step1: 'Vai su',
+    step1Link: 'myanimelist.net → Profilo → Export',
+    step2: 'Clicca "Export My Anime List" o "Export My Manga List"',
+    step3: 'Scarica il file',
+    step3b: 'estrailo con un archivio',
+    step4: 'Carica il file',
+    step4b: 'qui sotto',
+    dragXml: 'Trascina il file .xml qui',
+    clickSelect: 'oppure clicca per selezionarlo',
+    imported: 'importati',
+    merged: 'uniti',
+    skipped: 'saltati',
+    importing: 'Importazione in corso...',
+    importFrom: 'Importa da MyAnimeList',
+  },
+  en: {
+    selectXml: 'Select a .xml file (MyAnimeList export)',
+    fileTooLarge: 'File too large (max 5MB)',
+    importError: 'Import failed',
+    networkError: 'Network error. Try again in a few seconds.',
+    howToExport: 'How to export from MAL:',
+    step1: 'Go to',
+    step1Link: 'myanimelist.net → Profile → Export',
+    step2: 'Click "Export My Anime List" or "Export My Manga List"',
+    step3: 'Download the',
+    step3b: 'file and extract it with an archive tool',
+    step4: 'Upload the',
+    step4b: 'file below',
+    dragXml: 'Drag the .xml file here',
+    clickSelect: 'or click to select it',
+    imported: 'imported',
+    merged: 'merged',
+    skipped: 'skipped',
+    importing: 'Importing...',
+    importFrom: 'Import from MyAnimeList',
+  },
+} as const
+
 export function MALImport() {
+  const { locale } = useLocale()
+  const t = MAL_COPY[locale]
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<ProgressState>(null)
@@ -36,13 +85,13 @@ export function MALImport() {
     if (!selected) return
 
     if (!selected.name.endsWith('.xml') && selected.type !== 'text/xml' && selected.type !== 'application/xml') {
-      setError('Seleziona un file .xml (export di MyAnimeList)')
+      setError(t.selectXml)
       setFile(null)
       return
     }
 
     if (selected.size > 5 * 1024 * 1024) {
-      setError('File troppo grande (max 5MB)')
+      setError(t.fileTooLarge)
       setFile(null)
       return
     }
@@ -66,8 +115,8 @@ export function MALImport() {
       const res = await fetch('/api/import/mal', { method: 'POST', body: formData })
 
       if (!res.ok) {
-        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
-        catch { setError("Errore durante l'importazione") }
+        try { const data = await res.json(); setError(data.error || t.importError) }
+        catch { setError(t.importError) }
         setLoading(false); return
       }
 
@@ -92,7 +141,7 @@ export function MALImport() {
         }
       }
     } catch {
-      setError('Errore di rete. Riprova tra qualche secondo.')
+      setError(t.networkError)
     }
 
     setLoading(false)
@@ -115,12 +164,12 @@ export function MALImport() {
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
       {/* Istruzioni */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5">
-        <p className="text-xs font-semibold text-zinc-400 mb-2">Come esportare da MAL:</p>
+        <p className="text-xs font-semibold text-zinc-400 mb-2">{t.howToExport}</p>
         <ol className="text-xs text-zinc-500 space-y-1 list-decimal list-inside">
-          <li>Vai su <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">myanimelist.net → Profilo → Export</a></li>
-          <li>Clicca "Export My Anime List" o "Export My Manga List"</li>
-          <li>Scarica il file <code className="text-zinc-300">.xml.gz</code>, estrailo con un archivio</li>
-          <li>Carica il file <code className="text-zinc-300">.xml</code> qui sotto</li>
+          <li>{t.step1} <a href="https://myanimelist.net/panel.php?go=export" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{t.step1Link}</a></li>
+          <li>{t.step2}</li>
+          <li>{t.step3} <code className="text-zinc-300">.xml.gz</code>, {t.step3b}</li>
+          <li>{t.step4} <code className="text-zinc-300">.xml</code> {t.step4b}</li>
         </ol>
       </div>
 
@@ -155,8 +204,8 @@ export function MALImport() {
         ) : (
           <div>
             <Upload size={24} className="mx-auto mb-2 text-zinc-500" />
-            <p className="text-sm text-zinc-400">Trascina il file .xml qui</p>
-            <p className="text-xs text-zinc-600 mt-1">oppure clicca per selezionarlo</p>
+            <p className="text-sm text-zinc-400">{t.dragXml}</p>
+            <p className="text-xs text-zinc-600 mt-1">{t.clickSelect}</p>
           </div>
         )}
       </div>
@@ -177,8 +226,8 @@ export function MALImport() {
               {result.anime > 0 && `${result.anime} anime`}
               {result.anime > 0 && result.manga > 0 && ' • '}
               {result.manga > 0 && `${result.manga} manga`}
-              {result.merged > 0 && ` • ${result.merged} uniti`}
-              {result.skipped > 0 && ` • ${result.skipped} saltati`}
+              {result.merged > 0 && ` • ${result.merged} ${t.merged}`}
+              {result.skipped > 0 && ` • ${result.skipped} ${t.skipped}`}
             </p>
           </div>
         </div>
@@ -212,12 +261,12 @@ export function MALImport() {
         {loading ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            Importazione in corso...
+            {t.importing}
           </>
         ) : (
           <>
             <Download size={16} />
-            Importa da MyAnimeList
+            {t.importFrom}
           </>
         )}
       </button>

@@ -2,6 +2,7 @@
 
 import { PartyPopper, Plus } from 'lucide-react'
 import { SkeletonFeedPost } from '@/components/ui/SkeletonCard'
+import { useLocale } from '@/lib/locale'
 
 export function FeedLoadingSkeleton() {
   return (
@@ -63,17 +64,19 @@ export function FeedLoadingSkeleton() {
 }
 
 export function EndOfFeedNotice() {
+  const { locale } = useLocale()
   return (
     <div className="flex flex-col items-center gap-2 py-10 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.06)]">
         <PartyPopper size={20} style={{ color: 'var(--accent)' }} />
       </div>
-      <p className="gk-caption">Hai visto tutto!</p>
+      <p className="gk-caption">{locale === 'en' ? 'You are all caught up!' : 'Hai visto tutto!'}</p>
     </div>
   )
 }
 
 export function MobileCreatePostFab({ onClick }: { onClick: () => void }) {
+  const { locale } = useLocale()
   return (
     <div
       className="md:hidden"
@@ -92,7 +95,7 @@ export function MobileCreatePostFab({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        aria-label="Crea nuovo post"
+        aria-label={locale === 'en' ? 'Create new post' : 'Crea nuovo post'}
         data-no-swipe="true"
         className="flex h-14 w-14 items-center justify-center rounded-2xl active:scale-95 transition-transform shadow-xl ring-1 ring-black/20"
         style={{ pointerEvents: 'auto', background: 'var(--accent)', boxShadow: '0 0 24px rgba(230,255,61,0.32)' }}

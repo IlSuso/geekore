@@ -7,6 +7,7 @@ import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { optimizeCover } from '@/lib/imageOptimizer'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { useLocale } from '@/lib/locale'
 
 function InlineChapterInput({ value, max, onSave }: { value: number; max?: number; onSave: (n: number) => void }) {
   const [editing, setEditing] = useState(false)
@@ -90,6 +91,8 @@ export function MobileMediaModal({
   onDelete?: (id: string) => void
   onNotes?: (media: ModalMedia) => void
 }) {
+  const { locale } = useLocale()
+  const copy = locale === 'it' ? { rating: 'Valutazione', status: 'Stato', watching: 'In corso', completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', wishlist: 'Wishlist', playHours: 'Ore di gioco', chapters: 'Capitoli', recovering: 'Recupero…', fetchTotalChapters: 'Recupera totale capitoli', episodes: 'Episodi', fetchEpisodes: 'Recupera dati episodi', season: 'Stagione', episode: 'Episodio', noProgress: 'Nessun progresso da modificare per questo media.', editNotes: 'Modifica note', addNotes: 'Aggiungi note', cancel: 'Annulla', confirmRemove: 'Conferma rimozione', removeFromLibrary: 'Rimuovi dalla libreria' } : { rating: 'Rating', status: 'Status', watching: 'In progress', completed: 'Completed', paused: 'Paused', dropped: 'Dropped', wishlist: 'Wishlist', playHours: 'Play time', chapters: 'Chapters', recovering: 'Fetching…', fetchTotalChapters: 'Fetch total chapters', episodes: 'Episodes', fetchEpisodes: 'Fetch episode data', season: 'Season', episode: 'Episode', noProgress: 'No progress to edit for this media.', editNotes: 'Edit notes', addNotes: 'Add notes', cancel: 'Cancel', confirmRemove: 'Confirm removal', removeFromLibrary: 'Remove from library' }
   const [visible, setVisible] = useState(false)
   const [closing, setClosing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -318,7 +321,7 @@ export function MobileMediaModal({
           style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px) + 1rem)' }}
         >
           <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-            <SectionLabel>Valutazione</SectionLabel>
+            <SectionLabel>{copy.rating}</SectionLabel>
             <StarRating
               value={media.rating || 0}
               onChange={isOwner ? r => onRating?.(media.id, r) : undefined}
@@ -329,16 +332,16 @@ export function MobileMediaModal({
 
           {(media.type === 'tv' || media.type === 'anime') && isOwner && (
             <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-              <SectionLabel>Stato</SectionLabel>
+              <SectionLabel>{copy.status}</SectionLabel>
               <select
                 value={media.status || 'watching'}
                 onChange={e => onStatusChange?.(media.id, e.target.value)}
                 className="w-full cursor-pointer appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-bold text-[var(--text-primary)] outline-none transition focus:border-[rgba(230,255,61,0.45)]"
               >
-                <option value="watching">In corso</option>
-                <option value="completed">Completato</option>
-                <option value="paused">In pausa</option>
-                <option value="dropped">Abbandonato</option>
+                <option value="watching">{copy.watching}</option>
+                <option value="completed">{copy.completed}</option>
+                <option value="paused">{copy.paused}</option>
+                <option value="dropped">{copy.dropped}</option>
                 <option value="wishlist">Wishlist</option>
               </select>
             </div>
@@ -352,7 +355,7 @@ export function MobileMediaModal({
                 <div className="space-y-3">
                   {hours > 0 && (
                     <div>
-                      <SectionLabel>Ore di gioco</SectionLabel>
+                      <SectionLabel>{copy.playHours}</SectionLabel>
                       <span className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)]">
                         <Clock size={14} className="text-[var(--text-muted)]" />{hours}h
                       </span>
@@ -377,12 +380,12 @@ export function MobileMediaModal({
               const isChCompleted = !!maxCh && current >= maxCh
               return (
                 <div className="space-y-3">
-                  <SectionLabel>Capitoli</SectionLabel>
+                  <SectionLabel>{copy.chapters}</SectionLabel>
                   {isChCompleted ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-emerald-400">
                         <CheckCircle size={18} />
-                        <span className="font-bold">Completato</span>
+                        <span className="font-bold">{copy.completed}</span>
                       </div>
                       {isOwner && (
                         <button onClick={() => onSaveProgress?.(media.id, 0)} className="rounded-xl bg-[var(--bg-secondary)] p-2 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]">
@@ -408,7 +411,7 @@ export function MobileMediaModal({
                       {isOwner && !maxCh && (
                         <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-[var(--text-muted)] transition hover:text-[var(--accent)] disabled:opacity-50">
                           {enriching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                          {enriching ? 'Recupero…' : 'Recupera totale capitoli'}
+                          {enriching ? copy.recovering : copy.fetchTotalChapters}
                         </button>
                       )}
                     </>
@@ -419,10 +422,10 @@ export function MobileMediaModal({
               if (!hasEpisodeData) {
                 return isOwner ? (
                   <div>
-                    <SectionLabel>Episodi</SectionLabel>
+                    <SectionLabel>{copy.episodes}</SectionLabel>
                     <button onClick={() => onEnrichEpisodes?.(media.id)} disabled={enriching} className="flex items-center gap-2 text-sm text-[var(--text-muted)] transition hover:text-[var(--accent)] disabled:opacity-50">
                       {enriching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      {enriching ? 'Recupero…' : 'Recupera dati episodi'}
+                      {enriching ? copy.recovering : copy.fetchEpisodes}
                     </button>
                   </div>
                 ) : null
@@ -432,7 +435,7 @@ export function MobileMediaModal({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-emerald-400">
                       <CheckCircle size={18} />
-                      <span className="font-bold">Completato</span>
+                      <span className="font-bold">{copy.completed}</span>
                     </div>
                     {isOwner && (
                       <button onClick={() => onReset?.(media.id)} className="rounded-xl bg-[var(--bg-secondary)] p-2 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]">
@@ -446,16 +449,16 @@ export function MobileMediaModal({
                 <div className="space-y-4">
                   {hasSeasonData && (
                     <div>
-                      <SectionLabel>Stagione</SectionLabel>
+                      <SectionLabel>{copy.season}</SectionLabel>
                       <div className="flex items-center gap-3">
                         {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} disabled={currentSeasonNum <= 1} className={btnBase}>−</button>}
-                        <div className="flex-1 text-center text-xl font-black text-[var(--accent)]">Stagione {currentSeasonNum}</div>
+                        <div className="flex-1 text-center text-xl font-black text-[var(--accent)]">{copy.season} {currentSeasonNum}</div>
                         {isOwner && <button onClick={() => { if (currentSeasonNum < maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} disabled={currentSeasonNum >= maxSeasons} className={btnBase}>+</button>}
                       </div>
                     </div>
                   )}
                   <div>
-                    <SectionLabel>Episodio</SectionLabel>
+                    <SectionLabel>{copy.episode}</SectionLabel>
                     <div className="flex items-center gap-3">
                       {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} disabled={media.current_episode <= 1} className={btnBase}>−</button>}
                       <div className="flex-1 text-center">
@@ -469,7 +472,7 @@ export function MobileMediaModal({
                   </div>
                 </div>
               )
-            })() : <p className="gk-caption">Nessun progresso da modificare per questo media.</p>}
+            })() : <p className="gk-caption">{copy.noProgress}</p>}
           </div>
 
           {isOwner && (
@@ -481,7 +484,7 @@ export function MobileMediaModal({
                 : { borderColor: 'var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
             >
               <Edit3 size={15} />
-              {media.notes?.trim() ? 'Modifica note' : 'Aggiungi note'}
+              {media.notes?.trim() ? copy.editNotes : copy.addNotes}
             </button>
           )}
 
@@ -490,16 +493,16 @@ export function MobileMediaModal({
               {confirmDelete ? (
                 <div className="flex gap-2">
                   <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition hover:text-white">
-                    Annulla
+                    {copy.cancel}
                   </button>
                   <button onClick={() => { onDelete?.(media.id); doClose() }} className="flex-1 rounded-2xl border border-red-800 bg-red-900/50 py-3 text-sm font-bold text-red-300 transition">
-                    Conferma rimozione
+                    {copy.confirmRemove}
                   </button>
                 </div>
               ) : (
                 <button onClick={() => setConfirmDelete(true)} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--border)] py-3 text-sm text-[var(--text-muted)] transition hover:border-red-900/50 hover:text-red-400">
                   <Trash2 size={14} />
-                  Rimuovi dalla libreria
+                  {copy.removeFromLibrary}
                 </button>
               )}
             </div>

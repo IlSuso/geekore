@@ -16,6 +16,8 @@ import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge, CategoryIcon, parseCategoryString } from '@/components/feed/CategoryBasics'
 import type { FeedMediaPreview, Post } from '@/components/feed/feedTypes'
 import { useLocalizedMediaRow } from '@/lib/i18n/clientMediaLocalization'
+import { pageCopy, getPageLocale } from '@/lib/i18n/pageCopy'
+import { useLocale } from '@/lib/locale'
 
 const VIRTUAL_MARGIN = '600px'
 
@@ -65,6 +67,8 @@ export function BottomSheet({ open, title, actions, onClose }: {
   onClose: () => void
 }) {
   const [mounted, setMounted] = useState(false)
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).feed
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export function BottomSheet({ open, title, actions, onClose }: {
               {action.label}
             </button>
           ))}
-          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full border-t border-[var(--border)] py-4 text-[15px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]">Annulla</button>
+          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full border-t border-[var(--border)] py-4 text-[15px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]">{copy.cancel}</button>
         </div>
       </div>
 
@@ -105,7 +109,7 @@ export function BottomSheet({ open, title, actions, onClose }: {
               </button>
             ))}
           </div>
-          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] py-4 text-[15px] font-bold text-[var(--text-primary)] active:bg-[var(--bg-card-hover)]">Annulla</button>
+          <button type="button" data-no-swipe="true" onClick={onClose} className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] py-4 text-[15px] font-bold text-[var(--text-primary)] active:bg-[var(--bg-card-hover)]">{copy.cancel}</button>
         </div>
       </div>
     </div>
@@ -119,6 +123,8 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
   media?: FeedMediaPreview | null
   onCategoryClick?: (category: string) => void
 }) {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).feed
   const parsed = parseCategoryString(category)
   const localizedMedia = useLocalizedMediaRow(media, {
     titleKeys: ['title'],
@@ -153,7 +159,7 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-2">
-          <span className="gk-label text-[var(--text-muted)]">Activity</span>
+          <span className="gk-label text-[var(--text-muted)]">{copy.activity}</span>
           <CategoryBadge category={parsed.category} />
         </div>
         <p className="line-clamp-1 text-[15px] font-black leading-tight text-[var(--text-primary)]">{mediaTitle}</p>
@@ -188,6 +194,7 @@ export const PostCard = memo(function PostCard({
   onPostOptions: (postId: string) => void
   onCategoryClick?: (category: string) => void
 }) {
+  const copy = pageCopy(getPageLocale(locale))
   const sharePost = async () => {
     const url = `${window.location.origin}/home?post=${post.id}`
     if (navigator.share) await navigator.share({ title: 'Geekore', text: post.content.slice(0, 80), url }).catch(() => { })
@@ -209,14 +216,14 @@ export const PostCard = memo(function PostCard({
 
       <div className="px-3 pb-3">
         <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
-        {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">modificato</p>}
+        {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">{copy.feed.edited}</p>}
       </div>
 
       {post.category && <FeedActivityContext category={post.category} media={post.media_preview} onCategoryClick={onCategoryClick} />}
 
       {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
         <div className="gk-feed-card-image mb-3 aspect-video">
-          <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.02]" loading="lazy" decoding="async" />
+          <img src={post.image_url} alt={copy.feed.postAlt(post.profiles.username)} className="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.02]" loading="lazy" decoding="async" />
         </div>
       )}
 
@@ -247,6 +254,7 @@ export function PostModal({
   isLiking: boolean
   locale: string
 }) {
+  const copy = pageCopy(getPageLocale(locale))
   const [commentText, setCommentText] = useState('')
 
   const submitComment = () => {
@@ -260,8 +268,8 @@ export function PostModal({
       <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onClick={e => e.stopPropagation()}>
         <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.03)] px-5 py-3.5">
           <div>
-            <p className="gk-label text-[var(--accent)]">Thread</p>
-            <h3 className="font-black text-[var(--text-primary)]">Post</h3>
+            <p className="gk-label text-[var(--accent)]">{copy.feed.thread}</p>
+            <h3 className="font-black text-[var(--text-primary)]">{copy.feed.post}</h3>
           </div>
           <button type="button" data-no-swipe="true" onClick={onClose} className="rounded-2xl border border-[var(--border)] p-2 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]">
             <X size={17} />
@@ -278,14 +286,14 @@ export function PostModal({
 
           <div className="px-5 pb-3">
             <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">{post.content.replace(/\n{3,}/g, '\n\n')}</p>
-            {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">modificato</p>}
+            {post.is_edited && <p className="gk-mono mt-1 text-[var(--text-muted)]">{copy.feed.edited}</p>}
           </div>
 
           {post.category && <FeedActivityContext category={post.category} media={post.media_preview} />}
 
           {post.image_url && post.image_url !== 'NULL' && post.image_url !== 'null' && (
             <div className="mx-5 mb-4 overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-black/30">
-              <img src={post.image_url} alt={`Post di ${post.profiles.username}`} className="max-h-[320px] w-full object-cover" loading="lazy" decoding="async" />
+              <img src={post.image_url} alt={copy.feed.postAlt(post.profiles.username)} className="max-h-[320px] w-full object-cover" loading="lazy" decoding="async" />
             </div>
           )}
 
@@ -302,7 +310,7 @@ export function PostModal({
             </>
           ) : (
             <div className="px-5 py-8 text-center">
-              <p className="gk-caption">Nessun commento ancora. Sii il primo!</p>
+              <p className="gk-caption">{copy.feed.noComments}</p>
             </div>
           )}
         </div>

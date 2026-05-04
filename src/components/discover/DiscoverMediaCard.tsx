@@ -3,6 +3,7 @@ import { BookmarkCheck, Check, Film, Plus } from 'lucide-react'
 import { MediaMetaRow } from '@/components/ui/MediaMetaRow'
 import { MediaCover } from '@/components/ui/MediaCover'
 import { getMediaStatusLabel } from '@/lib/mediaStatus'
+import { useLocale } from '@/lib/locale'
 
 interface DiscoverMediaCardProps {
   title: string
@@ -40,6 +41,8 @@ export function DiscoverMediaCard({
   onWishlist,
   className = '',
 }: DiscoverMediaCardProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { openDetails: (title: string) => `Open details for ${title}`, coverAlt: (title: string) => `Cover for ${title}`, removeWishlist: 'Remove from wishlist', addWishlist: 'Add to wishlist', wishlist: 'Wishlist' } : { openDetails: (title: string) => `Apri dettagli di ${title}`, coverAlt: (title: string) => `Copertina di ${title}`, removeWishlist: 'Rimuovi dalla wishlist', addWishlist: 'Aggiungi alla wishlist', wishlist: 'Wishlist' }
   const visibleScore = hasRealScore(score) ? score : null
   const isInteractive = Boolean(onClick)
 
@@ -59,12 +62,12 @@ export function DiscoverMediaCard({
       className={`group relative min-w-0 ${isInteractive ? 'cursor-pointer' : ''} text-left ${className}`}
       onClick={onClick}
       onKeyDown={handleKeyDown}
-      aria-label={isInteractive ? `Apri dettagli di ${title}` : undefined}
+      aria-label={isInteractive ? copy.openDetails(title) : undefined}
     >
       <div className="relative">
         <MediaCover
           src={coverImage}
-          alt={`Copertina di ${title}`}
+          alt={copy.coverAlt(title)}
           type={type}
           score={visibleScore}
           match={match}
@@ -83,7 +86,7 @@ export function DiscoverMediaCard({
             ) : (
               <div className="gk-status-pill !static !px-2 !py-1">
                 <BookmarkCheck size={10} />
-                Wishlist
+                {copy.wishlist}
               </div>
             )}
           </div>
@@ -102,7 +105,7 @@ export function DiscoverMediaCard({
                 ? 'border-[rgba(230,255,61,0.5)] bg-black/75 text-[var(--accent)]'
                 : 'border-white/10 bg-black/62 text-white hover:text-[var(--accent)]'
             }`}
-            aria-label={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+            aria-label={wishlisted ? copy.removeWishlist : copy.addWishlist}
           >
             {wishlisted ? <BookmarkCheck size={14} /> : <Plus size={15} />}
           </button>

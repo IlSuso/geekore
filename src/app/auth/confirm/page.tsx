@@ -5,9 +5,48 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, Loader2, MailCheck, RefreshCw, XCircle, Zap } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 type Status = 'loading' | 'success' | 'error'
 type ResendStatus = 'idle' | 'sending' | 'sent' | 'error'
+
+const confirmCopy = {
+  it: {
+    expired: 'Il link di conferma è scaduto o è già stato utilizzato. Se lo hai aperto da Gmail, Outlook o da un WebView, prova a richiederne uno nuovo e aprirlo nel browser.',
+    missing: 'Link non valido o mancante. Prova a registrarti di nuovo.',
+    loadingKicker: 'Conferma account',
+    loadingTitle: 'Verifica in corso',
+    loadingBody: 'Stiamo controllando il link e preparando il tuo accesso.',
+    successKicker: 'Account attivo',
+    successTitle: 'Email confermata',
+    successBody: 'Perfetto. Tra poco ti riportiamo al login per entrare in Geekore.',
+    errorKicker: 'Link non valido',
+    errorTitle: 'Problema con il link',
+    sentTo: 'Nuova email inviata a',
+    resend: 'Invia di nuovo l’email',
+    registerAgain: 'Registrati di nuovo',
+    backToLogin: 'Torna al login',
+    sendError: 'Errore nell’invio. Riprova tra qualche secondo.',
+  },
+  en: {
+    expired: 'The confirmation link has expired or has already been used. If you opened it from Gmail, Outlook, or a WebView, request a new one and open it in your browser.',
+    missing: 'Invalid or missing link. Try signing up again.',
+    loadingKicker: 'Account confirmation',
+    loadingTitle: 'Verifying',
+    loadingBody: 'We are checking the link and preparing your access.',
+    successKicker: 'Account active',
+    successTitle: 'Email confirmed',
+    successBody: 'Perfect. We will take you back to login in a moment.',
+    errorKicker: 'Invalid link',
+    errorTitle: 'Link problem',
+    sentTo: 'New email sent to',
+    resend: 'Send the email again',
+    registerAgain: 'Sign up again',
+    backToLogin: 'Back to login',
+    sendError: 'Could not send the email. Try again in a few seconds.',
+  },
+} as const
+
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
@@ -63,6 +102,8 @@ function StatusIcon({ status }: { status: Status }) {
 
 function ConfirmContent() {
   const router = useRouter()
+  const { locale } = useLocale()
+  const copy = confirmCopy[locale]
   const searchParams = useSearchParams()
 
   const [status, setStatus] = useState<Status>('loading')
@@ -97,7 +138,7 @@ function ConfirmContent() {
         }
 
         setErrorMessage(
-          'Il link di conferma è scaduto o è già stato utilizzato. Se lo hai aperto da Gmail, Outlook o da un WebView, prova a richiederne uno nuovo e aprirlo nel browser.'
+          copy.expired
         )
         setStatus('error')
         return
@@ -114,7 +155,7 @@ function ConfirmContent() {
         }
       }
 
-      setErrorMessage('Link non valido o mancante. Prova a registrarti di nuovo.')
+      setErrorMessage(copy.missing)
       setStatus('error')
     }
 
@@ -142,24 +183,24 @@ function ConfirmContent() {
 
         {status === 'loading' && (
           <>
-            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Conferma account</p>
-            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Verifica in corso</h1>
-            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">Stiamo controllando il link e preparando il tuo accesso.</p>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">{copy.loadingKicker}</p>
+            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.loadingTitle}</h1>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{copy.loadingBody}</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Account attivo</p>
-            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Email confermata</h1>
-            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">Perfetto. Tra poco ti riportiamo al login per entrare in Geekore.</p>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">{copy.successKicker}</p>
+            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.successTitle}</h1>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{copy.successBody}</p>
           </>
         )}
 
         {status === 'error' && (
           <>
-            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300">Link non valido</p>
-            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Problema con il link</h1>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300">{copy.errorKicker}</p>
+            <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.errorTitle}</h1>
             <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{errorMessage}</p>
 
             <div className="mt-8 space-y-3 text-left">
@@ -167,7 +208,7 @@ function ConfirmContent() {
                 resendStatus === 'sent' ? (
                   <div className="flex items-start gap-3 rounded-[20px] bg-emerald-400/10 p-4 text-sm text-emerald-200 ring-1 ring-emerald-300/18">
                     <MailCheck size={18} className="mt-0.5 shrink-0" />
-                    <span>Nuova email inviata a <strong>{resendEmail}</strong></span>
+                    <span>{copy.sentTo} <strong>{resendEmail}</strong></span>
                   </div>
                 ) : (
                   <button
@@ -191,7 +232,7 @@ function ConfirmContent() {
               </Link>
             </div>
 
-            {resendStatus === 'error' && <p className="mt-3 text-xs font-semibold text-red-300">Errore nell'invio. Riprova tra qualche secondo.</p>}
+            {resendStatus === 'error' && <p className="mt-3 text-xs font-semibold text-red-300">{copy.sendError}</p>}
           </>
         )}
       </div>

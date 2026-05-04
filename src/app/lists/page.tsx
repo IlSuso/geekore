@@ -22,6 +22,8 @@ import {
   Gamepad2,
 } from "lucide-react";
 import { PageScaffold } from "@/components/ui/PageScaffold";
+import { useLocale } from "@/lib/locale";
+import { pageCopy } from "@/lib/i18n/pageCopy";
 
 interface UserList {
   id: string;
@@ -33,22 +35,10 @@ interface UserList {
   item_count?: number;
 }
 
-const LIST_TEMPLATES = [
-  {
-    icon: <Trophy size={16} />,
-    title: "Top personali",
-    text: "Classifiche dei tuoi preferiti per ogni medium.",
-  },
-  {
-    icon: <Film size={16} />,
-    title: "Serate film",
-    text: "Raccolte pronte da condividere con amici.",
-  },
-  {
-    icon: <Gamepad2 size={16} />,
-    title: "Backlog",
-    text: "Giochi, anime e serie da recuperare senza perderli.",
-  },
+const LIST_TEMPLATE_ICONS = [
+  <Trophy key="top" size={16} />,
+  <Film key="movie" size={16} />,
+  <Gamepad2 key="backlog" size={16} />,
 ];
 
 function normalize(value: string): string {
@@ -63,10 +53,14 @@ function ListModal({
   list,
   onClose,
   onSaved,
+  copy,
+  common,
 }: {
   list?: UserList;
   onClose: () => void;
   onSaved: (list: UserList) => void;
+  copy: ReturnType<typeof pageCopy>["lists"];
+  common: ReturnType<typeof pageCopy>["common"];
 }) {
   const [title, setTitle] = useState(list?.title || "");
   const [description, setDescription] = useState(list?.description || "");
@@ -115,10 +109,10 @@ function ListModal({
             <div>
               <div className="mb-2 gk-section-eyebrow">
                 <Sparkles size={12} />
-                Nuova raccolta
+                {copy.newCollection}
               </div>
               <h3 className="gk-title text-[var(--text-primary)]">
-                {list ? "Modifica lista" : "Nuova lista"}
+                {list ? copy.editList : copy.newList}
               </h3>
             </div>
             <button
@@ -126,26 +120,25 @@ function ListModal({
               data-no-swipe="true"
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white"
-              aria-label="Chiudi modal lista"
+              aria-label="Close list modal"
             >
               <X size={17} />
             </button>
           </div>
           <p className="gk-caption">
-            Crea raccolte tematiche da usare nel profilo e da condividere con la
-            community.
+            {copy.description}
           </p>
         </div>
 
         <div className="space-y-4 p-5">
           <div>
-            <label className="gk-label mb-2 block">Titolo *</label>
+            <label className="gk-label mb-2 block">{copy.titleLabel} *</label>
             <input
               data-no-swipe="true"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value.slice(0, 100))}
-              placeholder="Es. Top 10 anime di sempre"
+              placeholder={copy.titlePlaceholder}
               className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
               maxLength={100}
             />
@@ -155,12 +148,12 @@ function ListModal({
           </div>
 
           <div>
-            <label className="gk-label mb-2 block">Descrizione</label>
+            <label className="gk-label mb-2 block">{copy.descriptionLabel}</label>
             <textarea
               data-no-swipe="true"
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 500))}
-              placeholder="Breve descrizione della lista..."
+              placeholder={copy.descriptionPlaceholder}
               rows={3}
               className="w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
               maxLength={500}
@@ -176,10 +169,10 @@ function ListModal({
               )}
               <div className="min-w-0">
                 <p className="text-sm font-bold text-[var(--text-primary)]">
-                  {isPublic ? "Pubblica" : "Privata"}
+                  {isPublic ? copy.publicLabel : copy.privateLabel}
                 </p>
                 <p className="gk-caption truncate">
-                  {isPublic ? "Visibile a tutti" : "Solo tu puoi vederla"}
+                  {isPublic ? copy.publicHint : copy.privateHint}
                 </p>
               </div>
             </div>
@@ -207,7 +200,7 @@ function ListModal({
             onClick={onClose}
             className="flex-1 rounded-2xl border border-[var(--border)] py-3 font-bold text-[var(--text-secondary)] transition hover:text-white"
           >
-            Annulla
+            {common.cancel}
           </button>
           <button
             type="button"
@@ -226,7 +219,7 @@ function ListModal({
             ) : (
               <Check size={16} />
             )}
-            {list ? "Salva" : "Crea"}
+            {list ? common.save : common.create}
           </button>
         </div>
       </div>
@@ -238,10 +231,14 @@ function ListCard({
   list,
   onEdit,
   onDelete,
+  copy,
+  common,
 }: {
   list: UserList;
   onEdit: (list: UserList) => void;
   onDelete: (id: string) => void;
+  copy: ReturnType<typeof pageCopy>["lists"];
+  common: ReturnType<typeof pageCopy>["common"];
 }) {
   const count = list.item_count ?? 0;
 
@@ -252,7 +249,7 @@ function ListCard({
           href={`/lists/${list.id}`}
           data-no-swipe="true"
           className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.16)] bg-[rgba(230,255,61,0.07)] text-[var(--accent)] transition-transform group-hover:scale-[1.03]"
-          aria-label={`Apri lista ${list.title}`}
+          aria-label={copy.openListAria(list.title)}
         >
           <List size={20} />
         </Link>
@@ -277,7 +274,7 @@ function ListCard({
               </p>
             ) : (
               <p className="gk-mono text-[var(--text-muted)]">
-                raccolta personale
+                {copy.newCollection.toLowerCase()}
               </p>
             )}
           </Link>
@@ -295,14 +292,14 @@ function ListCard({
               onClick={() => onEdit(list)}
               className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-xl border border-[var(--border)] px-2.5 text-[11px] font-bold text-[var(--text-secondary)] transition-colors hover:text-white"
             >
-              <Edit3 size={12} /> Modifica
+              <Edit3 size={12} /> {common.edit}
             </button>
             <button
               type="button"
               data-no-swipe="true"
               onClick={() => onDelete(list.id)}
               className="inline-flex h-8 items-center justify-center rounded-xl border border-[var(--border)] px-2.5 text-[var(--text-muted)] transition-colors hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
-              aria-label="Elimina lista"
+              aria-label={copy.deleteAria}
             >
               <Trash2 size={12} />
             </button>
@@ -313,7 +310,7 @@ function ListCard({
           href={`/lists/${list.id}`}
           data-no-swipe="true"
           className="hidden h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--accent)] sm:flex"
-          aria-label={`Apri lista ${list.title}`}
+          aria-label={copy.openListAria(list.title)}
         >
           <ChevronRight size={16} />
         </Link>
@@ -344,6 +341,10 @@ function ListsStat({
 }
 
 export default function ListsPage() {
+  const { locale } = useLocale();
+  const copy = pageCopy(locale).lists;
+  const common = pageCopy(locale).common;
+  const templates = copy.templates.map((template, index) => ({ ...template, icon: LIST_TEMPLATE_ICONS[index] }));
   const [lists, setLists] = useState<UserList[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -400,7 +401,7 @@ export default function ListsPage() {
   );
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Eliminare questa lista?")) return;
+    if (!confirm(copy.deleteConfirm)) return;
     const res = await fetch("/api/lists", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -426,9 +427,9 @@ export default function ListsPage() {
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-6 text-center text-white">
         <div>
           <List size={48} className="mx-auto mb-4 text-zinc-600" />
-          <h1 className="mb-3 text-2xl font-bold">Le tue liste</h1>
+          <h1 className="mb-3 text-2xl font-bold">{copy.title}</h1>
           <p className="mb-6 text-zinc-400">
-            Accedi per creare liste personalizzate
+            {locale === "en" ? "Sign in to create custom lists" : "Accedi per creare liste personalizzate"}
           </p>
           <Link
             href="/login"
@@ -436,7 +437,7 @@ export default function ListsPage() {
             className="rounded-2xl px-6 py-3 font-semibold transition"
             style={{ background: "var(--accent)", color: "#0B0B0F" }}
           >
-            Accedi
+            {locale === "en" ? "Sign in" : "Accedi"}
           </Link>
         </div>
       </div>
@@ -445,8 +446,8 @@ export default function ListsPage() {
 
   return (
     <PageScaffold
-      title="Liste"
-      description="Raccolte curate, classifiche personali e collezioni da condividere."
+      title={copy.title}
+      description={copy.description}
       icon={<List size={16} />}
       contentClassName="mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
@@ -454,21 +455,21 @@ export default function ListsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="mb-2 gk-section-eyebrow">
-              <List size={13} /> Raccolte
+              <List size={13} /> {copy.newCollection}
             </div>
             <h1 className="font-display text-[30px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)]">
-              Liste
+              {copy.title}
             </h1>
             <p className="mt-1 max-w-xl text-[13px] leading-5 text-[var(--text-muted)]">
-              Raccolte curate da mostrare nel profilo o condividere.
+              {copy.description}
             </p>
           </div>
 
           <div className="flex flex-col gap-3 lg:w-[560px]">
             <div className="grid grid-cols-3 gap-2">
-              <ListsStat label="liste" value={lists.length} accent />
-              <ListsStat label="pubbliche" value={publicCount} />
-              <ListsStat label="titoli" value={totalItems} />
+              <ListsStat label={copy.title.toLowerCase()} value={lists.length} accent />
+              <ListsStat label={copy.publicLabel.toLowerCase()} value={publicCount} />
+              <ListsStat label={pageCopy(locale).listDetail.items} value={totalItems} />
             </div>
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
@@ -480,7 +481,7 @@ export default function ListsPage() {
                   data-no-swipe="true"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Cerca liste..."
+                  placeholder={copy.searchPlaceholder}
                   className="h-11 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] py-2.5 pl-10 pr-4 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
                 />
               </div>
@@ -494,7 +495,7 @@ export default function ListsPage() {
                 className="inline-flex h-11 flex-shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black transition-transform hover:scale-[1.02]"
                 style={{ background: "var(--accent)", color: "#0B0B0F" }}
               >
-                <Plus size={16} /> Nuova
+                <Plus size={16} /> {copy.newList}
               </button>
             </div>
           </div>
@@ -517,17 +518,17 @@ export default function ListsPage() {
           </div>
           <p className="gk-headline mb-1 text-[var(--text-primary)]">
             {lists.length === 0
-              ? "Nessuna lista ancora"
-              : "Nessuna lista trovata"}
+              ? copy.emptyTitle
+              : copy.emptySearchTitle}
           </p>
           <p className="gk-body mx-auto mb-5 max-w-sm">
             {lists.length === 0
-              ? "Crea la tua prima lista oppure parti da un template mentale: top, backlog, serata film o preferiti di sempre."
-              : "Prova a cambiare ricerca."}
+              ? (locale === "en" ? "Create your first list or start from a mental template: tops, backlog, movie night or all-time favorites." : "Crea la tua prima lista oppure parti da un template mentale: top, backlog, serata film o preferiti di sempre.")
+              : (locale === "en" ? "Try changing search." : "Prova a cambiare ricerca.")}
           </p>
           {lists.length === 0 && (
             <div className="mx-auto mb-6 grid max-w-3xl gap-3 md:grid-cols-3">
-              {LIST_TEMPLATES.map((template) => (
+              {templates.map((template) => (
                 <div
                   key={template.title}
                   className="rounded-2xl border border-[var(--border-subtle)] bg-black/18 p-4 text-left ring-1 ring-white/5"
@@ -553,7 +554,7 @@ export default function ListsPage() {
             }}
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]"
           >
-            {lists.length === 0 ? "Crea la prima lista" : "Cancella ricerca"}
+            {lists.length === 0 ? copy.newList : common.clearFilters}
           </button>
         </div>
       ) : (
@@ -567,6 +568,8 @@ export default function ListsPage() {
                 setShowModal(true);
               }}
               onDelete={handleDelete}
+              copy={copy}
+              common={common}
             />
           ))}
         </div>
@@ -580,6 +583,8 @@ export default function ListsPage() {
             setEditingList(undefined);
           }}
           onSaved={handleSaved}
+          copy={copy}
+          common={common}
         />
       )}
     </PageScaffold>

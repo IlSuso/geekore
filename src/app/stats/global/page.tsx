@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { Clock, Film, Gamepad2, Globe, Layers, Star, Trophy, Tv } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { LocalizedPopularTitleRow } from '@/components/stats/LocalizedPopularTitleRow'
+import { getServerLocale } from '@/lib/i18n/serverLocale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
 
 async function getGlobalStats() {
   const supabase = await createClient()
@@ -141,14 +143,16 @@ function CategoryRow({ label, value, sub, color, max, icon: Icon }: {
 }
 
 export default async function GlobalStatsPage() {
+  const locale = await getServerLocale()
+  const copy = pageCopy(locale)
   const stats = await getGlobalStats()
   const totalDays = Math.floor(stats.totalHours / 24)
   const remainingHours = stats.totalHours % 24
   const dominant = [
-    { label: 'Videogiochi', value: stats.gameHours },
-    { label: 'Film', value: stats.movieHours },
+    { label: copy.stats.categories.game, value: stats.gameHours },
+    { label: copy.stats.categories.movie, value: stats.movieHours },
     { label: 'Anime', value: stats.animeHours },
-    { label: 'Serie TV', value: stats.tvHours },
+    { label: copy.stats.categories.tv, value: stats.tvHours },
     { label: 'Manga', value: stats.mangaHours },
   ].sort((a, b) => b.value - a.value)[0]
 
@@ -162,29 +166,29 @@ export default async function GlobalStatsPage() {
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.28)] bg-[rgba(230,255,61,0.08)] px-3 py-1 font-mono-data text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
                 <Globe size={13} />
-                Community DNA
+                {copy.globalStats.title}
               </div>
               <h1 className="font-display text-[42px] font-black leading-[0.92] tracking-[-0.06em] text-[var(--text-primary)] sm:text-[54px]">
-                {formatNumber(stats.totalUsers)} persone, {formatNumber(stats.totalEntries)} titoli
+                {formatNumber(stats.totalUsers)} {copy.globalStats.users}, {formatNumber(stats.totalEntries)} {copy.globalStats.entries}
               </h1>
               <p className="mt-3 max-w-xl text-[15px] leading-6 text-[var(--text-secondary)]">
-                La community ha tracciato circa <strong className="text-[var(--text-primary)]">{formatNumber(stats.totalHours)} ore</strong>: {totalDays} giorni e {remainingHours} ore di anime, film, serie, manga e videogiochi.
+                {copy.globalStats.descriptionPrefix} <strong className="text-[var(--text-primary)]">{formatNumber(stats.totalHours)} {copy.globalStats.descriptionMiddle}</strong>: {totalDays} {locale === 'en' ? 'days' : 'giorni'} {locale === 'en' ? 'and' : 'e'} {remainingHours} {copy.globalStats.descriptionMiddle} {copy.globalStats.descriptionSuffix}
               </p>
             </div>
             <Link
               href="/stats"
               className="inline-flex h-12 shrink-0 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--bg-secondary)] px-5 text-[13px] font-black text-[var(--text-primary)] transition hover:border-[rgba(230,255,61,0.35)] hover:text-[var(--accent)]"
             >
-              Le mie stats
+              {locale === 'en' ? 'My stats' : 'Le mie stats'}
             </Link>
           </div>
         </section>
 
         <section className="mt-5 grid gap-3 sm:grid-cols-4">
-          <MetricCard label="Ore totali" value={formatNumber(stats.totalHours)} sub="stima aggregata" />
-          <MetricCard label="Post" value={formatNumber(stats.totalPosts)} sub="pubblicati" />
-          <MetricCard label="Dominante" value={dominant?.label || '—'} sub={dominant ? `${formatNumber(dominant.value)}h` : undefined} />
-          <MetricCard label="Film visti" value={formatNumber(stats.movieCount)} sub="completati" />
+          <MetricCard label={copy.globalStats.totalHours} value={formatNumber(stats.totalHours)} sub={locale === "en" ? "aggregated estimate" : "stima aggregata"} />
+          <MetricCard label={copy.globalStats.posts} value={formatNumber(stats.totalPosts)} sub={locale === "en" ? "published" : "pubblicati"} />
+          <MetricCard label={locale === "en" ? "Dominant" : "Dominante"} value={dominant?.label || '—'} sub={dominant ? `${formatNumber(dominant.value)}h` : undefined} />
+          <MetricCard label={locale === "en" ? "Movies watched" : "Film visti"} value={formatNumber(stats.movieCount)} sub={locale === "en" ? "completed" : "completati"} />
         </section>
 
         <section className="mt-8 rounded-[30px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/68 p-5 ring-1 ring-white/5 sm:p-6">
@@ -193,17 +197,17 @@ export default async function GlobalStatsPage() {
               <Clock size={17} />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Distribuzione</p>
-              <h2 className="font-display text-[26px] font-black leading-none tracking-[-0.04em]">Ore per categoria</h2>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{locale === 'en' ? 'Distribution' : 'Distribuzione'}</p>
+              <h2 className="font-display text-[26px] font-black leading-none tracking-[-0.04em]">{locale === 'en' ? 'Hours by category' : 'Ore per categoria'}</h2>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <CategoryRow label="Videogiochi" value={stats.gameHours} sub="ore Steam" color="var(--type-game)" max={maxCategoryHours} icon={Gamepad2} />
-            <CategoryRow label="Film" value={stats.movieHours} sub={`${formatNumber(stats.movieCount)} film`} color="var(--type-movie)" max={maxCategoryHours} icon={Film} />
-            <CategoryRow label="Anime" value={stats.animeHours} sub={`${formatNumber(stats.animeEps)} episodi`} color="var(--type-anime)" max={maxCategoryHours} icon={Tv} />
-            <CategoryRow label="Serie TV" value={stats.tvHours} sub={`${formatNumber(stats.tvEps)} episodi`} color="var(--type-tv)" max={maxCategoryHours} icon={Tv} />
-            <CategoryRow label="Manga" value={stats.mangaHours} sub={`${formatNumber(stats.mangaChapters)} capitoli`} color="var(--type-manga)" max={maxCategoryHours} icon={Layers} />
+            <CategoryRow label={copy.stats.categories.game} value={stats.gameHours} sub={copy.stats.steamHours} color="var(--type-game)" max={maxCategoryHours} icon={Gamepad2} />
+            <CategoryRow label={copy.stats.categories.movie} value={stats.movieHours} sub={`${formatNumber(stats.movieCount)} film`} color="var(--type-movie)" max={maxCategoryHours} icon={Film} />
+            <CategoryRow label="Anime" value={stats.animeHours} sub={`${formatNumber(stats.animeEps)} ${locale === "en" ? "episodes" : "episodi"}`} color="var(--type-anime)" max={maxCategoryHours} icon={Tv} />
+            <CategoryRow label={copy.stats.categories.tv} value={stats.tvHours} sub={`${formatNumber(stats.tvEps)} ${locale === "en" ? "episodes" : "episodi"}`} color="var(--type-tv)" max={maxCategoryHours} icon={Tv} />
+            <CategoryRow label="Manga" value={stats.mangaHours} sub={`${formatNumber(stats.mangaChapters)} ${locale === "en" ? "chapters" : "capitoli"}`} color="var(--type-manga)" max={maxCategoryHours} icon={Layers} />
           </div>
         </section>
 
@@ -211,7 +215,7 @@ export default async function GlobalStatsPage() {
           <section className="mt-8">
             <div className="mb-4 flex items-center gap-2">
               <Trophy size={15} className="text-[var(--accent)]" />
-              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Più aggiunti dalla community</h2>
+              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{copy.globalStats.mostAdded}</h2>
             </div>
             <div className="space-y-2.5">
               {stats.popularTitles.map((title, index) => (
@@ -225,7 +229,7 @@ export default async function GlobalStatsPage() {
           <section className="mt-8">
             <div className="mb-4 flex items-center gap-2">
               <Star size={15} className="text-[var(--accent)]" />
-              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Generi più amati</h2>
+              <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{locale === 'en' ? 'Most loved genres' : 'Generi più amati'}</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {stats.popularGenres.map(([genre, count]) => (

@@ -2,6 +2,7 @@
 // src/components/import/SteamImport.tsx
 
 import { useState, useEffect } from 'react'
+import { useLocale } from '@/lib/locale'
 import { createClient } from '@/lib/supabase/client'
 import { SteamIcon } from '@/components/icons/SteamIcon'
 import { CheckCircle, AlertTriangle, Loader2, Download, Unlink } from 'lucide-react'
@@ -12,8 +13,22 @@ interface Props {
 
 type ProgressState = { message: string } | null
 
+
+const STEAM_COPY = {
+  it: {
+    fetchError: 'Errore durante il recupero dei giochi', noneFound: 'Nessun gioco trovato (la libreria potrebbe essere privata).', imported: (count: number, cp?: unknown) => `${count} giochi Steam importati!${cp != null ? ` Core Power: ${cp}.` : ''}`,
+    networkError: 'Errore di rete. Riprova tra qualche secondo.', disconnectError: 'Impossibile scollegare Steam. Riprova.', disconnected: 'Account Steam scollegato', steamId: 'Steam ID', unlinkTitle: 'Scollega Steam', unlink: 'Scollega', importing: 'Importazione in corso...', importGames: 'Importa giochi Steam', connectText1: 'Connetti il tuo account Steam per importare la tua libreria con ore giocate e achievement.', connectText2: 'La libreria deve essere pubblica nelle impostazioni privacy di Steam.', connect: 'Connetti Steam'
+  },
+  en: {
+    fetchError: 'Error while fetching games', noneFound: 'No games found (your library may be private).', imported: (count: number, cp?: unknown) => `${count} Steam games imported!${cp != null ? ` Core Power: ${cp}.` : ''}`,
+    networkError: 'Network error. Try again in a few seconds.', disconnectError: 'Could not disconnect Steam. Try again.', disconnected: 'Steam account disconnected', steamId: 'Steam ID', unlinkTitle: 'Disconnect Steam', unlink: 'Disconnect', importing: 'Importing...', importGames: 'Import Steam games', connectText1: 'Connect your Steam account to import your library with played hours and achievements.', connectText2: 'Your library must be public in Steam privacy settings.', connect: 'Connect Steam'
+  },
+} as const
+
 export function SteamImport({ onImportDone }: Props) {
   const supabase = createClient()
+  const { locale } = useLocale()
+  const t = STEAM_COPY[locale]
 
   const [steamAccount, setSteamAccount] = useState<any>(null)
   const [loadingAccount, setLoadingAccount] = useState(true)
@@ -53,9 +68,9 @@ export function SteamImport({ onImportDone }: Props) {
       if (!res.ok) {
         try {
           const data = await res.json()
-          setResult({ text: data.error || 'Errore durante il recupero dei giochi', type: 'error' })
+          setResult({ text: data.error || t.fetchError, type: 'error' })
         } catch {
-          setResult({ text: 'Errore durante il recupero dei giochi', type: 'error' })
+          setResult({ text: t.fetchError, type: 'error' })
         }
         setImporting(false)
         return
@@ -80,21 +95,20 @@ export function SteamImport({ onImportDone }: Props) {
             } else if (event.type === 'done') {
               setProgress(null)
               if (!event.success || !event.count) {
-                setResult({ text: 'Nessun gioco trovato (la libreria potrebbe essere privata).', type: 'error' })
+                setResult({ text: t.noneFound, type: 'error' })
               } else {
-                const cpMsg = event.core_power != null ? ` Core Power: ${event.core_power}.` : ''
-                setResult({ text: `${event.count} giochi Steam importati!${cpMsg}`, type: 'success' })
+                setResult({ text: t.imported(event.count, event.core_power), type: 'success' })
                 onImportDone?.()
               }
             } else if (event.type === 'error') {
               setProgress(null)
-              setResult({ text: event.message || 'Errore durante il recupero dei giochi', type: 'error' })
+              setResult({ text: event.message || t.fetchError, type: 'error' })
             }
           } catch {}
         }
       }
     } catch {
-      setResult({ text: 'Errore di rete. Riprova tra qualche secondo.', type: 'error' })
+      setResult({ text: t.networkError, type: 'error' })
     }
 
     setImporting(false)
@@ -107,11 +121,11 @@ export function SteamImport({ onImportDone }: Props) {
     try {
       const res = await fetch('/api/steam/connect', { method: 'DELETE' }).catch(() => null)
       if (!res?.ok) {
-        setResult({ text: 'Impossibile scollegare Steam. Riprova.', type: 'error' })
+        setResult({ text: t.disconnectError, type: 'error' })
         return
       }
       setSteamAccount(null)
-      setResult({ text: 'Account Steam scollegato', type: 'success' })
+      setResult({ text: t.disconnected, type: 'success' })
     } finally {
       setDisconnecting(false)
     }
@@ -139,13 +153,13 @@ export function SteamImport({ onImportDone }: Props) {
               <p className="text-sm font-medium text-white truncate">
                 {steamAccount.display_name || steamAccount.steam_id64}
               </p>
-              <p className="text-xs text-zinc-500">Steam ID: {steamAccount.steam_id64}</p>
+              <p className="text-xs text-zinc-500">{t.steamId}: {steamAccount.steam_id64}</p>
             </div>
             <button
               onClick={handleDisconnect}
               disabled={disconnecting || importing}
               className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 transition disabled:opacity-50 flex-shrink-0"
-              title="Scollega Steam"
+              title={t.unlinkTitle}
             >
               {disconnecting
                 ? <Loader2 size={13} className="animate-spin" />
@@ -185,16 +199,16 @@ export function SteamImport({ onImportDone }: Props) {
             className="w-full py-3.5 bg-[#1b2838] hover:bg-[#243a54] border border-[#66C0F4]/30 hover:border-[#66C0F4]/60 disabled:opacity-40 rounded-2xl font-semibold text-sm text-white transition flex items-center justify-center gap-2"
           >
             {importing
-              ? <><Loader2 size={16} className="animate-spin" />Importazione in corso...</>
-              : <><Download size={16} />Importa giochi Steam</>}
+              ? <><Loader2 size={16} className="animate-spin" />{t.importing}</>
+              : <><Download size={16} />{t.importGames}</>}
           </button>
         </>
       ) : (
         <>
           {/* Non connesso */}
           <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5 text-xs text-zinc-500 space-y-1">
-            <p>Connetti il tuo account Steam per importare la tua libreria con ore giocate e achievement.</p>
-            <p>La libreria deve essere pubblica nelle impostazioni privacy di Steam.</p>
+            <p>{t.connectText1}</p>
+            <p>{t.connectText2}</p>
           </div>
 
           {result && (
@@ -215,7 +229,7 @@ export function SteamImport({ onImportDone }: Props) {
             className="w-full py-3.5 bg-[#1b2838] hover:bg-[#243a54] border border-[#66C0F4]/30 hover:border-[#66C0F4]/60 rounded-2xl font-semibold text-sm text-white transition flex items-center justify-center gap-2"
           >
             <SteamIcon size={20} />
-            Connetti Steam
+            {t.connect}
           </a>
         </>
       )}

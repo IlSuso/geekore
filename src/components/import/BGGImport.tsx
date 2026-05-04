@@ -5,6 +5,7 @@
 // API: /xmlapi2/collection?username=NAME&stats=1&own=1
 
 import { useState } from 'react'
+import { useLocale } from '@/lib/locale'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, AlertTriangle, Loader2, Download, Dices, ExternalLink } from 'lucide-react'
 
@@ -18,8 +19,20 @@ interface ImportResult {
   errors: number
 }
 
+
+const BGG_COPY = {
+  it: {
+    connecting: 'Connessione a BoardGameGeek…', loginRequired: 'Devi essere loggato', fetching: 'Recupero collezione da BGG…', preparing: 'BGG sta preparando la collezione, riprovo…', empty: "Nessun gioco trovato. Assicurati che l'username BGG sia corretto e la collezione sia pubblica.", importing: (n: number) => `Importazione di ${n} giochi…`, imported: (n: number, e: number) => `${n} giochi da tavolo importati da BGG!${e > 0 ? ` (${e} errori)` : ''}`, noResponse: 'BGG non ha risposto dopo 5 tentativi. Riprova tra qualche minuto.', importError: "Errore durante l'importazione", subtitle: 'Importa la tua collezione di giochi da tavolo', info1: 'Inserisci il tuo username BGG. La collezione deve essere', publicWord: 'pubblica', info2: 'nelle impostazioni BGG.', findUsername: 'Trova il tuo username su BGG', username: 'Username BGG', placeholder: 'es. mionome_bgg', loading: 'Importazione in corso…', importFrom: 'Importa da BGG'
+  },
+  en: {
+    connecting: 'Connecting to BoardGameGeek…', loginRequired: 'You must be logged in', fetching: 'Fetching collection from BGG…', preparing: 'BGG is preparing the collection, retrying…', empty: 'No games found. Make sure your BGG username is correct and your collection is public.', importing: (n: number) => `Importing ${n} games…`, imported: (n: number, e: number) => `${n} board games imported from BGG!${e > 0 ? ` (${e} errors)` : ''}`, noResponse: 'BGG did not respond after 5 attempts. Try again in a few minutes.', importError: 'Import failed', subtitle: 'Import your board game collection', info1: 'Enter your BGG username. Your collection must be', publicWord: 'public', info2: 'in BGG settings.', findUsername: 'Find your username on BGG', username: 'BGG username', placeholder: 'e.g. my_bgg_name', loading: 'Importing…', importFrom: 'Import from BGG'
+  },
+} as const
+
 export function BGGImport({ onImportDone }: Props) {
   const supabase = createClient()
+  const { locale } = useLocale()
+  const t = BGG_COPY[locale]
   const [bggUsername, setBggUsername] = useState('')
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
@@ -30,13 +43,13 @@ export function BGGImport({ onImportDone }: Props) {
     if (!username || importing) return
     setImporting(true)
     setResult(null)
-    setProgress('Connessione a BoardGameGeek…')
+    setProgress(t.connecting)
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setResult({ text: 'Devi essere loggato', type: 'error' }); return }
+      if (!user) { setResult({ text: t.loginRequired, type: 'error' }); return }
 
-      setProgress('Recupero collezione da BGG…')
+      setProgress(t.fetching)
 
       // Step 1: scarica XML collection con retry (BGG restituisce 202 se la
       // richiesta è in coda — va riprovata fino a 200)
@@ -46,7 +59,7 @@ export function BGGImport({ onImportDone }: Props) {
       while (attempts < 5) {
         const res = await fetch(`/api/bgg/collection?username=${encodeURIComponent(username)}`)
         if (res.status === 202) {
-          setProgress('BGG sta preparando la collezione, riprovo…')
+          setProgress(t.preparing)
           await new Promise(r => setTimeout(r, 3000))
           attempts++
           continue
@@ -57,13 +70,13 @@ export function BGGImport({ onImportDone }: Props) {
         }
         const data = await res.json()
         if (data.retrying) {
-          setProgress('BGG sta preparando la collezione, riprovo…')
+          setProgress(t.preparing)
           await new Promise(r => setTimeout(r, 3000))
           attempts++
           continue
         }
         if (!data.items || data.items.length === 0) {
-          setResult({ text: 'Nessun gioco trovato. Assicurati che l\'username BGG sia corretto e la collezione sia pubblica.', type: 'error' })
+          setResult({ text: t.empty, type: 'error' })
           return
         }
 
@@ -77,7 +90,7 @@ export function BGGImport({ onImportDone }: Props) {
         }
 
         // Step 3: inserisci nel DB
-        setProgress(`Importazione di ${data.items.length} giochi…`)
+        setProgress(t.importing(data.items.length))
         const stats: ImportResult = { imported: 0, skipped: 0, errors: 0 }
 
         for (const item of data.items) {
@@ -116,15 +129,15 @@ export function BGGImport({ onImportDone }: Props) {
           else stats.imported++
         }
 
-        const msg = `${stats.imported} giochi da tavolo importati da BGG!${stats.errors > 0 ? ` (${stats.errors} errori)` : ''}`
+        const msg = t.imported(stats.imported, stats.errors)
         setResult({ text: msg, type: 'success' })
         onImportDone?.()
         return
       }
 
-      throw new Error('BGG non ha risposto dopo 5 tentativi. Riprova tra qualche minuto.')
+      throw new Error(t.noResponse)
     } catch (err: any) {
-      setResult({ text: err.message || 'Errore durante l\'importazione', type: 'error' })
+      setResult({ text: err.message || t.importError, type: 'error' })
     } finally {
       setImporting(false)
       setProgress(null)
@@ -140,14 +153,14 @@ export function BGGImport({ onImportDone }: Props) {
         </div>
         <div>
           <p className="text-sm font-semibold text-white">BoardGameGeek</p>
-          <p className="text-xs text-zinc-500">Importa la tua collezione di giochi da tavolo</p>
+          <p className="text-xs text-zinc-500">{t.subtitle}</p>
         </div>
       </div>
 
       {/* Info */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5 space-y-2">
         <p className="text-xs text-zinc-400">
-          Inserisci il tuo username BGG. La collezione deve essere <span className="text-amber-300 font-medium">pubblica</span> nelle impostazioni BGG.
+          {t.info1} <span className="text-amber-300 font-medium">{t.publicWord}</span> {t.info2}
         </p>
         <a
           href="https://boardgamegeek.com"
@@ -161,13 +174,13 @@ export function BGGImport({ onImportDone }: Props) {
 
       {/* Input username */}
       <div className="mb-4">
-        <label className="text-xs text-zinc-500 mb-2 block">Username BGG</label>
+        <label className="text-xs text-zinc-500 mb-2 block">{t.username}</label>
         <input
           type="text"
           value={bggUsername}
           onChange={e => setBggUsername(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleImport() }}
-          placeholder="es. mionome_bgg"
+          placeholder={t.placeholder}
           disabled={importing}
           className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/60 disabled:opacity-50 transition-colors"
         />
@@ -204,8 +217,8 @@ export function BGGImport({ onImportDone }: Props) {
         className="w-full py-3.5 bg-amber-600/90 hover:bg-amber-500/90 disabled:opacity-40 border border-amber-500/30 rounded-2xl font-semibold text-sm text-white transition flex items-center justify-center gap-2"
       >
         {importing
-          ? <><Loader2 size={16} className="animate-spin" />Importazione in corso…</>
-          : <><Download size={16} />Importa da BGG</>}
+          ? <><Loader2 size={16} className="animate-spin" />{t.loading}</>
+          : <><Download size={16} />{t.importFrom}</>}
       </button>
     </div>
   )

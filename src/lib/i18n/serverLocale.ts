@@ -24,6 +24,11 @@ export function localeToGoogleTarget(locale: AppLocale): 'it' | 'en' {
   return locale
 }
 
+export async function getServerLocale(): Promise<Locale> {
+  const store = await cookies()
+  return normalizeLocale(store.get('geekore_locale')?.value) ?? 'it'
+}
+
 export async function getRequestLocale(
   request?: NextRequest,
   supabase?: { from: (table: string) => any } | null,

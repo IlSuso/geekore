@@ -79,15 +79,6 @@ const TYPE_ORDER: Record<string, number> = {
   boardgame: 5,
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  anime: 'Anime',
-  game: 'Videogiochi',
-  tv: 'Serie TV',
-  manga: 'Manga',
-  movie: 'Film',
-  boardgame: 'Giochi da tavolo',
-}
-
 const FILTERS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'all', label: 'Tutti', icon: null },
   { id: 'anime', label: 'Anime', icon: <Swords size={13} /> },
@@ -494,13 +485,13 @@ export default function DiscoverPage() {
   ).sort(([a], [b]) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99))
 
   const browseSections = useMemo(() => [
-    { label: 'Anime', subtitle: 'Stagionali e cult', items: trendingAnime, typeKey: 'anime', icon: <Swords size={15} /> },
-    { label: 'Videogiochi', subtitle: 'Must-play e scoperte', items: trendingGames, typeKey: 'game', icon: <Gamepad2 size={15} /> },
-    { label: 'Serie TV', subtitle: 'Popolari ora', items: trendingTV, typeKey: 'tv', icon: <Tv size={15} /> },
-    { label: 'Manga', subtitle: 'Seinen, shonen, cult', items: trendingManga, typeKey: 'manga', icon: <Layers size={15} /> },
-    { label: 'Film', subtitle: 'Trending settimana', items: trendingMovies, typeKey: 'movie', icon: <Film size={15} /> },
-    { label: 'Board Game', subtitle: 'Per la prossima serata', items: trendingBoardgames, typeKey: 'boardgame', icon: <Dices size={15} /> },
-  ], [trendingAnime, trendingGames, trendingTV, trendingManga, trendingMovies, trendingBoardgames])
+    { label: typeLabel('anime', locale), subtitle: d.sectionSubtitles.anime, items: trendingAnime, typeKey: 'anime', icon: <Swords size={15} /> },
+    { label: typeLabel('game', locale), subtitle: d.sectionSubtitles.game, items: trendingGames, typeKey: 'game', icon: <Gamepad2 size={15} /> },
+    { label: typeLabel('tv', locale), subtitle: d.sectionSubtitles.tv, items: trendingTV, typeKey: 'tv', icon: <Tv size={15} /> },
+    { label: typeLabel('manga', locale), subtitle: d.sectionSubtitles.manga, items: trendingManga, typeKey: 'manga', icon: <Layers size={15} /> },
+    { label: typeLabel('movie', locale), subtitle: d.sectionSubtitles.movie, items: trendingMovies, typeKey: 'movie', icon: <Film size={15} /> },
+    { label: typeLabel('boardgame', locale), subtitle: d.sectionSubtitles.boardgame, items: trendingBoardgames, typeKey: 'boardgame', icon: <Dices size={15} /> },
+  ], [d.sectionSubtitles, locale, trendingAnime, trendingGames, trendingTV, trendingManga, trendingMovies, trendingBoardgames])
 
   const trendingToday = useMemo(() => {
     const mixed = [
@@ -559,7 +550,7 @@ export default function DiscoverPage() {
                   data-no-swipe="true"
                   onClick={toggleVoice}
                   className={`grid h-10 w-10 place-items-center rounded-[15px] transition-all ${isListening ? 'bg-red-500 text-white' : 'bg-[var(--accent)] text-[#0B0B0F] hover:opacity-90'}`}
-                  aria-label={isListening ? 'Ferma ricerca vocale' : 'Avvia ricerca vocale'}
+                  aria-label={isListening ? d.voiceStopAria : d.voiceStartAria}
                 >
                   {isListening ? <MicOff size={17} /> : <Mic size={17} />}
                 </button>
@@ -638,9 +629,9 @@ export default function DiscoverPage() {
                     {trendingToday[0]?.coverImage ? <img src={trendingToday[0].coverImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50 transition-transform duration-500 group-hover:scale-105" /> : null}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/62 to-black/5" />
                     <div className="relative z-10 flex min-h-[310px] flex-col justify-end p-5">
-                      <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.12)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--accent)]"><Flame size={12} /> trend leader</span>
+                      <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.12)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--accent)]"><Flame size={12} /> {d.trendLeader}</span>
                       <h3 className="line-clamp-2 font-display text-[34px] font-black leading-[0.95] tracking-[-0.05em] text-white">{trendingToday[0]?.title}</h3>
-                      <p className="mt-2 gk-mono text-white/70">{TYPE_LABELS[trendingToday[0]?.type || ''] || trendingToday[0]?.type}</p>
+                      <p className="mt-2 gk-mono text-white/70">{typeLabel(trendingToday[0]?.type || '', locale)}</p>
                     </div>
                   </button>
 
@@ -674,7 +665,7 @@ export default function DiscoverPage() {
               {browseSections.map(({ label, subtitle, items, typeKey, icon }) => (
                 <DiscoverSection key={typeKey} title={label} subtitle={subtitle} icon={icon} variant="panel" action={(
                   <button type="button" data-no-swipe="true" onClick={() => { setActiveType(typeKey); searchInputRef.current?.focus() }} className="rounded-full border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.08)] px-3 py-1.5 text-[12px] font-black text-[var(--accent)] transition-opacity hover:opacity-80">
-                    Cerca
+                    {d.searchButton}
                   </button>
                 )}>
                   {items.length === 0 ? (
@@ -713,24 +704,24 @@ export default function DiscoverPage() {
 
         {!loading && searchTerm.trim().length === 1 && (
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-6 text-[var(--text-muted)]">
-            <span className="text-[13px]">Scrivi ancora qualcosa per avviare la ricerca…</span>
+            <span className="text-[13px]">{d.typeMoreToSearch}</span>
           </div>
         )}
 
         {!loading && !searchError && results.length === 0 && searchTerm.trim().length >= 2 && !isPending && (
-          <EmptyState icon={Search} title="Nessun risultato" description={d.noResults} accent="zinc" />
+          <EmptyState icon={Search} title={d.emptyTitle} description={d.noResults} accent="zinc" />
         )}
 
         {showingResults && (
           <div className="space-y-5">
             <div className="flex flex-col gap-3 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/40 px-3 py-2.5 ring-1 ring-white/5 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="gk-label text-[var(--accent)]">Risultati ricerca</p>
+                <p className="gk-label text-[var(--accent)]">{d.resultsTitle}</p>
                 <h2 className="mt-1 font-display text-[22px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)]">“{searchTerm.trim()}”</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-[var(--border)] bg-black/18 px-3 py-1.5 font-mono-data text-[11px] font-black text-[var(--text-muted)]">{results.length} risultati</span>
-                <span className="rounded-full border border-[var(--border)] bg-black/18 px-3 py-1.5 font-mono-data text-[11px] font-black text-[var(--text-muted)]">{grouped.length} categorie</span>
+                <span className="rounded-full border border-[var(--border)] bg-black/18 px-3 py-1.5 font-mono-data text-[11px] font-black text-[var(--text-muted)]">{d.resultsCount(results.length)}</span>
+                <span className="rounded-full border border-[var(--border)] bg-black/18 px-3 py-1.5 font-mono-data text-[11px] font-black text-[var(--text-muted)]">{d.categoriesCount(grouped.length)}</span>
               </div>
             </div>
 

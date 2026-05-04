@@ -7,6 +7,8 @@ import { Film, Gamepad2, Tv, Medal, Star, Users, Layers, Dice5, TrendingUp } fro
 import type { TrendingItem } from './page'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { useLocalizedMediaRow } from '@/lib/i18n/clientMediaLocalization'
+import { useLocale } from '@/lib/locale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film,
@@ -34,6 +36,8 @@ function scoreLabel(item: TrendingItem) {
 }
 
 export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: number }) {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).trending
   const localizedItem = useLocalizedMediaRow(item, {
     titleKeys: ['title'],
     coverKeys: ['cover_image'],
@@ -43,14 +47,14 @@ export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: num
   const type = normalizeType(localizedItem.type)
   const Icon = TYPE_ICON[type] || Film
   const rating = scoreLabel(item)
-  const rankLabel = rank === 0 ? 'Trend leader' : rank === 1 ? 'In salita' : 'Caldo ora'
+  const rankLabel = rank === 0 ? copy.trendLeader : rank === 1 ? copy.rising : copy.hotNow
 
   return (
     <Link
       href={discoverHref({ ...localizedItem, type })}
       data-no-swipe="true"
       className={`group relative min-h-[250px] overflow-hidden rounded-[28px] border bg-[var(--bg-card)] p-4 transition-all hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${rank === 0 ? 'md:col-span-2 border-[rgba(230,255,61,0.28)]' : 'border-[var(--border-subtle)]'}`}
-      aria-label={`Apri ${localizedItem.title} in Discover`}
+      aria-label={copy.openInDiscover(localizedItem.title)}
     >
       {localizedItem.cover_image ? (
         <img src={localizedItem.cover_image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-42 blur-[1px] transition-transform duration-500 group-hover:scale-105" loading={rank === 0 ? 'eager' : 'lazy'} onError={(e) => { e.currentTarget.style.display = 'none' }} />
@@ -67,10 +71,10 @@ export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: num
           <MediaTypeBadge type={type} size="xs" />
         </div>
         <div>
-          <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-[rgba(230,255,61,0.12)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--accent)]"><TrendingUp size={11} /> settimana</p>
+          <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-[rgba(230,255,61,0.12)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--accent)]"><TrendingUp size={11} />{locale === 'en' ? 'week' : 'settimana'}</p>
           <h3 className="line-clamp-2 font-display text-[28px] font-black leading-[0.95] tracking-[-0.045em] text-white md:text-[34px]">{localizedItem.title}</h3>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2.5 py-1 text-[12px] font-black text-emerald-300"><Users size={12} /> {localizedItem.count} aggiunte</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2.5 py-1 text-[12px] font-black text-emerald-300"><Users size={12} /> {copy.additions(localizedItem.count)}</span>
             {rating && <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/12 px-2.5 py-1 text-[12px] font-black text-yellow-300"><Star size={12} fill="currentColor" /> {rating}</span>}
           </div>
         </div>
@@ -80,6 +84,8 @@ export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: num
 }
 
 export function TrendingCard({ item, rank, compact = false }: { item: TrendingItem; rank: number; compact?: boolean }) {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).trending
   const localizedItem = useLocalizedMediaRow(item, {
     titleKeys: ['title'],
     coverKeys: ['cover_image'],
@@ -100,7 +106,7 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
           ? 'border-[rgba(230,255,61,0.28)] shadow-[0_12px_42px_rgba(230,255,61,0.045)]'
           : 'border-[var(--border-subtle)] hover:border-[var(--border)]'
       }`}
-      aria-label={`Apri ${localizedItem.title} in Discover`}
+      aria-label={copy.openInDiscover(localizedItem.title)}
     >
       <div className={`flex ${compact ? 'h-8 w-8' : 'h-9 w-9'} flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/5 ${isPodium ? 'bg-black/24' : 'bg-[var(--bg-secondary)]'}`}>
         {isPodium
@@ -131,7 +137,7 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
             <MediaTypeBadge type={type} size="xs" />
             {rank === 0 && (
               <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(230,255,61,0.26)] bg-[rgba(230,255,61,0.08)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent)]">
-                <TrendingUp size={10} /> top
+                <TrendingUp size={10} /> {copy.top}
               </span>
             )}
           </div>
@@ -139,7 +145,7 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
         <p className={`${compact ? 'text-[13px]' : 'text-[14px]'} line-clamp-1 font-bold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]`}>
           {localizedItem.title}
         </p>
-        <p className="gk-mono mt-1 text-[var(--text-muted)]">apri in Discover</p>
+        <p className="gk-mono mt-1 text-[var(--text-muted)]">{locale === 'en' ? 'open in Discover' : 'apri in Discover'}</p>
       </div>
 
       <div className="flex flex-shrink-0 flex-col items-end gap-1.5">

@@ -4,6 +4,7 @@
 // Integrare in /settings o /profile/edit
 
 import { useState } from 'react'
+import { useLocale } from '@/lib/locale'
 import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Swords, BookOpen } from 'lucide-react'
 
 interface ImportResult {
@@ -23,7 +24,39 @@ type ProgressState = {
   message: string
 } | null
 
+
+const ANILIST_COPY = {
+  it: {
+    importError: "Errore durante l'importazione",
+    networkError: 'Errore di rete. Riprova tra qualche secondo.',
+    username: 'Username AniList',
+    placeholder: 'il-tuo-username',
+    publicHint: 'Il profilo AniList deve essere pubblico. Trovi lo username su',
+    whatToImport: 'Cosa importare',
+    imported: 'importati',
+    merged: 'uniti',
+    skipped: 'saltati',
+    importing: 'Importazione in corso...',
+    importList: 'Importa lista AniList',
+  },
+  en: {
+    importError: 'Import failed',
+    networkError: 'Network error. Try again in a few seconds.',
+    username: 'AniList username',
+    placeholder: 'your-username',
+    publicHint: 'Your AniList profile must be public. You can find your username on',
+    whatToImport: 'What to import',
+    imported: 'imported',
+    merged: 'merged',
+    skipped: 'skipped',
+    importing: 'Importing...',
+    importList: 'Import AniList list',
+  },
+} as const
+
 export function AniListImport() {
+  const { locale } = useLocale()
+  const t = ANILIST_COPY[locale]
   const [username, setUsername] = useState('')
   const [types, setTypes] = useState<string[]>(['ANIME', 'MANGA'])
   const [loading, setLoading] = useState(false)
@@ -52,8 +85,8 @@ export function AniListImport() {
       })
 
       if (!res.ok) {
-        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
-        catch { setError("Errore durante l'importazione") }
+        try { const data = await res.json(); setError(data.error || t.importError) }
+        catch { setError(t.importError) }
         setLoading(false); return
       }
 
@@ -78,7 +111,7 @@ export function AniListImport() {
         }
       }
     } catch {
-      setError('Errore di rete. Riprova tra qualche secondo.')
+      setError(t.networkError)
     }
 
     setLoading(false)
@@ -95,23 +128,23 @@ export function AniListImport() {
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm text-zinc-400 mb-2">Username AniList</label>
+          <label className="block text-sm text-zinc-400 mb-2">{t.username}</label>
           <input
             type="text"
             value={username}
             onChange={e => setUsername(e.target.value)}
-            placeholder="il-tuo-username"
+            placeholder={t.placeholder}
             className="w-full bg-zinc-800 border border-zinc-700 focus:border-blue-500 rounded-2xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none transition"
             disabled={loading}
           />
           <p className="text-xs text-zinc-600 mt-1">
-            Il profilo AniList deve essere pubblico. Trovi lo username su{' '}
+            {t.publicHint}{' '}
             <a href="https://anilist.co" target="_blank" className="text-blue-400 hover:underline">anilist.co</a>
           </p>
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-400 mb-2">Cosa importare</label>
+          <label className="block text-sm text-zinc-400 mb-2">{t.whatToImport}</label>
           <div className="flex gap-2">
             {['ANIME', 'MANGA'].map(type => (
               <button
@@ -146,9 +179,9 @@ export function AniListImport() {
             <div>
               <p className="font-medium">{result.message}</p>
               <p className="text-xs text-emerald-600 mt-0.5">
-                {result.imported > 0 && `${result.imported} importati`}
-                {result.merged > 0 && ` • ${result.merged} uniti`}
-                {result.skipped > 0 && ` • ${result.skipped} saltati`}
+                {result.imported > 0 && `${result.imported} ${t.imported}`}
+                {result.merged > 0 && ` • ${result.merged} ${t.merged}`}
+                {result.skipped > 0 && ` • ${result.skipped} ${t.skipped}`}
               </p>
             </div>
           </div>
@@ -182,12 +215,12 @@ export function AniListImport() {
           {loading ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Importazione in corso...
+              {t.importing}
             </>
           ) : (
             <>
               <Download size={16} />
-              Importa lista AniList
+              {t.importList}
             </>
           )}
         </button>

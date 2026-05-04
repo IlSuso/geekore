@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Mic, MicOff, Search, X } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface DiscoverSearchBoxProps {
   value: string
@@ -24,6 +25,8 @@ export function DiscoverSearchBox({
   onToggleVoice,
   rightSlot,
 }: DiscoverSearchBoxProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { clear: 'Clear search', stopVoice: 'Stop voice search', startVoice: 'Start voice search' } : { clear: 'Cancella ricerca', stopVoice: 'Ferma ricerca vocale', startVoice: 'Avvia ricerca vocale' }
   return (
     <div className="relative mb-4">
       <Search
@@ -52,7 +55,7 @@ export function DiscoverSearchBox({
             type="button"
             onClick={onClear}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--text-muted)] text-[var(--bg-primary)]"
-            aria-label="Cancella ricerca"
+            aria-label={copy.clear}
           >
             <X size={12} strokeWidth={2.5} />
           </button>
@@ -65,7 +68,7 @@ export function DiscoverSearchBox({
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
               isListening ? 'bg-red-500 text-white' : 'text-[var(--text-secondary)] hover:text-[var(--accent)]'
             }`}
-            aria-label={isListening ? 'Ferma ricerca vocale' : 'Avvia ricerca vocale'}
+            aria-label={isListening ? copy.stopVoice : copy.startVoice}
           >
             {isListening ? <MicOff size={15} /> : <Mic size={15} />}
           </button>

@@ -5,16 +5,17 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Flag, X, Check, Loader2 } from 'lucide-react'
 import { androidBack } from '@/hooks/androidBack'
+import { useLocale } from '@/lib/locale'
 
 type TargetType = 'post' | 'comment' | 'profile' | 'profile_comment'
 type Reason = 'spam' | 'harassment' | 'inappropriate' | 'misinformation' | 'other'
 
-const REASONS: { value: Reason; label: string }[] = [
-  { value: 'spam',           label: 'Spam o pubblicità' },
-  { value: 'harassment',     label: 'Molestie o insulti' },
-  { value: 'inappropriate',  label: 'Contenuto inappropriato' },
-  { value: 'misinformation', label: 'Informazioni false' },
-  { value: 'other',          label: 'Altro' },
+const REASONS: { value: Reason; label: { it: string; en: string } }[] = [
+  { value: 'spam',           label: { it: 'Spam o pubblicità', en: 'Spam or advertising' } },
+  { value: 'harassment',     label: { it: 'Molestie o insulti', en: 'Harassment or insults' } },
+  { value: 'inappropriate',  label: { it: 'Contenuto inappropriato', en: 'Inappropriate content' } },
+  { value: 'misinformation', label: { it: 'Informazioni false', en: 'False information' } },
+  { value: 'other',          label: { it: 'Altro', en: 'Other' } },
 ]
 
 interface ReportButtonProps {
@@ -25,6 +26,8 @@ interface ReportButtonProps {
 }
 
 export function ReportButton({ targetType, targetId, iconOnly = false, className = '' }: ReportButtonProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { title: 'Report content', sent: 'Report sent', sentBody: 'We will review the content as soon as possible.', question: 'Why are you reporting this content?', detailsPlaceholder: 'Additional details (optional)...', submit: 'Submit report', buttonTitle: 'Report content', report: 'Report' } : { title: 'Segnala contenuto', sent: 'Segnalazione inviata', sentBody: 'Esamineremo il contenuto al più presto.', question: 'Perché stai segnalando questo contenuto?', detailsPlaceholder: 'Dettagli aggiuntivi (opzionale)...', submit: 'Invia segnalazione', buttonTitle: 'Segnala contenuto', report: 'Segnala' }
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<Reason | null>(null)
   const [notes, setNotes] = useState('')
@@ -71,7 +74,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-white">Segnala contenuto</h3>
+          <h3 className="font-bold text-white">{copy.title}</h3>
           <button onClick={handleClose} className="text-zinc-500 hover:text-white transition">
             <X size={18} />
           </button>
@@ -82,12 +85,12 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
             <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Check size={24} className="text-emerald-400" />
             </div>
-            <p className="text-white font-medium">Segnalazione inviata</p>
-            <p className="text-zinc-500 text-sm mt-1">Esamineremo il contenuto al più presto.</p>
+            <p className="text-white font-medium">{copy.sent}</p>
+            <p className="text-zinc-500 text-sm mt-1">{copy.sentBody}</p>
           </div>
         ) : (
           <>
-            <p className="text-sm text-zinc-400 mb-4">Perché stai segnalando questo contenuto?</p>
+            <p className="text-sm text-zinc-400 mb-4">{copy.question}</p>
             <div className="space-y-2 mb-4">
               {REASONS.map(r => (
                 <button
@@ -99,7 +102,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
                       : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600'
                   }`}
                 >
-                  {r.label}
+                  {r.label[locale]}
                 </button>
               ))}
             </div>
@@ -107,7 +110,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value.slice(0, 300))}
-                placeholder="Dettagli aggiuntivi (opzionale)..."
+                placeholder={copy.detailsPlaceholder}
                 rows={2}
                 className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none resize-none transition mb-4"
               />
@@ -118,7 +121,7 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
               className="w-full py-3 bg-red-600 hover:bg-red-500 disabled:opacity-40 rounded-2xl font-semibold text-sm transition flex items-center justify-center gap-2"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Flag size={14} />}
-              Invia segnalazione
+              {copy.submit}
             </button>
           </>
         )}
@@ -131,11 +134,11 @@ export function ReportButton({ targetType, targetId, iconOnly = false, className
     <>
       <button
         onClick={() => { androidBack.push(handleClose); setOpen(true) }}
-        title="Segnala contenuto"
+        title={copy.buttonTitle}
         className={`flex items-center gap-1.5 text-zinc-600 hover:text-red-400 transition-colors text-xs ${className}`}
       >
         <Flag size={12} />
-        {!iconOnly && <span>Segnala</span>}
+        {!iconOnly && <span>{copy.report}</span>}
       </button>
       {modal}
     </>

@@ -7,6 +7,9 @@ import { TrendingUp, Flame, Star, Users, Radio, Sparkles, Compass } from 'lucide
 import Link from 'next/link'
 import { TrendingCard, TrendingHeroCard } from './TrendingCard'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { getServerLocale } from '@/lib/i18n/serverLocale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
+import { typeLabel } from '@/lib/i18n/uiCopy'
 
 export interface TrendingItem {
   title: string
@@ -108,6 +111,9 @@ function SectionTitle({ icon, title, action }: { icon: React.ReactNode; title: s
 }
 
 export default async function TrendingPage() {
+  const locale = await getServerLocale()
+  const copy = pageCopy(locale).trending
+  const common = pageCopy(locale).common
   const { byAdditions, byRating } = await getTrending()
 
   const grouped = byAdditions.reduce((acc: Record<string, TrendingItem[]>, item) => {
@@ -127,26 +133,26 @@ export default async function TrendingPage() {
 
   return (
     <PageScaffold
-      title="Trending"
-      description="Il battito settimanale della community: titoli aggiunti, votati e scoperti."
+      title={copy.title}
+      description={copy.description}
       icon={<TrendingUp size={16} />}
       contentClassName="mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[radial-gradient(circle_at_18%_0%,rgba(230,255,61,0.13),transparent_36%),linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-        <div className="mb-2 gk-section-eyebrow"><Radio size={12} /> Community pulse</div>
+        <div className="mb-2 gk-section-eyebrow"><Radio size={12} /> {copy.eyebrow}</div>
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Trending</h1>
-            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">Una vista editoriale su cosa sta entrando nelle librerie Geekore questa settimana.</p>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">{copy.title}</h1>
+            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">{copy.heroDescription}</p>
           </div>
           <Link href="/discover" data-no-swipe="true" className="inline-flex h-10 flex-shrink-0 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-            <Compass size={15} /> Scopri altro
+            <Compass size={15} /> {locale === "en" ? "Discover more" : "Scopri altro"}
           </Link>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-          <PulseStat label="titoli" value={byAdditions.length} accent icon={<TrendingUp size={14} />} />
-          <PulseStat label="aggiunte" value={totalAdds} icon={<Users size={14} />} />
-          <PulseStat label="medium caldo" value={topType?.count ? (TYPE_LABEL[topType.type] || topType.type) : '—'} icon={<Flame size={14} />} />
+          <PulseStat label={copy.titles} value={byAdditions.length} accent icon={<TrendingUp size={14} />} />
+          <PulseStat label={locale === "en" ? "additions" : "aggiunte"} value={totalAdds} icon={<Users size={14} />} />
+          <PulseStat label={locale === "en" ? "hot medium" : "medium caldo"} value={topType?.count ? typeLabel(topType.type, locale) : '—'} icon={<Flame size={14} />} />
         </div>
       </div>
 
@@ -155,17 +161,17 @@ export default async function TrendingPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <TrendingUp size={30} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato questa settimana</p>
-          <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi titoli alla Library o torna quando la community avrà generato nuovo segnale.</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{copy.emptyTitle}</p>
+          <p className="gk-body mx-auto mb-5 max-w-sm">{copy.emptyDescription}</p>
           <Link href="/discover" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-            Apri Discover
+            {common.openDiscover}
           </Link>
         </div>
       ) : (
         <>
           {podium.length > 0 && (
             <section className="mb-8">
-              <SectionTitle icon={<Flame size={16} className="text-orange-400" />} title="Podio della settimana" />
+              <SectionTitle icon={<Flame size={16} className="text-orange-400" />} title={locale === "en" ? "Weekly podium" : "Podio della settimana"} />
               <div className="grid gap-3 md:grid-cols-2">
                 {podium.map((item, i) => <TrendingHeroCard key={`podium-${item.type}-${item.external_id || item.title}`} item={item} rank={i} />)}
               </div>
@@ -174,7 +180,7 @@ export default async function TrendingPage() {
 
           {remainingTop.length > 0 && (
             <section className="mb-8 rounded-[28px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/55 p-4 ring-1 ring-white/5">
-              <SectionTitle icon={<TrendingUp size={16} />} title="Altri trend caldi" />
+              <SectionTitle icon={<TrendingUp size={16} />} title={copy.moreHot} />
               <div className="grid gap-2 md:grid-cols-2">
                 {remainingTop.map((item, i) => (
                   <TrendingCard key={`top-${item.type}-${item.external_id || item.title}`} item={item} rank={i + 3} compact />
@@ -185,7 +191,7 @@ export default async function TrendingPage() {
 
           {byRating.length > 0 && (
             <section className="mb-8">
-              <SectionTitle icon={<Star size={16} className="text-yellow-400" fill="currentColor" />} title="Più votati questa settimana" />
+              <SectionTitle icon={<Star size={16} className="text-yellow-400" fill="currentColor" />} title={copy.topRated} />
               <div className="grid gap-2 md:grid-cols-2">
                 {byRating.slice(0, 6).map((item, i) => (
                   <TrendingCard key={`rated-${item.type}-${item.external_id || item.title}`} item={item} rank={i} compact />
@@ -195,7 +201,7 @@ export default async function TrendingPage() {
           )}
 
           <section className="mb-8">
-            <SectionTitle icon={<Sparkles size={16} />} title="Per categoria" />
+            <SectionTitle icon={<Sparkles size={16} />} title={locale === "en" ? "By category" : "Per categoria"} />
             <div className="grid gap-4 lg:grid-cols-2">
               {typeOrder.map(type => {
                 const items = grouped[type]
@@ -203,7 +209,7 @@ export default async function TrendingPage() {
                 return (
                   <div key={type} className="rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/60 p-4 ring-1 ring-white/5">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <h3 className="gk-label">{TYPE_LABEL[type] || type}</h3>
+                      <h3 className="gk-label">{typeLabel(type, locale)}</h3>
                       <span className="gk-mono text-[var(--text-muted)]">{items.length}</span>
                     </div>
                     <div className="space-y-2">
@@ -220,7 +226,7 @@ export default async function TrendingPage() {
       )}
 
       <div className="mt-8 rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-5 text-center">
-        <p className="gk-body mb-4">Vuoi vedere quanto pesano i tuoi media?</p>
+        <p className="gk-body mb-4">{locale === "en" ? "Want to see how much your media weigh?" : "Vuoi vedere quanto pesano i tuoi media?"}</p>
         <Link
           href="/stats"
           data-no-swipe="true"
@@ -228,7 +234,7 @@ export default async function TrendingPage() {
           style={{ background: 'var(--accent)', color: '#0B0B0F' }}
         >
           <TrendingUp size={16} />
-          Apri il tuo Time DNA
+          {copy.openTimeDna}
         </Link>
       </div>
     </PageScaffold>

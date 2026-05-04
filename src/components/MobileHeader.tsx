@@ -13,6 +13,7 @@ import {
   Bookmark, BarChart2, Trophy, List, Library,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
+import { appCopy } from '@/lib/i18n/appCopy'
 import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
@@ -22,14 +23,14 @@ import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
 
-function BackButton() {
+function BackButton({ label }: { label: string }) {
   return (
     <button
       type="button"
       data-no-swipe="true"
       onClick={() => window.history.back()}
       className="-ml-2 flex h-10 w-10 items-center justify-center rounded-2xl text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-      aria-label="Torna indietro"
+      aria-label={label}
     >
       <ChevronLeft size={27} strokeWidth={1.75} />
     </button>
@@ -52,7 +53,8 @@ function PageTitle({ title, icon }: PageTitleProps) {
 
 export function MobileHeader() {
   const pathname = usePathname()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const copy = appCopy(locale)
   const [unread, setUnread] = useState(false)
   const [username, setUsername] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
@@ -95,20 +97,20 @@ export function MobileHeader() {
   const PAGE_CONFIG: Record<string, PageTitleProps> = {
     '/discover': { title: t.nav.discover, icon: <Search size={16} /> },
     '/for-you': { title: t.nav.forYou, icon: <Sparkles size={16} /> },
-    '/trending': { title: 'Trending', icon: <TrendingUp size={16} /> },
-    '/swipe': { title: 'Swipe', icon: <Shuffle size={16} /> },
-    '/notifications': { title: 'Notifiche', icon: <Bell size={16} /> },
-    '/settings/profile': { title: 'Modifica Profilo', icon: <Edit3 size={16} /> },
+    '/trending': { title: copy.nav.trending, icon: <TrendingUp size={16} /> },
+    '/swipe': { title: copy.nav.swipe, icon: <Shuffle size={16} /> },
+    '/notifications': { title: copy.nav.notifications, icon: <Bell size={16} /> },
+    '/settings/profile': { title: copy.nav.editProfile, icon: <Edit3 size={16} /> },
     '/settings': { title: t.nav.settings, icon: <Settings size={16} /> },
-    '/profile/setup': { title: 'Crea Profilo', icon: <Edit3 size={16} /> },
-    '/wishlist': { title: 'Wishlist', icon: <Bookmark size={16} /> },
-    '/stats': { title: 'Statistiche', icon: <BarChart2 size={16} /> },
-    '/leaderboard': { title: 'Classifica', icon: <Trophy size={16} /> },
-    '/lists': { title: 'Liste', icon: <List size={16} /> },
-    '/explore': { title: 'Esplora', icon: <Search size={16} /> },
-    '/friends': { title: 'Friends', icon: <Users size={16} /> },
-    '/community': { title: 'Friends', icon: <Users size={16} /> },
-    '/library': { title: 'Library', icon: <Library size={16} /> },
+    '/profile/setup': { title: copy.nav.createProfile, icon: <Edit3 size={16} /> },
+    '/wishlist': { title: copy.nav.wishlist, icon: <Bookmark size={16} /> },
+    '/stats': { title: copy.nav.stats, icon: <BarChart2 size={16} /> },
+    '/leaderboard': { title: copy.nav.leaderboard, icon: <Trophy size={16} /> },
+    '/lists': { title: copy.nav.lists, icon: <List size={16} /> },
+    '/explore': { title: copy.nav.explore, icon: <Search size={16} /> },
+    '/friends': { title: copy.nav.friends, icon: <Users size={16} /> },
+    '/community': { title: copy.nav.friends, icon: <Users size={16} /> },
+    '/library': { title: t.nav.library, icon: <Library size={16} /> },
   }
 
   const pageConfig = Object.entries(PAGE_CONFIG)
@@ -116,28 +118,28 @@ export function MobileHeader() {
     .find(([k]) => pathname === k || pathname.startsWith(k + '/'))?.[1]
 
   const renderLeft = () => {
-    if (isSubPage) return <BackButton />
+    if (isSubPage) return <BackButton label={copy.nav.back} />
     if (isFeed) return <GeekoreWordmark size="md" />
     if (isOwnProfile) return (
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="gk-headline truncate text-[var(--text-primary)]">
-          {username || 'Profilo'}
+          {username || copy.nav.profileFallback}
         </span>
       </div>
     )
     if (isOtherProfile && profileUsername && profileUsername !== 'me') return (
       <div className="flex min-w-0 items-center gap-1.5">
-        <BackButton />
+        <BackButton label={copy.nav.back} />
         <h1 className="gk-headline truncate text-[var(--text-primary)]">{profileUsername}</h1>
       </div>
     )
     if (pageConfig) return (
       <div className="flex min-w-0 items-center gap-2">
-        {(isSubPage || pathname === '/settings/profile' || pathname === '/profile/setup') && <BackButton />}
+        {(isSubPage || pathname === '/settings/profile' || pathname === '/profile/setup') && <BackButton label={copy.nav.back} />}
         <PageTitle {...pageConfig} />
       </div>
     )
-    return <BackButton />
+    return <BackButton label={copy.nav.back} />
   }
 
   const openNotif = () => { setUnread(false); setNotifOpen(true) }
@@ -145,7 +147,7 @@ export function MobileHeader() {
   const avatarSrc = avatarUrl || (username ? getLocalAvatarSvg(username, displayName) : undefined)
 
   const NotificationButton = () => (
-    <button type="button" data-no-swipe="true" onClick={openNotif} className={`${iconCls} relative`} aria-label="Notifiche">
+    <button type="button" data-no-swipe="true" onClick={openNotif} className={`${iconCls} relative`} aria-label={copy.nav.notifications}>
       <Bell size={21} strokeWidth={1.7} />
       {unread && <span className="notif-badge-pulse absolute right-2 top-2.5 h-2 w-2 rounded-full border-[1.5px] border-black bg-red-500" />}
     </button>
@@ -156,19 +158,19 @@ export function MobileHeader() {
       href={`/profile/${currentUsername}`}
       data-no-swipe="true"
       className="flex h-10 w-10 items-center justify-center rounded-2xl transition-colors hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
-      aria-label="Apri profilo"
+      aria-label={copy.nav.openProfile}
     >
-      <Avatar src={avatarSrc} username={currentUsername} displayName={displayName || username || 'Profilo'} size={30} />
+      <Avatar src={avatarSrc} username={currentUsername} displayName={displayName || username || copy.nav.profileFallback} size={30} />
     </Link>
   )
 
   const renderRight = () => {
     if (isOwnProfile) return (
       <>
-        <Link href="/settings/profile" data-no-swipe="true" className={iconCls} aria-label="Modifica profilo">
+        <Link href="/settings/profile" data-no-swipe="true" className={iconCls} aria-label={copy.nav.editProfile}>
           <Edit3 size={20} strokeWidth={1.75} />
         </Link>
-        <Link href="/settings" data-no-swipe="true" className={iconCls} aria-label="Impostazioni">
+        <Link href="/settings" data-no-swipe="true" className={iconCls} aria-label={t.nav.settings}>
           <Settings size={20} strokeWidth={1.75} />
         </Link>
       </>

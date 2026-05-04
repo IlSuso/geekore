@@ -23,13 +23,51 @@ function LocaleToggle() {
   )
 }
 
-const BRAND_ITEMS = [
-  { icon: Gamepad2, label: 'Videogiochi', color: '#7C3AED' },
-  { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
-  { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
-  { icon: Film, label: 'Film', color: '#F97316' },
-  { icon: Sparkles, label: 'Per Te — AI', color: '#EC4899' },
-]
+function loginBrandItems(locale: 'it' | 'en') {
+  return locale === 'en'
+    ? [
+      { icon: Gamepad2, label: 'Games', color: '#7C3AED' },
+      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Tv, label: 'TV Shows', color: '#0EA5E9' },
+      { icon: Film, label: 'Movies', color: '#F97316' },
+      { icon: Sparkles, label: 'For You — AI', color: '#EC4899' },
+    ]
+    : [
+      { icon: Gamepad2, label: 'Videogiochi', color: '#7C3AED' },
+      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
+      { icon: Film, label: 'Film', color: '#F97316' },
+      { icon: Sparkles, label: 'Per Te — AI', color: '#EC4899' },
+    ]
+}
+
+const loginHeroCopy = {
+  it: {
+    titleA: 'Bentornato',
+    titleB: 'nel tuo mondo',
+    body: 'Accedi per vedere i tuoi progressi e le raccomandazioni personalizzate.',
+    track: 'Traccia tutto ciò che ami',
+    signInLabel: 'Accedi',
+    noAccount: 'Non hai ancora un account?',
+    createAccount: 'Crea account',
+    showPassword: 'Mostra password',
+    hidePassword: 'Nascondi password',
+    forgotPassword: 'Password dimenticata?',
+  },
+  en: {
+    titleA: 'Welcome back',
+    titleB: 'to your world',
+    body: 'Sign in to see your progress and personalized recommendations.',
+    track: 'Track everything you love',
+    signInLabel: 'Sign in',
+    noAccount: 'No account yet?',
+    createAccount: 'Create account',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    forgotPassword: 'Forgot password?',
+  },
+} as const
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -39,8 +77,10 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
   const l = t.login
+  const hero = loginHeroCopy[locale]
+  const brandItems = loginBrandItems(locale)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -108,17 +148,17 @@ export default function LoginPage() {
           <div className="relative flex-1 flex flex-col justify-center gap-8">
             <div>
               <h2 className="font-black leading-tight mb-3" style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>
-                Bentornato<br />
-                <span style={{ color: 'var(--accent)' }}>nel tuo mondo</span>
+                {hero.titleA}<br />
+                <span style={{ color: 'var(--accent)' }}>{hero.titleB}</span>
               </h2>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Accedi per vedere i tuoi progressi e le raccomandazioni personalizzate.
+                {hero.body}
               </p>
             </div>
 
             <div className="space-y-2.5">
-              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.25)' }}>Traccia tutto ciò che ami</p>
-              {BRAND_ITEMS.map(({ icon: Icon, label, color }) => (
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.25)' }}>{hero.track}</p>
+              {brandItems.map(({ icon: Icon, label, color }) => (
                 <div key={label} className="flex items-center gap-3">
                   <div className="grid place-items-center flex-shrink-0" style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}22` }}>
                     <Icon size={15} style={{ color }} />
@@ -130,7 +170,7 @@ export default function LoginPage() {
           </div>
 
           <div className="relative rounded-2xl p-4" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
-            <p className="text-xs font-black mb-1" style={{ color: 'var(--accent)' }}>Non hai un account?</p>
+            <p className="text-xs font-black mb-1" style={{ color: 'var(--accent)' }}>{hero.noAccount}</p>
             <Link href="/register" className="inline-flex items-center gap-1.5 text-xs font-bold transition-opacity hover:opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Registrati gratis <ArrowRight size={11} />
             </Link>
@@ -172,7 +212,7 @@ export default function LoginPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label htmlFor="password" className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.password}</label>
-                      <Link href="/forgot-password" className="text-xs font-bold" style={{ color: 'var(--accent)' }}>Password dimenticata?</Link>
+                      <Link href="/forgot-password" className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{hero.forgotPassword}</Link>
                     </div>
                     <div className="relative">
                       <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={password}

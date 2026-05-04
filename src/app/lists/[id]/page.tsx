@@ -14,6 +14,8 @@ import Link from 'next/link'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
+import { useLocale } from '@/lib/locale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
 
 interface ListItem {
   id: string
@@ -62,6 +64,8 @@ function normalize(value: string) {
 }
 
 export default function ListDetailPage() {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale)
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const supabase = createClient()
@@ -199,7 +203,7 @@ export default function ListDetailPage() {
   return (
     <PageScaffold
       title={list.title}
-      description={list.description || 'Lista curata della community Geekore.'}
+      description={list.description || copy.listDetail.fallbackDescription}
       icon={<List size={16} />}
       contentClassName="max-w-3xl pt-2 md:pt-8 pb-28"
     >
@@ -209,7 +213,7 @@ export default function ListDetailPage() {
         className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
       >
         <ArrowLeft size={14} />
-        Le mie liste
+        {copy.lists.title}
       </Link>
 
       <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
@@ -225,7 +229,7 @@ export default function ListDetailPage() {
                 data-no-swipe="true"
                 onClick={handleShare}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] transition-colors hover:text-white"
-                aria-label="Condividi lista"
+                aria-label={copy.listDetail.shareAria}
               >
                 <Share2 size={16} />
               </button>
@@ -239,7 +243,7 @@ export default function ListDetailPage() {
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}
               >
                 <Plus size={15} />
-                Aggiungi
+                {copy.common.add}
               </button>
             )}
           </div>
@@ -247,33 +251,33 @@ export default function ListDetailPage() {
 
         <div className="mb-2 flex items-center gap-2">
           {list.is_public ? <Globe size={14} className="text-emerald-400" /> : <Lock size={14} className="text-[var(--text-muted)]" />}
-          <span className="gk-label">{list.is_public ? 'Lista pubblica' : 'Lista privata'}</span>
+          <span className="gk-label">{list.is_public ? copy.listDetail.publicLabel : copy.listDetail.privateLabel}</span>
         </div>
         <h1 className="gk-h1 mb-2 text-[var(--text-primary)]">{list.title}</h1>
         {list.description && <p className="gk-body max-w-2xl">{list.description}</p>}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
-          <span className="gk-caption">di</span>
+          <span className="gk-caption">{locale === "en" ? "by" : "di"}</span>
           {list.owner?.username ? (
             <Link href={`/profile/${list.owner.username}`} data-no-swipe="true" className="gk-mono text-[var(--accent)] transition-opacity hover:opacity-80">
               @{list.owner.username}
             </Link>
           ) : (
-            <span className="gk-mono text-[var(--text-muted)]">utente</span>
+            <span className="gk-mono text-[var(--text-muted)]">{copy.listDetail.userFallback}</span>
           )}
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <CollectionStat label="titoli" value={localizedItems.length} accent />
+          <CollectionStat label={copy.listDetail.items} value={localizedItems.length} accent />
           <CollectionStat label="medium" value={typeCount} />
-          <CollectionStat label="visibilità" value={list.is_public ? 'pubblica' : 'privata'} />
+          <CollectionStat label={locale === "en" ? "visibility" : "visibilità"} value={list.is_public ? copy.listDetail.publicLabel.toLowerCase() : copy.listDetail.privateLabel.toLowerCase()} />
         </div>
       </div>
 
       {showAddPanel && isOwner && (
         <div className="mb-6 overflow-hidden rounded-[26px] border border-[var(--border)] bg-[var(--bg-card)]" data-no-swipe="true">
           <div className="border-b border-[var(--border)] bg-[rgba(230,255,61,0.03)] px-4 py-3">
-            <p className="gk-label text-[var(--accent)]">Aggiungi dalla tua collezione</p>
+            <p className="gk-label text-[var(--accent)]">{copy.listDetail.addFromCollection}</p>
           </div>
           <div className="p-4">
             <div className="relative mb-3">
@@ -283,7 +287,7 @@ export default function ListDetailPage() {
                 type="text"
                 value={searchFilter}
                 onChange={e => setSearchFilter(e.target.value)}
-                placeholder="Cerca nella collezione..."
+                placeholder={copy.listDetail.searchCollection}
                 className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] py-2.5 pl-10 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[rgba(230,255,61,0.45)]"
               />
             </div>
@@ -320,7 +324,7 @@ export default function ListDetailPage() {
               })}
               {filteredCollection.length === 0 && (
                 <p className="gk-caption py-6 text-center">
-                  {searchFilter ? 'Nessun risultato' : 'Tutti i titoli della collezione sono già nella lista'}
+                  {searchFilter ? copy.listDetail.noResults : copy.listDetail.allAlreadyAdded}
                 </p>
               )}
             </div>
@@ -333,8 +337,8 @@ export default function ListDetailPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <Film size={28} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">Questa lista è vuota</p>
-          <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi titoli dalla tua collezione per trasformarla in una raccolta curata.</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{locale === "en" ? "This list is empty" : "Questa lista è vuota"}</p>
+          <p className="gk-body mx-auto mb-5 max-w-sm">{copy.listDetail.emptyBody}</p>
           {isOwner && (
             <button
               type="button"
@@ -342,7 +346,7 @@ export default function ListDetailPage() {
               onClick={() => setShowAddPanel(true)}
               className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]"
             >
-              Aggiungi titoli
+              {copy.listDetail.addTitles}
             </button>
           )}
         </div>
@@ -383,7 +387,7 @@ export default function ListDetailPage() {
                     onClick={() => handleRemoveItem(item.id)}
                     disabled={isRemoving}
                     className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl text-[var(--text-muted)] opacity-100 transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100"
-                    aria-label="Rimuovi dalla lista"
+                    aria-label={copy.listDetail.removeAria}
                   >
                     {isRemoving ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={15} />}
                   </button>

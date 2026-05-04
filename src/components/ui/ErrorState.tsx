@@ -2,6 +2,7 @@
 // src/components/ui/ErrorState.tsx
 
 import { AlertTriangle, WifiOff, RefreshCw, ShieldAlert, Inbox } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface ErrorStateProps {
   error: string
@@ -10,6 +11,8 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { title: 'Something went wrong', retry: 'Retry' } : { title: 'Qualcosa è andato storto', retry: 'Riprova' }
   const isOffline = error.toLowerCase().includes('offline') || error.toLowerCase().includes('connessione')
   const isAuth = error.toLowerCase().includes('permessi') || error.toLowerCase().includes('sessione')
   const Icon = isOffline ? WifiOff : isAuth ? ShieldAlert : AlertTriangle
@@ -19,7 +22,7 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[22px] border border-red-500/24 bg-red-500/10">
         <Icon size={24} className="text-red-400" />
       </div>
-      <p className="gk-title mb-1 text-[var(--text-primary)]">Qualcosa è andato storto</p>
+      <p className="gk-title mb-1 text-[var(--text-primary)]">{copy.title}</p>
       <p className="gk-body max-w-xs">{error}</p>
       {onRetry && (
         <button
@@ -30,7 +33,7 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
           className="mt-5 flex items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-4 py-2 text-sm font-black text-[var(--accent)] transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
         >
           <RefreshCw size={14} />
-          Riprova
+          {copy.retry}
         </button>
       )}
     </div>
@@ -38,6 +41,8 @@ export function ErrorState({ error, onRetry, className = '' }: ErrorStateProps) 
 }
 
 export function InlineError({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const { locale } = useLocale()
+  const retryLabel = locale === 'en' ? 'Retry' : 'Riprova'
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm" data-no-swipe="true">
       <AlertTriangle size={16} className="flex-shrink-0 text-red-400" />
@@ -49,7 +54,7 @@ export function InlineError({ error, onRetry }: { error: string; onRetry?: () =>
           onClick={(event) => { event.stopPropagation(); onRetry() }}
           onPointerDown={event => event.stopPropagation()}
           className="flex-shrink-0 text-red-400 transition-colors hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/35 rounded-lg p-1"
-          aria-label="Riprova"
+          aria-label={retryLabel}
         >
           <RefreshCw size={14} />
         </button>
@@ -66,17 +71,19 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  title = 'Nessun contenuto',
+  title,
   description,
   action,
   className = '',
 }: EmptyStateProps) {
+  const { locale } = useLocale()
+  const resolvedTitle = title || (locale === 'en' ? 'No content' : 'Nessun contenuto')
   return (
     <div className={`gk-empty-actionable flex flex-col items-center justify-center px-6 py-14 text-center ${className}`} data-no-swipe="true">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[22px] border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)]">
         <Inbox size={24} className="text-[var(--accent)]" />
       </div>
-      <p className="gk-title mb-1 text-[var(--text-primary)]">{title}</p>
+      <p className="gk-title mb-1 text-[var(--text-primary)]">{resolvedTitle}</p>
       {description && <p className="gk-body max-w-xs">{description}</p>}
       {action && (
         <button

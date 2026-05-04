@@ -5,13 +5,15 @@ import { usePathname } from 'next/navigation'
 import { useLocale } from '@/lib/locale'
 import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 
-const PRODUCT_LINKS = [
-  { href: '/discover', label: 'Discover' },
-  { href: '/for-you', label: 'For You' },
-  { href: '/trending', label: 'Trending' },
-  { href: '/leaderboard', label: 'Classifica' },
-  { href: '/settings', label: 'Settings' },
-]
+function productLinks(locale: 'it' | 'en') {
+  return [
+    { href: '/discover', label: 'Discover' },
+    { href: '/for-you', label: 'For You' },
+    { href: '/trending', label: 'Trending' },
+    { href: '/leaderboard', label: locale === 'en' ? 'Leaderboard' : 'Classifica' },
+    { href: '/settings', label: locale === 'en' ? 'Settings' : 'Impostazioni' },
+  ]
+}
 
 const APP_ROUTE_PREFIXES = [
   '/home',
@@ -47,7 +49,8 @@ function matchesRoutePrefix(pathname: string, prefix: string): boolean {
 
 export function Footer() {
   const pathname = usePathname()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const links = productLinks(locale)
 
   // La landing ha già il proprio footer/chiusura visuale.
   if (pathname === '/') return null
@@ -69,12 +72,12 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <GeekoreWordmark size="sm" className="opacity-75 transition-opacity hover:opacity-100" />
           <p className="max-w-sm text-xs leading-relaxed text-[var(--text-muted)]">
-            Il tuo universo media: library, consigli, community e profilo pubblico nello stesso posto.
+            {locale === 'en' ? 'Your media universe: library, recommendations, community and public profile in one place.' : 'Il tuo universo media: library, consigli, community e profilo pubblico nello stesso posto.'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-[var(--text-muted)]">
-          {PRODUCT_LINKS.map(link => (
+          {links.map(link => (
             <Link key={link.href} href={link.href} data-no-swipe="true" className={linkClass}>
               {link.label}
             </Link>
@@ -87,7 +90,7 @@ export function Footer() {
             <span className="text-[var(--border)]">·</span>
             <Link href="/terms" data-no-swipe="true" className={legalClass}>{t.legal.terms}</Link>
             <span className="text-[var(--border)]">·</span>
-            <Link href="/cookies" data-no-swipe="true" className={legalClass}>Cookie Policy</Link>
+            <Link href="/cookies" data-no-swipe="true" className={legalClass}>{locale === 'en' ? 'Cookie Policy' : 'Cookie Policy'}</Link>
           </div>
           <p className="text-xs text-[var(--text-muted)]">{t.legal.rights}</p>
         </div>

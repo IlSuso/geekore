@@ -238,6 +238,7 @@ function MediaCard({
   const { t, locale } = useLocale()
   const router = useRouter()
   const m = t.media
+  const cardCopy = locale === 'it' ? { completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', watching: 'In corso', fetching: 'Recupero…', fetchTotal: 'Recupera totale', fetchEpisodes: 'Recupera episodi' } : { completed: 'Completed', paused: 'Paused', dropped: 'Dropped', watching: 'In progress', fetching: 'Fetching…', fetchTotal: 'Fetch total', fetchEpisodes: 'Fetch episodes' }
   const [imgFailed, setImgFailed] = useState(false)
   const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
 
@@ -269,10 +270,10 @@ function MediaCard({
   const hasNotes = !!media.notes?.trim()
 
   const statusBadge: Record<string, { label: string; cls: string; style?: React.CSSProperties }> = {
-    completed: { label: 'Completato', cls: '', style: { background: 'rgba(230,255,61,0.12)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.3)' } },
-    paused: { label: 'In pausa', cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
-    dropped: { label: 'Abbandonato', cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
-    watching: { label: 'In corso', cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
+    completed: { label: cardCopy.completed, cls: '', style: { background: 'rgba(230,255,61,0.12)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.3)' } },
+    paused: { label: cardCopy.paused, cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
+    dropped: { label: cardCopy.dropped, cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
+    watching: { label: cardCopy.watching, cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
   }
 
   // Cover rendering
@@ -448,10 +449,10 @@ function MediaCard({
                 onPointerDown={e => e.stopPropagation()}
                 className="min-w-0 flex-1 cursor-pointer appearance-none rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-bold text-[var(--text-secondary)] outline-none transition focus:border-[rgba(230,255,61,0.45)]"
               >
-                <option value="watching">In corso</option>
-                <option value="completed">Completato</option>
-                <option value="paused">In pausa</option>
-                <option value="dropped">Abbandonato</option>
+                <option value="watching">{cardCopy.watching}</option>
+                <option value="completed">{cardCopy.completed}</option>
+                <option value="paused">{cardCopy.paused}</option>
+                <option value="dropped">{cardCopy.dropped}</option>
               </select>
             ) : (
               (() => {
@@ -504,7 +505,7 @@ function MediaCard({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-[var(--accent)]">
                         <CheckCircle size={12} />
-                        <span className="text-[11px] font-semibold">Completato</span>
+                        <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
                       </div>
                       <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
                         <RotateCcw size={13} />
@@ -513,7 +514,7 @@ function MediaCard({
                   ) : (
                     <div className="flex items-center gap-1 text-[var(--accent)]">
                       <CheckCircle size={12} />
-                      <span className="text-[11px] font-semibold">Completato</span>
+                      <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
                     </div>
                   )
                 ) : (
@@ -552,7 +553,7 @@ function MediaCard({
                     {isOwner && !maxCh && (
                       <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
                         {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                        {enriching ? 'Recupero…' : 'Recupera totale'}
+                        {enriching ? cardCopy.fetching : cardCopy.fetchTotal}
                       </button>
                     )}
                   </>
@@ -570,7 +571,7 @@ function MediaCard({
               ) : (
                 <div className="flex items-center gap-1 text-[var(--accent)]">
                   <CheckCircle size={13} />
-                  <span className="text-[11px] font-semibold">Completato</span>
+                  <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
                 </div>
               )
             ) : (
@@ -603,7 +604,7 @@ function MediaCard({
               className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
             >
               {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-              {enriching ? 'Recupero…' : 'Recupera episodi'}
+              {enriching ? cardCopy.fetching : cardCopy.fetchEpisodes}
             </button>
           ) : null}
         </div>
@@ -655,6 +656,8 @@ function CollectionControls({
   statusFilter: string; onStatusFilter: (v: string) => void
   isOwner: boolean
 }) {
+  const { locale } = useLocale()
+  const copy = locale === 'it' ? { ownerPlaceholder: 'Cerca nella tua collezione…', otherPlaceholder: 'Cerca nella collezione…', clearSearch: 'Cancella ricerca collezione', all: 'Tutti', watching: 'In corso', completed: 'Completati', paused: 'In pausa', dropped: 'Abbandonati', default: 'Default', ratingDesc: 'Voto ↓', progressDesc: 'Progresso ↓', recent: 'Recenti', reset: 'Reset' } : { ownerPlaceholder: 'Search your collection…', otherPlaceholder: 'Search the collection…', clearSearch: 'Clear collection search', all: 'All', watching: 'In progress', completed: 'Completed', paused: 'Paused', dropped: 'Dropped', default: 'Default', ratingDesc: 'Rating ↓', progressDesc: 'Progress ↓', recent: 'Recent', reset: 'Reset' }
   const hasFilters = search || statusFilter !== 'all' || sort !== 'default'
 
   return (
@@ -666,11 +669,11 @@ function CollectionControls({
             type="text"
             value={search}
             onChange={e => onSearch(e.target.value)}
-            placeholder={isOwner ? "Cerca nella tua collezione…" : "Cerca nella collezione…"}
+            placeholder={isOwner ? copy.ownerPlaceholder : copy.otherPlaceholder}
             className="h-10 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {search && (
-            <button type="button" onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Cancella ricerca collezione">
+            <button type="button" onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label={copy.clearSearch}>
               <X size={13} />
             </button>
           )}
@@ -681,11 +684,11 @@ function CollectionControls({
           onChange={e => onStatusFilter(e.target.value)}
           className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
-          <option value="all">Tutti</option>
-          <option value="watching">In corso</option>
-          <option value="completed">Completati</option>
-          <option value="paused">In pausa</option>
-          <option value="dropped">Abbandonati</option>
+          <option value="all">{copy.all}</option>
+          <option value="watching">{copy.watching}</option>
+          <option value="completed">{copy.completed}</option>
+          <option value="paused">{copy.paused}</option>
+          <option value="dropped">{copy.dropped}</option>
         </select>
 
         <select
@@ -693,12 +696,12 @@ function CollectionControls({
           onChange={e => onSort(e.target.value as SortMode)}
           className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
-          <option value="default">Default</option>
-          <option value="rating_desc">Voto ↓</option>
+          <option value="default">{copy.default}</option>
+          <option value="rating_desc">{copy.ratingDesc}</option>
           <option value="title_asc">A → Z</option>
           <option value="title_desc">Z → A</option>
-          <option value="progress_desc">Progresso ↓</option>
-          <option value="date_desc">Recenti</option>
+          <option value="progress_desc">{copy.progressDesc}</option>
+          <option value="date_desc">{copy.recent}</option>
         </select>
 
         {hasFilters && (
@@ -706,8 +709,7 @@ function CollectionControls({
             type="button"
             onClick={() => { onSearch(''); onStatusFilter('all'); onSort('default') }}
             className="h-10 rounded-2xl border border-[var(--border)] px-3 text-xs font-black text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
-          >
-            Reset
+          >{copy.reset}
           </button>
         )}
       </div>
@@ -726,6 +728,9 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
   onStatusChange?: (id: string, status: string) => void
 }) {
   const { t, locale } = useLocale()
+  const cardCopy = locale === 'it'
+    ? { completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', watching: 'In corso' }
+    : { completed: 'Completed', paused: 'Paused', dropped: 'Dropped', watching: 'In progress' }
   const hasEpisodes = !!(media.episodes && media.episodes > 1)
   const maxEp = media.episodes || 0
   const [rowImgFailed, setRowImgFailed] = useState(false)
@@ -770,10 +775,10 @@ function CompactMediaRow({ media, isOwner, onDelete, onRating, onSaveProgress, o
           <MediaTypeBadge type={media.type} size="xs" />
           {isOwner && (
             <select value={media.status || 'watching'} onChange={e => onStatusChange?.(media.id, e.target.value)} className="bg-transparent text-[10px] text-[var(--text-muted)] outline-none cursor-pointer">
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">Pausa</option>
-              <option value="dropped">Abbandonato</option>
+              <option value="watching">{cardCopy.watching}</option>
+              <option value="completed">{cardCopy.completed}</option>
+              <option value="paused">{cardCopy.paused}</option>
+              <option value="dropped">{cardCopy.dropped}</option>
             </select>
           )}
         </div>
@@ -831,6 +836,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const { t, locale } = useLocale()
   const sensors = useDndSensors()
   const { csrfFetch } = useCsrf()
+  const pc = locale === 'it' ? { profile: 'Profile', bioHint: 'Aggiungi una bio per raccontare il tuo universo media.', media: 'media', completed: 'completati', topBuilding: 'in costruzione', collection: 'Collezione', activity: 'Attività', board: 'Bacheca', emptyOwnerTitle: 'La tua collezione è vuota', emptyOtherTitle: 'Nessun media pubblico', openDiscover: 'Apri Discover', noTitles: 'Nessun titolo trovato', noTitlesHint: 'Prova a modificare ricerca, filtro o ordinamento.', clearFilters: 'Cancella filtri', collectionSection: 'Sezione collezione', seeAll: 'Vedi tutti', activityLog: 'Activity log', recentActivity: 'Attività recente', activityHint: 'Aggiornamenti, progressi e segnali pubblici legati alla libreria.' } : { profile: 'Profile', bioHint: 'Add a bio to tell your media universe.', media: 'media', completed: 'completed', topBuilding: 'building', collection: 'Collection', activity: 'Activity', board: 'Board', emptyOwnerTitle: 'Your collection is empty', emptyOtherTitle: 'No public media', openDiscover: 'Open Discover', noTitles: 'No titles found', noTitlesHint: 'Try changing search, filter, or sorting.', clearFilters: 'Clear filters', collectionSection: 'Collection section', seeAll: 'See all', activityLog: 'Activity log', recentActivity: 'Recent activity', activityHint: 'Updates, progress, and public signals tied to the library.' }
 
   const cp = (() => {
     const entry = profileCache[username]
@@ -1321,9 +1327,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   const TABS: { id: ProfileTab; label: string; count?: number }[] = [
-    { id: 'collection', label: 'Collezione', count: mediaList.length },
-    { id: 'activity', label: 'Attività' },
-    { id: 'comments', label: 'Bacheca' },
+    { id: 'collection', label: pc.collection, count: mediaList.length },
+    { id: 'activity', label: pc.activity },
+    { id: 'comments', label: pc.board },
   ]
 
   const ratedMedia = mediaList.filter(item => item.rating && item.rating > 0)
@@ -1332,7 +1338,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     : '—'
   const completedCount = mediaList.filter(item => item.status === 'completed').length
   const inProgressCount = mediaList.filter(item => item.status === 'watching' || item.status === 'reading' || item.status === 'playing').length
-  const profileTopGenre = topGenres[0] || 'in costruzione'
+  const profileTopGenre = topGenres[0] || pc.topBuilding
   const profileDisplayName = profile.display_name || profile.username
 
   return (
@@ -1357,7 +1363,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               <div className="min-w-0 flex-1">
                 <div className="mb-1 gk-section-eyebrow">
                   <Sparkles size={12} />
-                  Profile
+                  {pc.profile}
                 </div>
                 <h1 className="line-clamp-1 text-3xl font-black tracking-[-0.04em] text-[var(--text-primary)] md:text-4xl">
                   <UserBadge badge={profile.badge} displayName={profileDisplayName} className="text-3xl font-black md:text-4xl" />
@@ -1366,7 +1372,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 {profile.bio ? (
                   <p className="mt-2 max-w-2xl line-clamp-2 text-sm leading-6 text-[var(--text-secondary)]">{profile.bio}</p>
                 ) : isOwner ? (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">Aggiungi una bio per raccontare il tuo universo media.</p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{pc.bioHint}</p>
                 ) : null}
               </div>
             </div>
@@ -1404,10 +1410,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
           <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-6">
             {[
-              { label: 'media', value: mediaList.length, accent: true },
+              { label: pc.media, value: mediaList.length, accent: true },
               { label: t.profile.follower, value: followersCount },
               { label: t.profile.following, value: followingCount },
-              { label: 'completati', value: completedCount },
+              { label: pc.completed, value: completedCount },
               { label: 'rating', value: avgProfileRating },
               { label: 'top', value: profileTopGenre },
             ].map(stat => (
@@ -1455,11 +1461,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
                   <Bookmark size={28} className="text-[var(--text-muted)]" />
                 </div>
-                <p className="gk-headline mb-1 text-[var(--text-primary)]">{isOwner ? 'La tua collezione è vuota' : 'Nessun media pubblico'}</p>
+                <p className="gk-headline mb-1 text-[var(--text-primary)]">{isOwner ? pc.emptyOwnerTitle : pc.emptyOtherTitle}</p>
                 <p className="gk-body mx-auto mb-5 max-w-sm">{isOwner ? t.profile.emptyOwner : t.profile.emptyOther}</p>
                 {isOwner && (
                   <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-                    Apri Discover
+                    {pc.openDiscover}
                   </Link>
                 )}
               </div>
@@ -1478,14 +1484,14 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                 {sortedList.length === 0 ? (
                   <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-14 text-center">
                     <SearchIcon size={36} className="mx-auto mb-3 text-[var(--text-muted)]" />
-                    <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun titolo trovato</p>
-                    <p className="gk-body mx-auto mb-5 max-w-sm">Prova a modificare ricerca, filtro o ordinamento.</p>
+                    <p className="gk-headline mb-1 text-[var(--text-primary)]">{pc.noTitles}</p>
+                    <p className="gk-body mx-auto mb-5 max-w-sm">{pc.noTitlesHint}</p>
                     <button
                       type="button"
                       onClick={() => { setCollectionSearch(''); setStatusFilter('all'); setSortMode('default') }}
                       className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                     >
-                      Cancella filtri
+                      {pc.clearFilters}
                     </button>
                   </div>
                 ) : (
@@ -1499,7 +1505,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                         <div key={category} className="mb-10 md:mb-14">
                           <div className="mb-4 flex items-center justify-between gap-4 md:mb-5">
                             <div className="min-w-0">
-                              <p className="gk-label mb-1">Sezione collezione</p>
+                              <p className="gk-label mb-1">{pc.collectionSection}</p>
                               <h3 className="truncate text-lg font-black tracking-[-0.02em] text-[var(--text-primary)] md:text-2xl">{category}</h3>
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-3">
@@ -1509,7 +1515,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                   href={`/profile/${profile.username}/${categoryToType[category] || category}`}
                                   className="flex items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.28)] hover:text-[var(--accent)]"
                                 >
-                                  Vedi tutti <ChevronRight size={13} />
+                                  {pc.seeAll} <ChevronRight size={13} />
                                 </Link>
                               )}
                             </div>
@@ -1572,9 +1578,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         {activeTab === 'activity' && (
           <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-4 md:p-5">
             <div className="mb-5">
-              <p className="gk-label mb-1">Activity log</p>
-              <h3 className="text-xl font-black text-[var(--text-primary)]">Attività recente</h3>
-              <p className="gk-body mt-1 max-w-xl">Aggiornamenti, progressi e segnali pubblici legati alla libreria.</p>
+              <p className="gk-label mb-1">{pc.activityLog}</p>
+              <h3 className="text-xl font-black text-[var(--text-primary)]">{pc.recentActivity}</h3>
+              <p className="gk-body mt-1 max-w-xl">{pc.activityHint}</p>
             </div>
             <ProfileActivityFeed userId={profile.id} />
           </div>

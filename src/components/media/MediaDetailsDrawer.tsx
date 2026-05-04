@@ -746,7 +746,7 @@ export function MediaDetailsDrawer({
               {media.episodes != null && media.episodes > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
                   <Layers size={10} /> {media.episodes}{" "}
-                  {media.type === "manga" ? "cap." : "ep."}
+                  {media.type === "manga" ? ui.capShort : ui.epShort}
                 </span>
               )}
               {(media.min_players != null || media.max_players != null) && (
@@ -810,7 +810,7 @@ export function MediaDetailsDrawer({
                     key="match"
                     className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
                   >
-                    <p className="gk-label mb-1">Match</p>
+                    <p className="gk-label mb-1">{ui.match}</p>
                     <p
                       className="font-mono-data text-[18px] font-black"
                       style={{ color: "var(--accent)" }}
@@ -949,7 +949,7 @@ export function MediaDetailsDrawer({
             {/* Descrizione — testo completo, scrollabile, senza taglio */}
             {media.description && (
               <MediaDetailsSection
-                title={drawerUi?.description || "Descrizione"}
+                title={drawerUi?.description || ui.description}
                 icon={<FileText size={13} />}
               >
                 <div className="gk-description-scroll max-h-[260px] overflow-y-auto pr-2 md:max-h-[320px]">
@@ -1003,7 +1003,7 @@ export function MediaDetailsDrawer({
             {/* ── BOARDGAME: Designer ───────────────────────────────── */}
             {isBoardgame && media.designers && media.designers.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">Designer</h3>
+                <h3 className="gk-label mb-2.5">{ui.designers}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.designers.map((d) => (
                     <span
@@ -1020,7 +1020,7 @@ export function MediaDetailsDrawer({
             {/* Sviluppatori (games) */}
             {media.developers && media.developers.length > 0 && !isManga && (
               <div>
-                <h3 className="gk-label mb-2.5">Sviluppatori</h3>
+                <h3 className="gk-label mb-2.5">{ui.developers}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.developers.slice(0, 4).map((name) => (
                     <span
@@ -1037,7 +1037,7 @@ export function MediaDetailsDrawer({
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">Cast</h3>
+                <h3 className="gk-label mb-2.5">{ui.cast}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.cast.map((name) => (
                     <span
@@ -1074,7 +1074,7 @@ export function MediaDetailsDrawer({
             {/* Disponibile su */}
             {media.watchProviders && media.watchProviders.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">Disponibile su</h3>
+                <h3 className="gk-label mb-2.5">{ui.availableOn}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.watchProviders.map((p) => (
                     <span
@@ -1095,7 +1095,7 @@ export function MediaDetailsDrawer({
             {media.italianSupportTypes &&
               media.italianSupportTypes.length > 0 && (
                 <div>
-                  <h3 className="gk-label mb-2.5">Lingua italiana</h3>
+                  <h3 className="gk-label mb-2.5">{ui.italianLanguage}</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {media.italianSupportTypes.map((t) => (
                       <span
@@ -1112,7 +1112,7 @@ export function MediaDetailsDrawer({
             {/* Continuity / Relations */}
             {continuityRelations.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2">Nella stessa serie</h3>
+                <h3 className="gk-label mb-2">{ui.sameSeries}</h3>
                 <div
                   className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide"
                   data-no-swipe="true"
@@ -1137,7 +1137,7 @@ export function MediaDetailsDrawer({
                           </div>
                         )}
                         <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
-                          {RELATION_LABEL[rel.relationType] || rel.relationType}
+                          {relationLabels[locale]?.[rel.relationType] || rel.relationType}
                         </div>
                       </div>
                       <p className="line-clamp-2 text-[10px] font-bold leading-tight text-[var(--text-secondary)]">
@@ -1162,7 +1162,7 @@ export function MediaDetailsDrawer({
                 className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4"
               >
                 <div>
-                  <p className="gk-label mb-2">Il tuo voto (opzionale)</p>
+                  <p className="gk-label mb-2">{ui.yourRatingOptional}</p>
                   <div data-no-swipe="true">
                     <StarRating
                       value={formRating}
@@ -1182,7 +1182,7 @@ export function MediaDetailsDrawer({
                     return (
                       <div>
                         <p className="gk-label mb-1">
-                          Stagione{maxSeasons ? ` (max ${maxSeasons})` : ""}
+                          {ui.season}{maxSeasons ? ` (max ${maxSeasons})` : ""}
                         </p>
                         <input
                           data-no-swipe="true"
@@ -1197,9 +1197,9 @@ export function MediaDetailsDrawer({
                             setFormSeason(val);
                             const n = parseInt(val);
                             if (isNaN(n) || n < 1)
-                              setFormSeasonError("Minimo 1");
+                              setFormSeasonError(commonUi.minValue(1));
                             else if (maxSeasons && n > maxSeasons)
-                              setFormSeasonError(`Massimo ${maxSeasons}`);
+                              setFormSeasonError(commonUi.maxValue(maxSeasons));
                             else setFormSeasonError(null);
                             setFormEpisode("0");
                             setFormEpisodeError(null);
@@ -1225,8 +1225,8 @@ export function MediaDetailsDrawer({
                       null;
                     const label =
                       media.type === "manga" || media.type === "novel"
-                        ? "Capitolo corrente"
-                        : "Episodio corrente";
+                        ? ui.currentChapter
+                        : ui.currentEpisode;
                     return (
                       <div>
                         <p className="gk-label mb-1">
@@ -1247,10 +1247,10 @@ export function MediaDetailsDrawer({
                             const n = parseInt(val);
                             if (isNaN(n) || n < 0)
                               setFormEpisodeError(
-                                "Il valore non può essere negativo",
+                                commonUi.nonNegative,
                               );
                             else if (maxEp && n > maxEp)
-                              setFormEpisodeError(`Massimo ${maxEp}`);
+                              setFormEpisodeError(commonUi.maxValue(maxEp));
                             else setFormEpisodeError(null);
                           }}
                           className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[rgba(230,255,61,0.45)]"
@@ -1288,7 +1288,7 @@ export function MediaDetailsDrawer({
                     onClick={() => setShowAddForm(false)}
                     className="flex-1 rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:text-[var(--text-primary)]"
                   >
-                    Annulla
+                    {commonUi.cancel}
                   </button>
                   <button
                     type="button"
@@ -1308,7 +1308,7 @@ export function MediaDetailsDrawer({
                     className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-40"
                     style={{ background: "var(--accent)", color: "#0B0B0F" }}
                   >
-                    {addingToCollection ? "Aggiungo…" : "Conferma"}
+                    {addingToCollection ? ui.adding : ui.confirm}
                   </button>
                 </div>
               ) : !inCollection ? (
@@ -1319,11 +1319,11 @@ export function MediaDetailsDrawer({
                   className="w-full rounded-2xl py-2.5 text-sm font-black transition-all shadow-[0_0_24px_rgba(230,255,61,0.12)]"
                   style={{ background: "var(--accent)", color: "#0B0B0F" }}
                 >
-                  Aggiungi alla collezione
+                  {ui.addToCollection}
                 </button>
               ) : (
                 <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 py-2.5 text-center text-sm font-black text-emerald-300">
-                  <Check size={14} /> Nella tua collezione
+                  <Check size={14} /> {ui.inYourCollection}
                 </div>
               )}
 
@@ -1343,7 +1343,7 @@ export function MediaDetailsDrawer({
                     size={12}
                     fill={inWishlist ? "currentColor" : "none"}
                   />
-                  {inWishlist ? "In wishlist" : "Wishlist"}
+                  {inWishlist ? ui.inWishlist : commonUi.wishlist}
                 </button>
 
                 {externalUrl && (

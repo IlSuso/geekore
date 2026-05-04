@@ -56,7 +56,7 @@ export function FeedCommentRow({
       {canManage && (
         <button
           onClick={() => onOptions(comment.id)}
-          aria-label="Opzioni commento"
+          aria-label={locale === 'en' ? 'Comment options' : 'Opzioni commento'}
           className="mt-0.5 shrink-0 text-[var(--text-muted)] opacity-0 transition-all hover:text-[var(--text-primary)] group-hover/mc:opacity-100"
         >
           <MoreHorizontal size={14} aria-hidden="true" />

@@ -22,13 +22,71 @@ function LocaleToggle() {
   )
 }
 
-const BRAND_ITEMS = [
-  { icon: Gamepad2, label: 'Videogiochi & Steam', color: '#7C3AED' },
-  { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
-  { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
-  { icon: Film, label: 'Film & Letterboxd', color: '#F97316' },
-  { icon: Sparkles, label: 'Raccomandazioni AI', color: '#EC4899' },
-]
+function registerBrandItems(locale: 'it' | 'en') {
+  return locale === 'en'
+    ? [
+      { icon: Gamepad2, label: 'Games & Steam', color: '#7C3AED' },
+      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Tv, label: 'TV Shows', color: '#0EA5E9' },
+      { icon: Film, label: 'Movies & Letterboxd', color: '#F97316' },
+      { icon: Sparkles, label: 'AI recommendations', color: '#EC4899' },
+    ]
+    : [
+      { icon: Gamepad2, label: 'Videogiochi & Steam', color: '#7C3AED' },
+      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
+      { icon: Film, label: 'Film & Letterboxd', color: '#F97316' },
+      { icon: Sparkles, label: 'Raccomandazioni AI', color: '#EC4899' },
+    ]
+}
+
+const registerHeroCopy = {
+  it: {
+    titleA: 'Inizia a costruire',
+    titleB: 'il tuo mondo Geekore',
+    body: 'Unisci librerie, wishlist e raccomandazioni in un profilo unico.',
+    track: 'Importa e organizza',
+    haveAccount: 'Hai già un account?',
+    login: 'Accedi',
+    username: 'Username',
+    usernamePlaceholder: 'username_unico',
+    optional: 'opzionale',
+    showPassword: 'Mostra password',
+    hidePassword: 'Nascondi password',
+    passwordStrength: 'Forza password',
+    weakPassword: 'Password troppo debole',
+    desktopTitleA: 'Tutto ciò che',
+    desktopTitleB: 'segui, qui',
+    desktopBody: 'Un profilo unico per ogni media che ami. Gratis per sempre.',
+    includes: 'Include tutto questo',
+    freeTitle: 'Gratis per sempre',
+    freeBody: 'Nessuna carta. Nessun piano premium nascosto.',
+    registerLabel: 'Registrazione',
+  },
+  en: {
+    titleA: 'Start building',
+    titleB: 'your Geekore world',
+    body: 'Bring libraries, wishlists, and recommendations into one profile.',
+    track: 'Import and organize',
+    haveAccount: 'Already have an account?',
+    login: 'Sign in',
+    username: 'Username',
+    usernamePlaceholder: 'unique_username',
+    optional: 'optional',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    passwordStrength: 'Password strength',
+    weakPassword: 'Password too weak',
+    desktopTitleA: 'Everything you',
+    desktopTitleB: 'follow, here',
+    desktopBody: 'One profile for every kind of media you love. Free forever.',
+    includes: 'Includes all of this',
+    freeTitle: 'Free forever',
+    freeBody: 'No card. No hidden premium plan.',
+    registerLabel: 'Sign up',
+  },
+} as const
+
 
 function calcStrength(p: string): number {
   if (!p) return 0
@@ -59,6 +117,8 @@ export default function RegisterPage() {
   const supabase = createClient()
   const { locale, t } = useLocale()
   const l = t.register
+  const hero = registerHeroCopy[locale]
+  const brandItems = registerBrandItems(locale)
   const strength = calcStrength(password)
   const passwordTooWeak = useMemo(() => password.length > 0 && strength < 2, [password, strength])
 
@@ -118,7 +178,7 @@ export default function RegisterPage() {
           className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
       </div>
       <div>
-        <label style={labelStyle}>Username <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opzionale)</span></label>
+        <label style={labelStyle}>{hero.username} <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>({hero.optional})</span></label>
         <input type="text" value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="es. edo_geek" autoComplete="username"
           className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
       </div>
@@ -195,17 +255,17 @@ export default function RegisterPage() {
           <div className="relative flex-1 flex flex-col justify-center gap-8">
             <div>
               <h2 className="font-black leading-tight mb-3" style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>
-                Tutto ciò che<br />
-                <span style={{ color: 'var(--accent)' }}>segui, qui</span>
+                {hero.desktopTitleA}<br />
+                <span style={{ color: 'var(--accent)' }}>{hero.desktopTitleB}</span>
               </h2>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Un profilo unico per ogni media che ami. Gratis per sempre.
+                {hero.desktopBody}
               </p>
             </div>
 
             <div className="space-y-2.5">
-              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.25)' }}>Include tutto questo</p>
-              {BRAND_ITEMS.map(({ icon: Icon, label, color }) => (
+              <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.25)' }}>{hero.includes}</p>
+              {brandItems.map(({ icon: Icon, label, color }) => (
                 <div key={label} className="flex items-center gap-3">
                   <div className="grid place-items-center flex-shrink-0" style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}22` }}>
                     <Icon size={15} style={{ color }} />
@@ -217,8 +277,8 @@ export default function RegisterPage() {
           </div>
 
           <div className="relative rounded-2xl p-4" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
-            <p className="text-xs font-black mb-0.5" style={{ color: 'var(--accent)' }}>Gratis per sempre</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Nessuna carta. Nessun piano premium nascosto.</p>
+            <p className="text-xs font-black mb-0.5" style={{ color: 'var(--accent)' }}>{hero.freeTitle}</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{hero.freeBody}</p>
           </div>
         </div>
 
@@ -226,8 +286,8 @@ export default function RegisterPage() {
         <div className="flex flex-1 flex-col overflow-y-auto">
           <div className="flex h-14 items-center justify-between px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Hai già un account?{' '}
-              <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>Accedi</Link>
+              {hero.haveAccount}{' '}
+              <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{hero.login}</Link>
             </span>
             <LocaleToggle />
           </div>
@@ -238,7 +298,7 @@ export default function RegisterPage() {
               {/* Form card */}
               <div className="rounded-[28px] p-8" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.07)' }}>
                 <div className="mb-7">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Registrazione</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>{hero.registerLabel}</p>
                   <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '-0.03em' }}>{l.title}</h1>
                   <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
                 </div>
@@ -246,7 +306,7 @@ export default function RegisterPage() {
               </div>
 
               <p className="mt-5 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                Hai già un account? <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{l.loginLink}</Link>
+                {hero.haveAccount} <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{hero.login}</Link>
               </p>
             </div>
           </div>
@@ -256,7 +316,7 @@ export default function RegisterPage() {
       {/* Mobile form */}
       <div className="md:hidden relative z-10 px-5 py-8" style={{ maxWidth: 420, margin: '0 auto' }}>
         <div className="mb-7">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Registrazione</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>{hero.registerLabel}</p>
           <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>{l.title}</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
         </div>
@@ -266,7 +326,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-          Hai già un account? <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{l.loginLink}</Link>
+          {hero.haveAccount} <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{hero.login}</Link>
         </p>
       </div>
 

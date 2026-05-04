@@ -5,6 +5,7 @@
 // quindi chiediamo lo XUID che l'utente trova su xboxgamertag.com
 
 import { useState } from 'react'
+import { useLocale } from '@/lib/locale'
 import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Info } from 'lucide-react'
 
 function XboxIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -30,7 +31,19 @@ type ProgressState = {
   message: string
 } | null
 
+
+const XBOX_COPY = {
+  it: {
+    importError: "Errore durante l'importazione", networkError: 'Errore di rete. Riprova.', completed: 'Importazione completata', forUser: 'per', stats: (i: number, s: number, t: number) => `${i} nuovi · ${s} già presenti · ${t} totali`, importAnother: 'Importa un altro account', helpTitle: 'Come trovo il mio XUID?', help1: 'Vai su', help2: 'Inserisci il tuo Gamertag Xbox nel campo di ricerca', help3a: 'Copia il numero sotto', help3b: '— non quello HEX', example: 'Es:', label: 'Il tuo XUID (16 cifre)', placeholder: 'es. 2535416081689610', invalid: 'Lo XUID deve essere esattamente 16 cifre', importing: 'Importazione in corso...', importGames: 'Importa giochi Xbox', privacy1: 'I dati di gioco devono essere pubblici su'
+  },
+  en: {
+    importError: 'Import failed', networkError: 'Network error. Try again.', completed: 'Import completed', forUser: 'for', stats: (i: number, s: number, t: number) => `${i} new · ${s} already present · ${t} total`, importAnother: 'Import another account', helpTitle: 'How do I find my XUID?', help1: 'Go to', help2: 'Enter your Xbox Gamertag in the search field', help3a: 'Copy the number under', help3b: '— not the HEX one', example: 'Example:', label: 'Your XUID (16 digits)', placeholder: 'e.g. 2535416081689610', invalid: 'XUID must be exactly 16 digits', importing: 'Importing...', importGames: 'Import Xbox games', privacy1: 'Game data must be public on'
+  },
+} as const
+
 export function XboxImport() {
+  const { locale } = useLocale()
+  const t = XBOX_COPY[locale]
   const [xuid, setXuid] = useState('')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<ProgressState>(null)
@@ -52,8 +65,8 @@ export function XboxImport() {
       const res = await fetch(`/api/xbox/games?xuid=${encodeURIComponent(id)}`)
 
       if (!res.ok) {
-        try { const data = await res.json(); setError(data.error || "Errore durante l'importazione") }
-        catch { setError("Errore durante l'importazione") }
+        try { const data = await res.json(); setError(data.error || t.importError) }
+        catch { setError(t.importError) }
         setLoading(false); return
       }
 
@@ -78,7 +91,7 @@ export function XboxImport() {
         }
       }
     } catch {
-      setError('Errore di rete. Riprova.')
+      setError(t.networkError)
     }
 
     setLoading(false)
@@ -92,11 +105,11 @@ export function XboxImport() {
             <CheckCircle size={18} className="text-emerald-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">
-                Importazione completata
-                {result.gamertag && <span className="text-emerald-400"> per {result.gamertag}</span>}
+                {t.completed}
+                {result.gamertag && <span className="text-emerald-400"> {t.forUser} {result.gamertag}</span>}
               </p>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {result.imported} nuovi · {result.skipped} già presenti · {result.total} totali
+                {t.stats(result.imported, result.skipped, result.total)}
               </p>
             </div>
           </div>
@@ -104,7 +117,7 @@ export function XboxImport() {
             onClick={() => { setResult(null); setXuid('') }}
             className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-sm text-zinc-400 transition"
           >
-            Importa un altro account
+            {t.importAnother}
           </button>
         </div>
       ) : (
@@ -117,27 +130,27 @@ export function XboxImport() {
               className="w-full flex items-center gap-2 px-4 py-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
             >
               <Info size={13} className="flex-shrink-0" style={{ color: 'var(--accent)' }} />
-              <span>Come trovo il mio XUID?</span>
+              <span>{t.helpTitle}</span>
               <span className="ml-auto text-zinc-600">{showHelp ? '▲' : '▼'}</span>
             </button>
             {showHelp && (
               <div className="px-4 pb-4 text-xs text-zinc-500 space-y-1.5 border-t border-zinc-800 pt-3">
-                <p>1. Vai su <a href="https://www.cxkes.me/xbox/xuid" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>cxkes.me/xbox/xuid</a></p>
-                <p>2. Inserisci il tuo Gamertag Xbox nel campo di ricerca</p>
-                <p>3. Copia il numero sotto <span className="text-zinc-300 font-medium">XUID (DEC)</span> — non quello HEX</p>
-                <p className="text-zinc-600">Es: <span className="font-mono text-zinc-500">2535416081689610</span></p>
+                <p>1. {t.help1} <a href="https://www.cxkes.me/xbox/xuid" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>cxkes.me/xbox/xuid</a></p>
+                <p>2. {t.help2}</p>
+                <p>3. {t.help3a} <span className="text-zinc-300 font-medium">XUID (DEC)</span> {t.help3b}</p>
+                <p className="text-zinc-600">{t.example} <span className="font-mono text-zinc-500">2535416081689610</span></p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-xs text-zinc-500 mb-1.5">Il tuo XUID (16 cifre)</label>
+            <label className="block text-xs text-zinc-500 mb-1.5">{t.label}</label>
             <input
               type="text"
               value={xuid}
               onChange={e => setXuid(e.target.value.replace(/\D/g, '').slice(0, 16))}
               onKeyDown={e => e.key === 'Enter' && !loading && isValidXuid && handleImport()}
-              placeholder="es. 2535416081689610"
+              placeholder={t.placeholder}
               className={`w-full bg-zinc-900 border rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition font-mono ${
                 xuid && !isValidXuid
                   ? 'border-red-800 focus:border-red-600'
@@ -147,7 +160,7 @@ export function XboxImport() {
               inputMode="numeric"
             />
             {xuid && !isValidXuid && (
-              <p className="text-[10px] text-red-400 mt-1">Lo XUID deve essere esattamente 16 cifre</p>
+              <p className="text-[10px] text-red-400 mt-1">{t.invalid}</p>
             )}
           </div>
 
@@ -174,11 +187,11 @@ export function XboxImport() {
             className="w-full flex items-center justify-center gap-2 py-3 bg-[#107c10] hover:bg-[#0d6b0d] disabled:opacity-40 rounded-2xl text-sm font-semibold text-white transition"
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Importazione in corso...' : 'Importa giochi Xbox'}
+            {loading ? t.importing : t.importGames}
           </button>
 
           <p className="text-[10px] text-zinc-600 text-center">
-            I dati di gioco devono essere pubblici su{' '}
+            {t.privacy1}{' '}
             <a href="https://privacy.xbox.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-400">
               privacy.xbox.com
             </a>

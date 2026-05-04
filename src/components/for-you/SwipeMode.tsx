@@ -242,7 +242,7 @@ function interleaveByType(items: SwipeItem[]): SwipeItem[] {
 // ─── LoadingScreen ─────────────────────────────────────────────────────────────
 
 function LoadingScreen({
-  message = "Caricamento nuovi titoli",
+  message = "Loading...",
 }: {
   message?: string;
 }) {
@@ -664,7 +664,7 @@ function SwipeCard({
               className="flex items-center gap-1 bg-emerald-700 text-white text-xs font-bold px-2.5 py-1 rounded-full"
               style={ICON_DROP}
             >
-              ✨ {locale === "it" ? "Scoperta" : "Discovery"}
+              ✨ {swipeUi.discovery}
             </div>
           </div>
         )}
@@ -679,7 +679,7 @@ function SwipeCard({
                 ...TEXT_SHADOW,
               }}
             >
-              {locale === "it" ? "Visto" : "Seen"} ✓
+              {swipeUi.seen} ✓
             </div>
             <div
               className="absolute top-16 right-5 border-[3px] border-red-400 text-red-400 font-black text-xl px-4 py-1.5 rounded-2xl tracking-widest uppercase rotate-[18deg] pointer-events-none z-10"
@@ -737,7 +737,7 @@ function SwipeCard({
               disabled={!canUndo || !isTop}
               {...undoPress.pressProps}
               data-testid="swipe-undo"
-              aria-label="{swipeUi.undo} ultima azione"
+              aria-label={`${swipeUi.undo} ${locale === "it" ? "ultima azione" : "last action"}`}
               title="Z / Backspace"
               className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${undoPress.pressed
                 ? "scale-90 bg-white/15 border-white/60 text-white"
@@ -754,8 +754,8 @@ function SwipeCard({
                 }}
                 {...skipPress.pressProps}
                 data-testid="swipe-skip"
-                aria-label="Salta questo titolo"
-                title="Freccia sinistra"
+                aria-label={swipeUi.skip}
+                title={locale === "it" ? "Freccia sinistra" : "Left arrow"}
                 className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${skipPress.pressed
                   ? "scale-90 bg-red-500/40 border-red-300 text-red-300"
                   : "bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400"
@@ -771,7 +771,7 @@ function SwipeCard({
                   }}
                   {...infoPress.pressProps}
                   data-testid="swipe-details"
-                  aria-label="Apri dettagli"
+                  aria-label={swipeUi.openDetails}
                   title="Enter"
                   className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${infoPress.pressed
                     ? "scale-90 bg-white/20 border-white text-white"
@@ -788,8 +788,8 @@ function SwipeCard({
                 }}
                 {...checkPress.pressProps}
                 data-testid="swipe-seen"
-                aria-label="Segna come visto"
-                title="Freccia destra"
+                aria-label={swipeUi.seen}
+                title={locale === "it" ? "Freccia destra" : "Right arrow"}
                 className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${checkPress.pressed
                   ? "scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300"
                   : "bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400"
@@ -806,7 +806,7 @@ function SwipeCard({
               disabled={!isTop || isFlying}
               {...wishlistPress.pressProps}
               data-testid="swipe-wishlist"
-              aria-label="Aggiungi alla wishlist"
+              aria-label={swipeUi.addToWishlist}
               title="W"
               className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${wishlistPress.pressed
                 ? "scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400"
@@ -1138,10 +1138,6 @@ export function SwipeMode({
     {},
   );
   const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({});
-  // Ogni cambio lingua / nuovo payload invalida le request async ancora in volo.
-  // Senza questo, preload vecchi di TV/Giochi possono rientrare dopo lo switch e
-  // riempire deck/cache con card della lingua precedente.
-  const localeRunRef = useRef(0);
 
 
   // Carica skipped in background
@@ -1193,11 +1189,9 @@ export function SwipeMode({
       if (categoryLoading.current[filter]) return;
       if ((categoryQueues.current[filter]?.length ?? 0) >= PRELOAD_TARGET)
         return;
-      const run = localeRunRef.current;
       categoryLoading.current[filter] = true;
       try {
         const items = await onRequestMore(filter);
-        if (run !== localeRunRef.current) return;
         const skipped = skippedIdsRef.current;
         const fresh = items.filter((i) => !skipped.has(i.id));
         const existing = categoryQueues.current[filter] || [];
@@ -1207,9 +1201,7 @@ export function SwipeMode({
           ...fresh.filter((i) => !existingIds.has(i.id)),
         ].slice(0, PRELOAD_TARGET);
       } catch { }
-      finally {
-        if (run === localeRunRef.current) categoryLoading.current[filter] = false;
-      }
+      categoryLoading.current[filter] = false;
     },
     [onRequestMore],
   );
@@ -1218,7 +1210,6 @@ export function SwipeMode({
     async (filter: CategoryFilter) => {
       if (loadingRef.current) return;
       loadingRef.current = true;
-      const run = localeRunRef.current;
 
       // ── Fast path: use preloaded cache — no loading screen, instant ──────────
       const cached = categoryQueues.current[filter] || [];
@@ -1248,7 +1239,6 @@ export function SwipeMode({
       setIsLoadingMore(true);
       try {
         const items = await onRequestMore(filter);
-        if (run !== localeRunRef.current) return;
         const fresh = items.filter(
           (i) => !seen.has(i.id) && !skipped.has(i.id),
         );
@@ -1262,7 +1252,6 @@ export function SwipeMode({
           // Tutti già visti: svuota seenIds e riprova
           seen.clear();
           const retryItems = await onRequestMore(filter);
-          if (run !== localeRunRef.current) return;
           const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
           if (retryFresh.length) {
             setQueue((prev) => [
@@ -1273,10 +1262,8 @@ export function SwipeMode({
           }
         }
       } catch { }
-      if (run === localeRunRef.current) {
-        setIsLoadingMore(false);
-        loadingRef.current = false;
-      }
+      setIsLoadingMore(false);
+      loadingRef.current = false;
     },
     [onRequestMore, preloadCategory],
   );
@@ -1461,7 +1448,6 @@ export function SwipeMode({
   // Cambio lingua / nuovo payload: le card già montate non devono restare nella lingua vecchia.
   // Reset completo di deck, storico e cache categoria; non tocca Supabase né il pool.
   useEffect(() => {
-    localeRunRef.current += 1;
     const freshQueue = interleaveByType(initialItems);
     setQueue(freshQueue);
     seenIdsRef.current = new Set(initialItems.map((i) => i.id));
@@ -1656,8 +1642,8 @@ export function SwipeMode({
               type="button"
               onClick={onOnboardingBack ?? onClose}
               className="pointer-events-auto group flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-black/38 text-white/76 shadow-[0_18px_54px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-[transform,background-color,border-color,color] hover:-translate-x-0.5 hover:border-[rgba(230,255,61,0.28)] hover:bg-black/54 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45"
-              aria-label="Torna allo step precedente"
-              title="Torna indietro"
+              aria-label={swipeUi.backToPreviousStep}
+              title={commonUi.back}
             >
               <ChevronLeft size={25} strokeWidth={2.8} />
             </button>
@@ -1665,8 +1651,8 @@ export function SwipeMode({
               type="button"
               onClick={onOnboardingComplete ?? onClose}
               className="pointer-events-auto group flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(230,255,61,0.34)] bg-[rgba(230,255,61,0.13)] text-[var(--accent)] shadow-[0_18px_54px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-[transform,background-color,border-color,color] hover:translate-x-0.5 hover:border-[rgba(230,255,61,0.54)] hover:bg-[rgba(230,255,61,0.19)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/45"
-              aria-label="Vai allo step successivo"
-              title="Continua"
+              aria-label={swipeUi.nextStep}
+              title={commonUi.continue}
             >
               <ChevronRight size={25} strokeWidth={2.8} />
             </button>
@@ -1683,14 +1669,14 @@ export function SwipeMode({
               onClick={onOnboardingBack ?? onClose}
               className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-black/38 text-sm font-black text-white/76 backdrop-blur-xl"
             >
-              <ChevronLeft size={18} strokeWidth={2.8} /> Indietro
+              <ChevronLeft size={18} strokeWidth={2.8} /> {commonUi.back}
             </button>
             <button
               type="button"
               onClick={onOnboardingComplete ?? onClose}
               className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[rgba(230,255,61,0.34)] bg-[rgba(230,255,61,0.15)] text-sm font-black text-[var(--accent)] backdrop-blur-xl"
             >
-              Continua <ChevronRight size={18} strokeWidth={2.8} />
+              {commonUi.continue} <ChevronRight size={18} strokeWidth={2.8} />
             </button>
           </div>
         )}
@@ -1780,7 +1766,7 @@ export function SwipeMode({
         >
           {filteredQueue.length === 0 ? (
             isLoadingMore ? (
-              <LoadingScreen message="Caricamento nuovi titoli" />
+              <LoadingScreen message={swipeUi.loadingNewTitles} />
             ) : (
               <div
                 className="mx-auto flex max-w-sm flex-col items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.26)]"
@@ -1788,10 +1774,10 @@ export function SwipeMode({
                 data-testid="swipe-empty-state"
               >
                 <p className="mb-2 text-lg font-black text-[var(--text-primary)]">
-                  Nessun titolo in questa categoria
+                  {swipeUi.empty}
                 </p>
                 <p className="mb-5 text-sm leading-6 text-[var(--text-muted)]">
-                  Prova un altro filtro o torna alla lista Per Te.
+                  {swipeUi.emptyHint}
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {activeFilter !== "all" && (
@@ -1811,7 +1797,7 @@ export function SwipeMode({
                       onClick={onClose}
                       className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white"
                     >
-                      {locale === "it" ? "Torna alla lista" : "Back to list"}
+                      {swipeUi.backToList}
                     </button>
                   )}
                 </div>
@@ -1897,20 +1883,18 @@ export function SwipeMode({
                       {swipeUi.howItWorks}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/64">
-                      {locale === "it"
-                        ? "Dai una valutazione, salta ciò che non ti interessa o salva per dopo. Bastano pochi swipe per rendere i consigli più precisi."
-                        : "Rate a title, skip what you do not care about or save it for later. A few swipes are enough to make recommendations sharper."}
+                      {swipeUi.howItWorksBody}
                     </p>
                   </div>
                   <div className="mt-4 shrink-0 grid grid-cols-3 gap-2 text-center text-xs font-bold text-white/54">
                     <div className="rounded-2xl bg-white/6 px-3 py-3">
-                      ← Skip
+                      ← {swipeUi.skip}
                     </div>
                     <div className="rounded-2xl bg-white/6 px-3 py-3">
-                      ★ {locale === "it" ? "Voto" : "Rate"}
+                      ★ {swipeUi.rate}
                     </div>
                     <div className="rounded-2xl bg-white/6 px-3 py-3">
-                      → {locale === "it" ? "Visto" : "Seen"}
+                      → {swipeUi.seen}
                     </div>
                   </div>
                 </aside>

@@ -6,6 +6,8 @@ import type { ElementType } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, Gamepad2, Film, Tv, Gem, Calendar, Layers, Library, BarChart3, Sparkles } from 'lucide-react'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocale } from '@/lib/locale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
 
 const AVG_ANIME_EP_MINUTES = 24
 const AVG_MANGA_CHAPTER_MINUTES = 5
@@ -49,13 +51,13 @@ function formatDuration(minutes: number) {
   return { days, hours, minutes: mins, totalHours }
 }
 
-function formatReadable(minutes: number): string {
+function formatReadable(minutes: number, copy: ReturnType<typeof pageCopy>['stats']): string {
   const { days, hours, minutes: mins } = formatDuration(minutes)
   const parts = []
-  if (days > 0) parts.push(`${days} giorni`)
-  if (hours > 0) parts.push(`${hours} ore`)
-  if (mins > 0 && days === 0) parts.push(`${mins} minuti`)
-  return parts.join(', ') || '0 minuti'
+  if (days > 0) parts.push(copy.days(days))
+  if (hours > 0) parts.push(copy.hours(hours))
+  if (mins > 0 && days === 0) parts.push(copy.minutes(mins))
+  return parts.join(', ') || copy.zeroMinutes
 }
 
 function compactHours(hours: number): string {
@@ -113,6 +115,9 @@ function CategoryCard({ item, maxHours }: { item: CategoryStat; maxHours: number
 }
 
 export default function StatsPage() {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).stats
+  const common = pageCopy(locale).common
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -199,37 +204,37 @@ export default function StatsPage() {
   const totalHoursRounded = Math.round(totalHours)
 
   const categories = useMemo<CategoryStat[]>(() => [
-    { id: 'game', label: 'Videogiochi', icon: Gamepad2, hours: stats.gameHours, detail: 'ore Steam', color: 'var(--type-game)' },
-    { id: 'movie', label: 'Film', icon: Film, hours: stats.movieHours, detail: `${stats.movieCount} film`, color: 'var(--type-movie)' },
-    { id: 'anime', label: 'Anime', icon: Tv, hours: stats.animeHours, detail: `${stats.animeEpisodes} ep`, color: 'var(--type-anime)' },
-    { id: 'tv', label: 'Serie TV', icon: Tv, hours: stats.tvHours, detail: `${stats.tvEpisodes} ep`, color: 'var(--type-tv)' },
+    { id: 'game', label: copy.categories.game, icon: Gamepad2, hours: stats.gameHours, detail: copy.steamHours, color: 'var(--type-game)' },
+    { id: 'movie', label: copy.categories.movie, icon: Film, hours: stats.movieHours, detail: `${stats.movieCount} ${copy.categories.movie.toLowerCase()}`, color: 'var(--type-movie)' },
+    { id: 'anime', label: copy.categories.anime, icon: Tv, hours: stats.animeHours, detail: `${stats.animeEpisodes} ep`, color: 'var(--type-anime)' },
+    { id: 'tv', label: copy.categories.tv, icon: Tv, hours: stats.tvHours, detail: `${stats.tvEpisodes} ep`, color: 'var(--type-tv)' },
     { id: 'manga', label: 'Manga', icon: Layers, hours: stats.mangaHours, detail: `${stats.mangaChapters} cap`, color: 'var(--type-manga)' },
-  ].filter(item => item.hours > 0), [stats])
+  ].filter(item => item.hours > 0), [stats, copy])
 
   const maxH = Math.max(...categories.map(c => c.hours), 1)
   const topCategory = categories[0] ? [...categories].sort((a, b) => b.hours - a.hours)[0] : null
   const topShare = topCategory && totalHours > 0 ? Math.round((topCategory.hours / totalHours) * 100) : 0
   const insight = topCategory
-    ? `La tua libreria è trainata da ${topCategory.label.toLowerCase()}: circa ${topShare}% del tuo tempo registrato.`
-    : 'Aggiungi titoli alla collezione per iniziare a costruire il tuo Time DNA.'
+    ? (locale === 'en' ? `Your library is driven by ${topCategory.label.toLowerCase()}: about ${topShare}% of your tracked time.` : `La tua libreria è trainata da ${topCategory.label.toLowerCase()}: circa ${topShare}% del tuo tempo registrato.`)
+    : copy.addTitlesHint
 
   const comparisons = useMemo(() => {
     const hours = stats.totalMinutes / 60
     return [
-      { label: 'Giorni pieni di contenuto', value: (hours / 24).toFixed(1), Icon: Calendar },
-      { label: 'Maratone cinematografiche da 3 ore', value: Math.round(hours / 3).toLocaleString('it'), Icon: Film },
-      { label: 'Trilogie estese del Signore degli Anelli', value: (hours / 11.4).toFixed(1), Icon: Gem },
+      { label: locale === 'en' ? 'Full days of content' : 'Giorni pieni di contenuto', value: (hours / 24).toFixed(1), Icon: Calendar },
+      { label: copy.movieMarathons, value: Math.round(hours / 3).toLocaleString(locale), Icon: Film },
+      { label: copy.lotrTrilogies, value: (hours / 11.4).toFixed(1), Icon: Gem },
     ]
-  }, [stats.totalMinutes])
+  }, [stats.totalMinutes, copy, locale])
 
   if (!isLoggedIn && !loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-6 text-center text-white">
         <div>
           <Clock size={48} className="mx-auto mb-4 text-zinc-600" />
-          <p className="mb-2 text-xl font-semibold">Accedi per vedere le tue statistiche</p>
-          <p className="mb-6 text-zinc-500">Traccia la tua collezione e scopri il tuo Time DNA.</p>
-          <Link href="/login" className="rounded-2xl px-6 py-3 font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>Accedi</Link>
+          <p className="mb-2 text-xl font-semibold">{locale === 'en' ? 'Sign in to see your stats' : 'Accedi per vedere le tue statistiche'}</p>
+          <p className="mb-6 text-zinc-500">{locale === 'en' ? 'Track your collection and discover your Time DNA.' : 'Traccia la tua collezione e scopri il tuo Time DNA.'}</p>
+          <Link href="/login" className="rounded-2xl px-6 py-3 font-semibold transition-all" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>{locale === 'en' ? 'Sign in' : 'Accedi'}</Link>
         </div>
       </div>
     )
@@ -237,8 +242,8 @@ export default function StatsPage() {
 
   return (
     <PageScaffold
-      title="Stats"
-      description="Quanto tempo hai trasformato in anime, manga, film, serie e videogiochi."
+      title={copy.title}
+      description={copy.description}
       icon={<BarChart3 size={16} />}
       contentClassName="mx-auto max-w-screen-md pt-2 md:pt-8 pb-28"
     >
@@ -248,11 +253,11 @@ export default function StatsPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="gk-section-eyebrow"><Clock size={13} /> Time DNA</div>
               <Link href="/profile" data-no-swipe="true" className="hidden h-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/14 px-4 text-xs font-black text-[var(--text-secondary)] transition-colors hover:text-white md:inline-flex">
-                Apri profilo
+                {common.openProfile}
               </Link>
             </div>
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.05em] text-[var(--text-primary)] md:text-[44px]">{formatReadable(stats.totalMinutes)}</h1>
-            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">Stima aggregata da episodi, capitoli, film completati e ore di gioco registrate.</p>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.05em] text-[var(--text-primary)] md:text-[44px]">{formatReadable(stats.totalMinutes, copy)}</h1>
+            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">{copy.estimateDescription}</p>
             <div className="mt-4 rounded-2xl border border-[rgba(230,255,61,0.12)] bg-black/18 px-4 py-3 text-[13px] font-semibold leading-5 text-[var(--text-secondary)]">
               <span className="text-[var(--accent)]">Insight:</span> {insight}
             </div>
@@ -263,26 +268,26 @@ export default function StatsPage() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
                 <Library size={28} className="text-[var(--text-muted)]" />
               </div>
-              <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato ancora</p>
-              <p className="gk-body mx-auto mb-5 max-w-sm">Aggiungi media alla collezione per calcolare il tuo Time DNA.</p>
+              <p className="gk-headline mb-1 text-[var(--text-primary)]">{copy.noDataTitle}</p>
+              <p className="gk-body mx-auto mb-5 max-w-sm">{copy.noDataBody}</p>
               <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-                Apri Discover
+                {common.openDiscover}
               </Link>
             </div>
           ) : (
             <>
               <div className="mb-5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
-                <MetricCard label="ore totali" value={compactHours(totalHoursRounded)} accent detail={days > 0 ? `${days}g ${remHours}h` : undefined} />
-                <MetricCard label="titoli" value={entries.length.toLocaleString('it')} detail="collezione" />
-                <MetricCard label="ore per titolo" value={entries.length ? Math.round(totalHours / entries.length) : 0} detail="media" />
-                <MetricCard label="categoria dominante" value={topCategory?.label || '—'} detail={topCategory ? `${compactHours(topCategory.hours)}h` : undefined} />
+                <MetricCard label={copy.totalHours} value={compactHours(totalHoursRounded)} accent detail={days > 0 ? `${days}g ${remHours}h` : undefined} />
+                <MetricCard label={pageCopy(locale).listDetail.items} value={entries.length.toLocaleString('it')} detail={locale === "en" ? "collection" : "collezione"} />
+                <MetricCard label={copy.hoursPerTitle} value={entries.length ? Math.round(totalHours / entries.length) : 0} detail={copy.average} />
+                <MetricCard label={locale === "en" ? "dominant category" : "categoria dominante"} value={topCategory?.label || '—'} detail={topCategory ? `${compactHours(topCategory.hours)}h` : undefined} />
               </div>
 
               <section className="mb-5 rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/64 p-4 ring-1 ring-white/5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <div className="mb-1 gk-section-eyebrow"><Sparkles size={12} /> Distribuzione</div>
-                    <h2 className="font-display text-[22px] font-black tracking-[-0.04em] text-[var(--text-primary)]">Ore per categoria</h2>
+                    <div className="mb-1 gk-section-eyebrow"><Sparkles size={12} /> {locale === "en" ? "Distribution" : "Distribuzione"}</div>
+                    <h2 className="font-display text-[22px] font-black tracking-[-0.04em] text-[var(--text-primary)]">{locale === "en" ? "Hours by category" : "Ore per categoria"}</h2>
                   </div>
                 </div>
                 <div className="grid gap-2.5 md:grid-cols-2">
@@ -291,7 +296,7 @@ export default function StatsPage() {
               </section>
 
               <section className="rounded-[26px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/58 p-4 ring-1 ring-white/5">
-                <p className="gk-label mb-3">In prospettiva</p>
+                <p className="gk-label mb-3">{locale === "en" ? "In perspective" : "In prospettiva"}</p>
                 <div className="grid gap-3 md:grid-cols-3">
                   {comparisons.map((c, i) => (
                     <div key={i} className="rounded-2xl border border-[var(--border-subtle)] bg-black/14 p-3 ring-1 ring-white/5">

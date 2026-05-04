@@ -10,6 +10,8 @@ import {
   Tag, X, Search, Loader2, ArrowLeft, Check, Filter
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
 
 // ── Macro-categorie ───────────────────────────────────────────────────────────
 
@@ -35,6 +37,11 @@ const QUICK_SUBS: Record<string, string[]> = {
 
 const API_CATEGORIES = new Set(['Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga'])
 
+function categoryDisplayLabel(category: string, locale: 'it' | 'en') {
+  const labels = pageCopy(locale).categories.labels as Record<string, string>
+  return labels[category] || category
+}
+
 // ── Tipi ─────────────────────────────────────────────────────────────────────
 
 type SearchResult = { id: string; title: string; subtitle?: string; image?: string }
@@ -54,10 +61,12 @@ export function CategoryIcon({ category, size = 13, className = '', style }: { c
 }
 
 export function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
+  const { locale } = useLocale()
   if (!category) return null
   const parsed = parseCategoryString(category)
   if (!parsed) return null
-  const label = parsed.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed.category
+  const base = categoryDisplayLabel(parsed.category, locale)
+  const label = parsed.subcategory ? `${base}: ${parsed.subcategory}` : base
   return (
     <span
       onClick={onClick}
@@ -163,6 +172,8 @@ async function searchByCategory(category: string, query: string): Promise<Search
 export function CategorySelector({ value, onChange }: {
   value: string; onChange: (val: string) => void
 }) {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).categories
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<'macro' | 'search'>('macro')
   const [selectedCat, setSelectedCat] = useState('')
@@ -240,12 +251,7 @@ export function CategorySelector({ value, onChange }: {
 
   const parsed = parseCategoryString(value)
   const hasApiSupport = API_CATEGORIES.has(selectedCat)
-  const searchPlaceholder = selectedCat === 'Film' ? 'Cerca un film...'
-    : selectedCat === 'Serie TV' ? 'Cerca una serie...'
-    : selectedCat === 'Videogiochi' ? 'Cerca un videogioco...'
-    : selectedCat === 'Anime' ? 'Cerca un anime...'
-    : selectedCat === 'Manga' ? 'Cerca un manga...'
-    : 'Cerca un titolo...'
+  const searchPlaceholder = (copy.placeholders as Record<string, string>)[selectedCat] || copy.placeholders.default
 
   return (
     <div ref={wrapRef} className="relative">
@@ -263,11 +269,11 @@ export function CategorySelector({ value, onChange }: {
         {value ? (
           <span className="flex items-center gap-1 max-w-[160px] truncate">
             <CategoryIcon category={parsed?.category || ''} size={12} />
-            {parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category}
+            {parsed?.subcategory ? `${categoryDisplayLabel(parsed.category, locale)}: ${parsed.subcategory}` : categoryDisplayLabel(parsed?.category || '', locale)}
             <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
         ) : (
-          <span>Categoria</span>
+          <span>{copy.category}</span>
         )}
       </button>
 
@@ -280,7 +286,7 @@ export function CategorySelector({ value, onChange }: {
           {step === 'macro' && (
             <div className={`p-3 flex flex-col ${openAboveRef.current ? 'flex-col-reverse' : ''}`}>
               <div className={`flex items-center justify-between ${openAboveRef.current ? 'mb-1' : 'mb-2.5'}`}>
-                <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>Seleziona categoria</span>
+                <span className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? 'mt-3' : ''}`}>{copy.selectCategory}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"><X size={13} /></button>
               </div>
               <div className="grid grid-cols-3 gap-1.5 mb-1.5">
@@ -288,7 +294,7 @@ export function CategorySelector({ value, onChange }: {
                   <button key={cat} type="button" onClick={() => selectMacro(cat)}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
-                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
+                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{categoryDisplayLabel(cat, locale)}</span>
                   </button>
                 ))}
               </div>
@@ -298,7 +304,7 @@ export function CategorySelector({ value, onChange }: {
                     style={{ width: 'calc(33.333% - 3px)' }}
                     className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group">
                     <CategoryIcon category={cat} size={18} className="text-zinc-400 group-hover:text-white transition-colors" />
-                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{cat}</span>
+                    <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">{categoryDisplayLabel(cat, locale)}</span>
                   </button>
                 ))}
               </div>
@@ -314,7 +320,7 @@ export function CategorySelector({ value, onChange }: {
                   <ArrowLeft size={13} />
                 </button>
                 <CategoryIcon category={selectedCat} size={14} className="flex-shrink-0" style={{ color: 'var(--accent)' }} />
-                <span className="text-sm font-semibold text-white flex-1 truncate">{selectedCat}</span>
+                <span className="text-sm font-semibold text-white flex-1 truncate">{categoryDisplayLabel(selectedCat, locale)}</span>
                 <button type="button" onClick={close} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X size={13} /></button>
               </div>
             )
@@ -327,7 +333,7 @@ export function CategorySelector({ value, onChange }: {
                   value={subInput}
                   onChange={e => setSubInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={hasApiSupport ? searchPlaceholder : 'Titolo specifico...'}
+                  placeholder={hasApiSupport ? searchPlaceholder : copy.specificTitle}
                   className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: 'var(--accent)' }} />}
@@ -356,11 +362,11 @@ export function CategorySelector({ value, onChange }: {
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
                 style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
                 <Check size={13} />
-                Usa <strong className="font-semibold">&quot;{subInput.trim()}&quot;</strong>
+                {copy.use} <strong className="font-semibold">&quot;{subInput.trim()}&quot;</strong>
               </button>
             ) : null
             const nessunRis = hasApiSupport && subInput.length >= 2 && !isSearching && suggestions.length === 0 ? (
-              <p className="text-[12px] text-zinc-600 text-center py-2">Nessun risultato</p>
+              <p className="text-[12px] text-zinc-600 text-center py-2">{copy.noResults}</p>
             ) : null
             const chips = !hasApiSupport && !subInput ? (
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -375,7 +381,7 @@ export function CategorySelector({ value, onChange }: {
             const usaSoloMacro = (
               <button type="button" onClick={() => { onChange(selectedCat); close() }}
                 className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1">
-                Usa solo &quot;{selectedCat}&quot; senza titolo
+                {copy.useOnly(categoryDisplayLabel(selectedCat, locale))}
               </button>
             )
             return isAbove ? (
@@ -400,6 +406,8 @@ export function CategoryFilter({
   activeFilter: string
   onFilterChange: (val: string) => void
 }) {
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).categories
   const [open, setOpen] = useState(false)
   const [activeMacro, setActiveMacro] = useState('')
   const [subSearch, setSubSearch] = useState('')
@@ -438,8 +446,8 @@ export function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter)
   const displayLabel = activeFilter
-    ? (parsed?.subcategory ? `${parsed.category}: ${parsed.subcategory}` : parsed?.category || 'Filtro categoria')
-    : 'Filtro categoria'
+    ? (parsed?.subcategory ? `${categoryDisplayLabel(parsed.category, locale)}: ${parsed.subcategory}` : categoryDisplayLabel(parsed?.category || '', locale) || copy.categoryFilter)
+    : copy.categoryFilter
 
   return (
     <div ref={ref} className="relative">
@@ -459,7 +467,7 @@ export function CategoryFilter({
 
       {open && (
         <div className="fixed sm:absolute top-auto sm:top-full left-0 right-0 sm:left-auto sm:right-auto bottom-0 sm:bottom-auto mt-0 sm:mt-2 bg-zinc-900 border border-zinc-700 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 w-full sm:w-[300px] p-3 pb-6 sm:pb-3" style={{ zIndex: 20000 }}>
-          <p className="gk-label px-1 pb-2">Filtra per categoria</p>
+          <p className="gk-label px-1 pb-2">{copy.filterByCategory}</p>
 
           <div className="flex flex-wrap gap-1.5 mb-3">
             {MACRO_CATEGORIES.map(cat => (
@@ -470,7 +478,7 @@ export function CategoryFilter({
                     : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-500'
                 }`}>
                 <CategoryIcon category={cat} size={11} />
-                {cat}
+                {categoryDisplayLabel(cat, locale)}
               </button>
             ))}
           </div>
@@ -479,7 +487,7 @@ export function CategoryFilter({
             <>
               <button onClick={() => applyFilter(activeMacro)}
                 className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2">
-                Tutti i post di <strong>{activeMacro}</strong>
+                {copy.allPostsIn(categoryDisplayLabel(activeMacro, locale))}
               </button>
 
               <div className="relative mb-2">
@@ -490,7 +498,7 @@ export function CategoryFilter({
                   value={subSearch}
                   onChange={e => setSubSearch(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && subSearch.trim()) applyFilter(`${activeMacro}:${subSearch.trim()}`) }}
-                  placeholder={`Cerca titolo in ${activeMacro}...`}
+                  placeholder={copy.searchIn(categoryDisplayLabel(activeMacro, locale))}
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
                 />
                 {isSearching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin" style={{ color: 'var(--accent)' }} />}
@@ -514,7 +522,7 @@ export function CategoryFilter({
                 <button onClick={() => applyFilter(`${activeMacro}:${subSearch.trim()}`)}
                   className="w-full px-3 py-2 rounded-xl text-sm font-semibold transition"
                   style={{ background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.25)', color: 'var(--accent)' }}>
-                  Cerca «{subSearch.trim()}» in {activeMacro}
+                  {copy.searchForIn(subSearch.trim(), categoryDisplayLabel(activeMacro, locale))}
                 </button>
               )}
             </>

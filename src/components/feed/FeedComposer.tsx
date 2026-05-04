@@ -4,6 +4,7 @@ import type { ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Image as ImageIcon, Loader2, Tag, X, Sparkles, Send } from 'lucide-react'
 import { CategorySelector } from '@/components/feed/CategoryControls'
+import { useLocale } from '@/lib/locale'
 
 type ComposerModalPos = {
   top: number
@@ -74,7 +75,7 @@ function ComposerProgress({ length }: { length: number }) {
   )
 }
 
-function PublishButton({ disabled, isPublishing, onClick }: { disabled: boolean; isPublishing: boolean; onClick: (e: any) => void }) {
+function PublishButton({ disabled, isPublishing, onClick, label }: { disabled: boolean; isPublishing: boolean; onClick: (e: any) => void; label: string }) {
   return (
     <button
       type="button"
@@ -84,7 +85,7 @@ function PublishButton({ disabled, isPublishing, onClick }: { disabled: boolean;
       className="inline-flex h-9 items-center justify-center rounded-2xl px-5 text-[13px] font-black transition-all disabled:opacity-30"
       style={{ background: 'var(--accent)', color: '#0B0B0F' }}
     >
-      {isPublishing ? <Loader2 size={14} className="animate-spin" /> : 'Pubblica'}
+      {isPublishing ? <Loader2 size={14} className="animate-spin" /> : label}
     </button>
   )
 }
@@ -108,8 +109,10 @@ export function FeedComposer({
   handleCreatePost,
   handleImageSelect,
 }: FeedComposerProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { cancel: 'Cancel', composerKicker: 'Activity composer', activityKicker: 'Activity', newActivity: 'New activity', publish: 'Publish', medium: 'Medium', placeholder: 'What are you watching?', previewAlt: 'Image preview' } : { cancel: 'Annulla', composerKicker: 'Activity composer', activityKicker: 'Activity', newActivity: 'Nuova activity', publish: 'Pubblica', medium: 'Medium', placeholder: 'Cosa stai guardando?', previewAlt: 'Anteprima immagine' }
   const publishDisabled = isPublishing || (!newPostContent.trim() && !selectedImage)
-  const activityPlaceholder = 'Cosa stai guardando?'
+  const activityPlaceholder = copy.placeholder
 
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setNewPostContent(e.target.value.slice(0, 500))
@@ -163,13 +166,13 @@ export function FeedComposer({
               <div className="flex flex-shrink-0 items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
                 <button type="button" onClick={closeComposer} data-no-swipe="true"
                   className="text-[13px] font-bold transition-colors hover:text-white" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Annulla
+                  {copy.cancel}
                 </button>
                 <div className="text-center">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--accent)' }}>Activity composer</p>
-                  <span className="text-[15px] font-black text-[var(--text-primary)]">Nuova activity</span>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--accent)' }}>{copy.composerKicker}</p>
+                  <span className="text-[15px] font-black text-[var(--text-primary)]">{copy.newActivity}</span>
                 </div>
-                <PublishButton disabled={publishDisabled} isPublishing={isPublishing} onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }} />
+                <PublishButton disabled={publishDisabled} isPublishing={isPublishing} label={copy.publish} onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }} />
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto">
@@ -193,7 +196,7 @@ export function FeedComposer({
                 </div>
                 {imagePreview && (
                   <div className="relative border-y border-[var(--border)] bg-black/50">
-                    <img src={imagePreview} alt="preview" className="w-full object-contain" style={{ maxHeight: '400px' }} />
+                    <img src={imagePreview} alt={copy.previewAlt} className="w-full object-contain" style={{ maxHeight: '400px' }} />
                     <button type="button" data-no-swipe="true" onClick={clearImage} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-2xl bg-black/75 text-white transition-colors hover:bg-red-600">
                       <X size={14} />
                     </button>
@@ -207,7 +210,7 @@ export function FeedComposer({
                   <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                 </label>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="gk-label hidden text-[var(--text-muted)] sm:inline">Medium</span>
+                  <span className="gk-label hidden text-[var(--text-muted)] sm:inline">{copy.medium}</span>
                   <CategorySelector value={newPostCategory} onChange={setNewPostCategory} />
                 </div>
                 <div className="ml-auto flex items-center gap-2.5">
@@ -220,12 +223,12 @@ export function FeedComposer({
           {!modalPos && typeof document !== 'undefined' && createPortal(
             <div data-no-swipe="true" className="fixed inset-0 z-[9999] flex flex-col bg-[var(--bg-primary)]">
               <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--border)] bg-[rgba(11,11,15,0.92)] px-4 py-3 backdrop-blur-2xl" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-                <button type="button" onClick={closeComposer} data-no-swipe="true" className="rounded-2xl px-2 py-2 text-sm font-bold text-[var(--text-muted)]">Annulla</button>
+                <button type="button" onClick={closeComposer} data-no-swipe="true" className="rounded-2xl px-2 py-2 text-sm font-bold text-[var(--text-muted)]">{copy.cancel}</button>
                 <div className="text-center">
-                  <p className="gk-label text-[var(--accent)]">Activity</p>
-                  <span className="text-[16px] font-black text-[var(--text-primary)]">Nuova activity</span>
+                  <p className="gk-label text-[var(--accent)]">{copy.activityKicker}</p>
+                  <span className="text-[16px] font-black text-[var(--text-primary)]">{copy.newActivity}</span>
                 </div>
-                <PublishButton disabled={publishDisabled} isPublishing={isPublishing} onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }} />
+                <PublishButton disabled={publishDisabled} isPublishing={isPublishing} label={copy.publish} onClick={async (e) => { await handleCreatePost(e as any); closeComposer() }} />
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto">
@@ -249,7 +252,7 @@ export function FeedComposer({
 
                 {imagePreview && (
                   <div className="relative border-y border-[var(--border)] bg-black/50">
-                    <img src={imagePreview} alt="preview" className="w-full object-contain" style={{ maxHeight: 300 }} />
+                    <img src={imagePreview} alt={copy.previewAlt} className="w-full object-contain" style={{ maxHeight: 300 }} />
                     <button type="button" data-no-swipe="true" onClick={clearImage} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-2xl bg-black/75 text-white">
                       <X size={14} />
                     </button>

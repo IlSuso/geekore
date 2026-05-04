@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { X, Edit3, Sparkles } from 'lucide-react'
 import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
+import { useLocale } from '@/lib/locale'
 
 const MAX_NOTES_LENGTH = 1000
 
@@ -27,11 +28,16 @@ export function NotesModal({
   onChange,
   onSave,
   onClose,
-  saveLabel = 'Salva',
-  cancelLabel = 'Annulla',
-  placeholder = 'Scrivi le tue note...',
+  saveLabel,
+  cancelLabel,
+  placeholder,
   readOnly = false,
 }: NotesModalProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'it' ? { privateNotes: 'Note private', editor: 'Editor note', savedHint: 'Note salvate su questo media.', editHint: 'Aggiungi contesto personale alla tua libreria.', close: 'Chiudi', empty: 'Nessuna nota salvata.', save: 'Salva', cancel: 'Annulla', placeholder: 'Scrivi le tue note...' } : { privateNotes: 'Private notes', editor: 'Notes editor', savedHint: 'Saved notes for this media.', editHint: 'Add personal context to your library.', close: 'Close', empty: 'No saved notes.', save: 'Save', cancel: 'Cancel', placeholder: 'Write your notes...' }
+  const effectiveSaveLabel = saveLabel || copy.save
+  const effectiveCancelLabel = cancelLabel || copy.cancel
+  const effectivePlaceholder = placeholder || copy.placeholder
   useEffect(() => {
     gestureState.drawerActive = true
     androidBack.push(onClose)
@@ -64,17 +70,17 @@ export function NotesModal({
             <div className="min-w-0 flex-1">
               <div className="mb-2 gk-section-eyebrow">
                 {readOnly ? <Sparkles size={12} /> : <Edit3 size={12} />}
-                {readOnly ? 'Private notes' : 'Notes editor'}
+                {readOnly ? copy.privateNotes : copy.editor}
               </div>
               <h3 className="line-clamp-2 text-[18px] font-black leading-tight text-[var(--text-primary)]">{title}</h3>
-              <p className="gk-caption mt-1">{readOnly ? 'Note salvate su questo media.' : 'Aggiungi contesto personale alla tua libreria.'}</p>
+              <p className="gk-caption mt-1">{readOnly ? copy.savedHint : copy.editHint}</p>
             </div>
             <button
               type="button"
               data-no-swipe="true"
               onClick={onClose}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] transition-colors hover:text-white"
-              aria-label="Chiudi"
+              aria-label={copy.close}
             >
               <X size={17} />
             </button>
@@ -84,7 +90,7 @@ export function NotesModal({
         <div className="p-5">
           {readOnly ? (
             <div className="max-h-72 min-h-[8rem] overflow-y-auto whitespace-pre-wrap rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm leading-relaxed text-[var(--text-secondary)]">
-              {value || 'Nessuna nota salvata.'}
+              {value || copy.empty}
             </div>
           ) : (
             <div className="relative">
@@ -92,7 +98,7 @@ export function NotesModal({
                 data-no-swipe="true"
                 value={value}
                 onChange={event => onChange(event.target.value.slice(0, MAX_NOTES_LENGTH))}
-                placeholder={placeholder}
+                placeholder={effectivePlaceholder}
                 maxLength={MAX_NOTES_LENGTH}
                 className="h-44 w-full resize-none overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 pb-8 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
               />
@@ -115,7 +121,7 @@ export function NotesModal({
               onClick={onClose}
               className="flex-1 rounded-2xl border border-[var(--border)] py-3 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-white"
             >
-              {cancelLabel}
+              {effectiveCancelLabel}
             </button>
             <button
               type="button"
@@ -124,7 +130,7 @@ export function NotesModal({
               className="flex-1 rounded-2xl py-3 text-sm font-black transition-transform hover:scale-[1.01]"
               style={{ background: 'var(--accent)', color: '#0B0B0F' }}
             >
-              {saveLabel}
+              {effectiveSaveLabel}
             </button>
           </div>
         )}

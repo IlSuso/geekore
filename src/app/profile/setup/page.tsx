@@ -7,6 +7,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Zap, Check, X, Loader2, AtSign } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
+
+
+const SETUP_COPY = {
+  it: {
+    minChars: (n: number) => `Minimo ${n} caratteri`, maxChars: (n: number) => `Massimo ${n} caratteri`, invalid: 'Solo lettere minuscole, numeri e underscore ( _ )', unavailable: 'Username non disponibile', checking: 'Controllo disponibilità...', taken: 'Username già in uso', available: 'Disponibile!', takenLong: 'Username già in uso, scegline un altro', saveError: 'Errore nel salvataggio. Riprova.',
+    title: 'Scegli il tuo username', subtitle: 'Prima di iniziare, hai bisogno di un nome univoco. Potrai cambiarlo in seguito dalle impostazioni.', username: 'Username', usernamePlaceholder: 'il_tuo_nome', usernameHint: (min: number, max: number) => `Solo lettere minuscole, numeri e underscore. ${min}–${max} caratteri.`, displayName: 'Nome visualizzato', optional: 'opzionale', displayPlaceholder: 'Come ti chiami?', displayHint: 'Il nome che vedranno gli altri. Puoi cambiarlo quando vuoi.', saving: 'Salvataggio...', continue: 'Continua', termsPrefix: 'Registrandoti accetti i nostri', terms: 'Termini di servizio', and: 'e la', privacy: 'Privacy Policy'
+  },
+  en: {
+    minChars: (n: number) => `At least ${n} characters`, maxChars: (n: number) => `Max ${n} characters`, invalid: 'Lowercase letters, numbers, and underscores only ( _ )', unavailable: 'Username unavailable', checking: 'Checking availability...', taken: 'Username already taken', available: 'Available!', takenLong: 'Username already taken, choose another one', saveError: 'Could not save. Try again.',
+    title: 'Choose your username', subtitle: 'Before you start, you need a unique name. You can change it later from settings.', username: 'Username', usernamePlaceholder: 'your_name', usernameHint: (min: number, max: number) => `Lowercase letters, numbers, and underscores only. ${min}–${max} characters.`, displayName: 'Display name', optional: 'optional', displayPlaceholder: 'What should we call you?', displayHint: 'The name other people will see. You can change it anytime.', saving: 'Saving...', continue: 'Continue', termsPrefix: 'By signing up you accept our', terms: 'Terms of Service', and: 'and', privacy: 'Privacy Policy'
+  },
+} as const
 
 const USERNAME_REGEX = /^[a-z0-9_]+$/
 const MIN = 3
@@ -17,6 +30,8 @@ type ValidationState = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
 export default function ProfileSetupPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { locale } = useLocale()
+  const copy = SETUP_COPY[locale]
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -41,28 +56,28 @@ export default function ProfileSetupPage() {
     const v = value.trim().toLowerCase()
     if (v.length < MIN) {
       setValidState('invalid')
-      setValidationMessage(`Minimo ${MIN} caratteri`)
+      setValidationMessage(copy.minChars(MIN))
       return
     }
     if (v.length > MAX) {
       setValidState('invalid')
-      setValidationMessage(`Massimo ${MAX} caratteri`)
+      setValidationMessage(copy.maxChars(MAX))
       return
     }
     if (!USERNAME_REGEX.test(v)) {
       setValidState('invalid')
-      setValidationMessage('Solo lettere minuscole, numeri e underscore ( _ )')
+      setValidationMessage(copy.invalid)
       return
     }
     const reserved = ['admin', 'geekore', 'support', 'api', 'me', 'root', 'null', 'undefined']
     if (reserved.includes(v)) {
       setValidState('invalid')
-      setValidationMessage('Username non disponibile')
+      setValidationMessage(copy.unavailable)
       return
     }
 
     setValidState('checking')
-    setValidationMessage('Controllo disponibilità...')
+    setValidationMessage(copy.checking)
 
     const { data } = await supabase
       .from('profiles')
@@ -72,10 +87,10 @@ export default function ProfileSetupPage() {
 
     if (data) {
       setValidState('taken')
-      setValidationMessage('Username già in uso')
+      setValidationMessage(copy.taken)
     } else {
       setValidState('available')
-      setValidationMessage('Disponibile!')
+      setValidationMessage(copy.available)
     }
   }, [supabase])
 
@@ -103,11 +118,11 @@ export default function ProfileSetupPage() {
 
     if (updateError) {
       if (updateError.code === '23505') {
-        setError('Username già in uso, scegline un altro')
+        setError(copy.takenLong)
         setValidState('taken')
-        setValidationMessage('Username già in uso')
+        setValidationMessage(copy.taken)
       } else {
-        setError('Errore nel salvataggio. Riprova.')
+        setError(copy.saveError)
       }
       setSaving(false)
       return
@@ -152,10 +167,10 @@ export default function ProfileSetupPage() {
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-3xl font-black tracking-tighter text-white mb-2">
-            Scegli il tuo username
+            {copy.title}
           </h1>
           <p className="text-zinc-400">
-            Prima di iniziare, hai bisogno di un nome univoco. Potrai cambiarlo in seguito dalle impostazioni.
+            {copy.subtitle}
           </p>
         </div>
 
@@ -164,7 +179,7 @@ export default function ProfileSetupPage() {
           {/* Username */}
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Username <span className="text-red-400">*</span>
+              {copy.username} <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
@@ -174,7 +189,7 @@ export default function ProfileSetupPage() {
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, MAX))}
-                placeholder="il_tuo_nome"
+                placeholder={copy.usernamePlaceholder}
                 className={`w-full bg-zinc-900 border ${getInputBorderClass()} rounded-2xl pl-10 pr-10 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors`}
                 autoComplete="off"
                 autoCapitalize="none"
@@ -191,7 +206,7 @@ export default function ProfileSetupPage() {
             )}
             {!validationMessage && (
               <p className="text-xs mt-2 text-zinc-600">
-                Solo lettere minuscole, numeri e underscore. {MIN}–{MAX} caratteri.
+                {copy.usernameHint(MIN, MAX)}
               </p>
             )}
           </div>
@@ -199,17 +214,17 @@ export default function ProfileSetupPage() {
           {/* Display name (opzionale) */}
           <div>
             <label className="block text-sm font-medium text-zinc-300 mb-2">
-              Nome visualizzato <span className="text-zinc-600 font-normal">(opzionale)</span>
+              {copy.displayName} <span className="text-zinc-600 font-normal">({copy.optional})</span>
             </label>
             <input
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value.slice(0, 50))}
-              placeholder="Come ti chiami?"
+              placeholder={copy.displayPlaceholder}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-zinc-600 rounded-2xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors"
             />
             <p className="text-xs mt-2 text-zinc-600">
-              Il nome che vedranno gli altri. Puoi cambiarlo quando vuoi.
+              {copy.displayHint}
             </p>
           </div>
 
@@ -226,18 +241,18 @@ export default function ProfileSetupPage() {
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             {saving ? (
-              <><Loader2 size={20} className="animate-spin" /> Salvataggio...</>
+              <><Loader2 size={20} className="animate-spin" /> {copy.saving}</>
             ) : (
-              'Continua'
+              copy.continue
             )}
           </button>
         </form>
 
         <p className="text-center text-zinc-600 text-xs mt-8">
-          Registrandoti accetti i nostri{' '}
-          <a href="/terms" className="hover:text-zinc-400 transition-colors underline">Termini di servizio</a>
-          {' '}e la{' '}
-          <a href="/privacy" className="hover:text-zinc-400 transition-colors underline">Privacy Policy</a>
+          {copy.termsPrefix}{' '}
+          <a href="/terms" className="hover:text-zinc-400 transition-colors underline">{copy.terms}</a>
+          {' '}{copy.and}{' '}
+          <a href="/privacy" className="hover:text-zinc-400 transition-colors underline">{copy.privacy}</a>
         </p>
       </div>
     </div>

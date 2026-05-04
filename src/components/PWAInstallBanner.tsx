@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Download, X, Zap } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 const SKIP_PATHS = ['/login', '/register', '/forgot-password', '/onboarding', '/auth']
 
@@ -11,6 +12,8 @@ const PWA_HANDLED_KEY = 'pwa-handled' // installata o dismissata
 
 export function PWAInstallBanner() {
   const pathname = usePathname()
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { title: 'Install Geekore', subtitle: 'Quick access from your home screen', install: 'Install', close: 'Close' } : { title: 'Installa Geekore', subtitle: 'Accesso rapido dalla home', install: 'Installa', close: 'Chiudi' }
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [show, setShow] = useState(false)
   const [installing, setInstalling] = useState(false)
@@ -77,19 +80,19 @@ export function PWAInstallBanner() {
           <Zap size={20} className="text-black" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white leading-tight">Installa Geekore</p>
-          <p className="text-xs text-zinc-400 mt-0.5">Accesso rapido dalla home</p>
+          <p className="text-sm font-semibold text-white leading-tight">{copy.title}</p>
+          <p className="text-xs text-zinc-400 mt-0.5">{copy.subtitle}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={handleInstall} disabled={installing}
             className="flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-60 rounded-xl text-xs font-semibold transition-all"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
             <Download size={13} />
-            Installa
+            {copy.install}
           </button>
           <button onClick={handleDismiss}
             className="w-7 h-7 flex items-center justify-center rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
-            aria-label="Chiudi">
+            aria-label={copy.close}>
             <X size={14} />
           </button>
         </div>

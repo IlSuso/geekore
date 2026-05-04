@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale/it'
+import { enUS } from 'date-fns/locale/en-US'
+import { useLocale } from '@/lib/locale'
 
 interface Notification {
   id: string
@@ -21,6 +23,35 @@ interface Notification {
   post_id?: string
 }
 
+const COPY = {
+  it: {
+    title: 'Notifiche',
+    empty: 'Nessuna notifica',
+    viewAll: 'Vedi tutte le notifiche',
+    close: 'Chiudi notifiche',
+    someone: 'Qualcuno',
+    labels: {
+      like: (actor: string) => `${actor} ha messo like al tuo post`,
+      comment: (actor: string) => `${actor} ha commentato il tuo post`,
+      follow: (actor: string) => `${actor} ha iniziato a seguirti`,
+      default: (actor: string) => `${actor} ti ha inviato una notifica`,
+    },
+  },
+  en: {
+    title: 'Notifications',
+    empty: 'No notifications',
+    viewAll: 'View all notifications',
+    close: 'Close notifications',
+    someone: 'Someone',
+    labels: {
+      like: (actor: string) => `${actor} liked your post`,
+      comment: (actor: string) => `${actor} commented on your post`,
+      follow: (actor: string) => `${actor} started following you`,
+      default: (actor: string) => `${actor} sent you a notification`,
+    },
+  },
+} as const
+
 function NotifIcon({ type }: { type: string }) {
   if (type === 'like') return <Heart size={14} className="text-red-400" fill="currentColor" />
   if (type === 'comment') return <MessageCircle size={14} style={{ color: 'var(--accent)' }} fill="currentColor" />
@@ -28,14 +59,17 @@ function NotifIcon({ type }: { type: string }) {
   return <Bell size={14} className="text-zinc-400" />
 }
 
-function notifLabel(type: string, actor: string) {
-  if (type === 'like') return `${actor} ha messo like al tuo post`
-  if (type === 'comment') return `${actor} ha commentato il tuo post`
-  if (type === 'follow') return `${actor} ha iniziato a seguirti`
-  return `${actor} ti ha inviato una notifica`
+function notifLabel(type: string, actor: string, locale: 'it' | 'en') {
+  const labels = COPY[locale].labels
+  if (type === 'like') return labels.like(actor)
+  if (type === 'comment') return labels.comment(actor)
+  if (type === 'follow') return labels.follow(actor)
+  return labels.default(actor)
 }
 
 export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { locale } = useLocale()
+  const copy = COPY[locale]
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const didLoad = useRef(false)
@@ -56,7 +90,6 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
         .then(({ data }) => {
           setNotifications((data as any[]) || [])
           setLoading(false)
-          // Mark all as read
           fetch('/api/notifications/read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -66,7 +99,6 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
     })
   }, [open])
 
-  // Close on ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
@@ -75,7 +107,6 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-[200]"
         style={{
@@ -87,7 +118,6 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
         onClick={onClose}
       />
 
-      {/* Panel — slides in from the left, positioned next to the sidebar */}
       <div
         className="fixed top-0 md:top-12 left-0 h-full md:h-[calc(100%-3rem)] z-[201] bg-zinc-950 border-r border-zinc-800 flex flex-col"
         style={{
@@ -97,18 +127,18 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
           willChange: 'transform',
         }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 flex-shrink-0">
-          <h2 className="text-[16px] font-bold text-white">Notifiche</h2>
+          <h2 className="text-[16px] font-bold text-white">{copy.title}</h2>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={copy.close}
             className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto">
           {loading && (
             <div className="flex flex-col gap-3 p-4">
@@ -129,14 +159,14 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
               <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center">
                 <Bell size={22} className="text-zinc-500" />
               </div>
-              <p className="text-sm text-zinc-500">Nessuna notifica</p>
+              <p className="text-sm text-zinc-500">{copy.empty}</p>
             </div>
           )}
 
           {!loading && notifications.map(notif => {
             const actor = notif.actor
-            const name = actor?.display_name || actor?.username || 'Qualcuno'
-            const time = formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: it })
+            const name = actor?.display_name || actor?.username || copy.someone
+            const time = formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: locale === 'en' ? enUS : it })
             return (
               <div
                 key={notif.id}
@@ -160,7 +190,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
                   <p className="text-[13px] text-[var(--text-primary)] leading-snug">
-                    {notifLabel(notif.type, name)}
+                    {notifLabel(notif.type, name, locale)}
                   </p>
                   <p className="text-[11px] text-zinc-500 mt-0.5">{time}</p>
                 </div>
@@ -172,7 +202,6 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
           })}
         </div>
 
-        {/* Footer */}
         <div className="flex-shrink-0 p-4 border-t border-zinc-800">
           <Link
             href="/notifications"
@@ -180,7 +209,7 @@ export function NotificationsDrawer({ open, onClose }: { open: boolean; onClose:
             className="block w-full text-center text-[13px] font-semibold hover:opacity-80 transition-opacity py-2"
             style={{ color: 'var(--accent)' }}
           >
-            Vedi tutte le notifiche
+            {copy.viewAll}
           </Link>
         </div>
       </div>

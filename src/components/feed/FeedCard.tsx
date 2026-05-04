@@ -77,6 +77,27 @@ export interface FeedCardProps {
 export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUserId }: FeedCardProps): React.ReactElement {
   const supabase = createClient()
   const { locale } = useLocale()
+  const copy = locale === 'en' ? {
+    pinned: 'Pinned',
+    userFallback: 'User',
+    postImageAlt: (username: string) => `Post image by ${username}`,
+    removeLike: 'Remove like',
+    addLike: 'Like',
+    hideComments: 'Hide comments',
+    showComments: 'Show comments',
+    deleteComment: 'Delete comment',
+    commentPlaceholder: 'Write a comment...',
+  } : {
+    pinned: 'In evidenza',
+    userFallback: 'Utente',
+    postImageAlt: (username: string) => `Immagine del post di ${username}`,
+    removeLike: 'Rimuovi like',
+    addLike: 'Metti like',
+    hideComments: 'Nascondi commenti',
+    showComments: 'Mostra commenti',
+    deleteComment: 'Elimina commento',
+    commentPlaceholder: 'Scrivi un commento...',
+  }
 
   const profile: PostProfile | null = Array.isArray(post.profiles)
     ? (post.profiles[0] ?? null)
@@ -218,7 +239,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
       {post.pinned && (
         <div className="flex items-center gap-1.5 px-4 md:px-6 pt-3.5" style={{ color: 'var(--accent)' }}>
           <Pin size={12} className="rotate-45" />
-          <span className="gk-label text-[var(--accent)]">In evidenza</span>
+          <span className="gk-label text-[var(--accent)]">{copy.pinned}</span>
         </div>
       )}
 
@@ -240,7 +261,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
         <div className="flex-1 min-w-0">
           <Link href={`/profile/${profile?.username}`} className="hover:text-[var(--accent)] transition-colors">
             <p className="gk-headline truncate text-[var(--text-primary)]">
-              <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || 'Utente'} />
+              <UserBadge badge={profile?.badge} displayName={profile?.display_name || profile?.username || copy.userFallback} />
             </p>
           </Link>
           <p className="gk-mono mt-0.5 text-[var(--text-muted)]">
@@ -267,7 +288,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
         <div className="mx-3 md:mx-4 mb-3.5 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-card-hover)]">
           <img
             src={optimizeImage(post.image_url, 'feed-post')}
-            alt={`Immagine del post di ${profile?.username || 'utente'}`}
+            alt={copy.postImageAlt(profile?.username || 'user')}
             className="w-full max-h-[340px] md:max-h-[420px] object-cover"
             loading="lazy"
             decoding="async"
@@ -279,7 +300,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
       <div className="px-4 md:px-6 py-3 md:py-4 border-t border-[var(--border)] flex items-center gap-5 md:gap-6">
         <button
           onClick={handleLike}
-          aria-label={hasLiked ? 'Rimuovi like' : 'Metti like'}
+          aria-label={hasLiked ? copy.removeLike : copy.addLike}
           className={`flex items-center gap-2 group transition-all ${hasLiked ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--accent)]'}`}
         >
           <div className={`p-1.5 rounded-xl transition-colors ${hasLiked ? 'bg-[rgba(230,255,61,0.12)]' : 'group-hover:bg-[rgba(230,255,61,0.08)]'}`}>
@@ -293,7 +314,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
 
         <button
           onClick={handleToggleComments}
-          aria-label={showComments ? 'Nascondi commenti' : 'Mostra commenti'}
+          aria-label={showComments ? copy.hideComments : copy.showComments}
           className={`flex items-center gap-2 group transition-all ${showComments ? '' : 'text-[var(--text-muted)]'}`}
           style={showComments ? { color: 'var(--accent)' } : {}}
         >
@@ -335,7 +356,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                         {user?.id === comment.user_id ? (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
-                            aria-label="Elimina commento"
+                            aria-label={copy.deleteComment}
                             className="text-[var(--text-muted)] hover:text-red-400 transition-colors"
                           >
                             <Trash2 size={11} />
@@ -357,7 +378,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
               type="text"
               value={newComment}
               onChange={handleCommentChange}
-              placeholder="Scrivi un commento..."
+              placeholder={copy.commentPlaceholder}
               maxLength={MAX_COMMENT_LENGTH}
               className="w-full bg-[var(--bg-card)] border border-[var(--border)] focus:border-[rgba(230,255,61,0.45)] rounded-2xl py-3 px-4 pr-20 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none transition-colors"
             />

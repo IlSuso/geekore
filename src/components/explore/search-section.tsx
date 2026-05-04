@@ -5,8 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Search, X } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useLocale } from '@/lib/locale'
 
 export function SearchSection() {
+  const { locale } = useLocale()
+  const copy = locale === 'en' ? { placeholder: 'Search a user...', empty: (q: string) => `No user found for "${q}"` } : { placeholder: 'Cerca un utente...', empty: (q: string) => `Nessun utente trovato per "${q}"` }
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,7 +58,7 @@ export function SearchSection() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca un utente..."
+          placeholder={copy.placeholder}
           className="bg-transparent outline-none text-sm w-full placeholder-zinc-600 text-white"
         />
         {query && (
@@ -96,7 +99,7 @@ export function SearchSection() {
 
       {open && query.length >= 2 && results.length === 0 && !loading && (
         <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-500 shadow-2xl">
-          Nessun utente trovato per "{query}"
+          {copy.empty(query)}
         </div>
       )}
     </div>

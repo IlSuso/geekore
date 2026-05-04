@@ -6,25 +6,23 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Activity, Clock, Star, Sparkles } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { useLocale } from '@/lib/locale'
 
-const TYPE_LABELS: Record<string, string> = {
-  media_added: 'ha aggiunto',
-  media_completed: 'ha completato',
-  media_dropped: 'ha abbandonato',
-  rating_given: 'ha votato',
-  steam_imported: 'ha importato giochi da Steam',
+const TYPE_LABELS: Record<'it' | 'en', Record<string, string>> = {
+  it: { media_added: 'ha aggiunto', media_completed: 'ha completato', media_dropped: 'ha abbandonato', rating_given: 'ha votato', steam_imported: 'ha importato giochi da Steam', updated: 'ha aggiornato' },
+  en: { media_added: 'added', media_completed: 'completed', media_dropped: 'dropped', rating_given: 'rated', steam_imported: 'imported games from Steam', updated: 'updated' },
 }
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, locale: 'it' | 'en'): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
-  if (mins < 2) return 'adesso'
-  if (mins < 60) return `${mins}m fa`
-  if (hours < 24) return `${hours}h fa`
-  if (days < 7) return `${days}g fa`
-  return new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  if (mins < 2) return locale === 'it' ? 'adesso' : 'now'
+  if (mins < 60) return locale === 'it' ? `${mins}m fa` : `${mins}m ago`
+  if (hours < 24) return locale === 'it' ? `${hours}h fa` : `${hours}h ago`
+  if (days < 7) return locale === 'it' ? `${days}g fa` : `${days}d ago`
+  return new Date(dateStr).toLocaleDateString(locale === 'it' ? 'it-IT' : 'en-US', { day: 'numeric', month: 'short' })
 }
 
 function RatingPill({ value }: { value: number }) {
@@ -37,6 +35,8 @@ function RatingPill({ value }: { value: number }) {
 }
 
 export function ProfileActivityFeed({ userId }: { userId: string }) {
+  const { locale } = useLocale()
+  const copy = locale === 'it' ? { emptyTitle: 'Nessuna attività recente', emptyBody: 'Quando questo profilo aggiunge, completa o valuta media, lo stream apparirà qui.', stream: 'Activity stream', streamHint: 'Ultimi segnali pubblici della libreria.', mediaAlt: 'media' } : { emptyTitle: 'No recent activity', emptyBody: 'When this profile adds, completes, or rates media, the stream will appear here.', stream: 'Activity stream', streamHint: 'Latest public library signals.', mediaAlt: 'media' }
   const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -74,8 +74,8 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
           <Activity size={28} className="text-[var(--text-muted)]" />
         </div>
-        <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna attività recente</p>
-        <p className="gk-body mx-auto max-w-sm">Quando questo profilo aggiunge, completa o valuta media, lo stream apparirà qui.</p>
+        <p className="gk-headline mb-1 text-[var(--text-primary)]">{copy.emptyTitle}</p>
+        <p className="gk-body mx-auto max-w-sm">{copy.emptyBody}</p>
       </div>
     )
   }
@@ -86,9 +86,9 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
         <div>
           <div className="mb-1 gk-section-eyebrow">
             <Sparkles size={12} />
-            Activity stream
+            {copy.stream}
           </div>
-          <p className="gk-caption">Ultimi segnali pubblici della libreria.</p>
+          <p className="gk-caption">{copy.streamHint}</p>
         </div>
         <span className="gk-mono text-[var(--text-muted)]">{activities.length}</span>
       </div>
@@ -102,7 +102,7 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
             <div className="relative h-[72px] w-12 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
               <Image
                 src={a.media_cover}
-                alt={a.media_title || 'media'}
+                alt={a.media_title || copy.mediaAlt}
                 fill
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="48px"
@@ -120,14 +120,14 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
               {a.rating_value && <RatingPill value={a.rating_value} />}
             </div>
             <p className="line-clamp-2 text-sm leading-snug text-[var(--text-secondary)]">
-              <span className="text-[var(--text-muted)]">{TYPE_LABELS[a.type] || 'ha aggiornato'}</span>
+              <span className="text-[var(--text-muted)]">{TYPE_LABELS[locale][a.type] || TYPE_LABELS[locale].updated}</span>
               {a.media_title && (
                 <span className="ml-1 font-bold text-[var(--text-primary)]">{a.media_title}</span>
               )}
             </p>
             <p className="gk-mono mt-1 inline-flex items-center gap-1 text-[var(--text-muted)]">
               <Clock size={10} />
-              {timeAgo(a.created_at)}
+              {timeAgo(a.created_at, locale)}
             </p>
           </div>
         </div>

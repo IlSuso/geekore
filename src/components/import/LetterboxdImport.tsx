@@ -2,6 +2,7 @@
 // src/components/import/LetterboxdImport.tsx
 
 import { useState, useRef } from 'react'
+import { useLocale } from '@/lib/locale'
 import { Download, CheckCircle, AlertTriangle, Loader2, ExternalLink, Upload, FileText, X, ChevronDown, ChevronUp, Film, List, FolderOpen } from 'lucide-react'
 
 interface ImportResult {
@@ -26,6 +27,16 @@ type ProgressState = {
 
 interface FileState { file: File | null; error: string | null }
 const emptyFile = (): FileState => ({ file: null, error: null })
+
+
+const LETTERBOXD_COPY = {
+  it: {
+    selectCsv: 'Seleziona un file .csv', fileTooLarge: 'File troppo grande (max 10MB)', removeFile: 'Rimuovi file', drag: (hint: string) => hint, click: 'o clicca per selezionare', importError: "Errore durante l'importazione", networkError: 'Errore di rete. Riprova tra qualche secondo.', howTitle: 'Come ottenere i file:', how1: 'Vai su', exportData: 'Export Your Data', how2: 'Scarica e decomprimi lo .zip: troverai i file elencati sotto.', watchedTitle: 'Film visti + voti', recommended: 'Consigliato:', watchedHelp: 'carica entrambi —', watchedContains: 'contiene tutti i film visti,', ratingsAdds: 'aggiunge i voti a quelli che hai votato.', alsoOne: 'Puoi caricare anche solo uno dei due.', watchedSub: '— tutti i film visti', ratingsSub: '— film votati (aggiunge i voti)', watchlistOptional: '— opzionale', watchlistHelp: 'film che vuoi vedere, salvati come "da vedere".', customList: 'Lista personalizzata', customHelp: 'Esporta una tua lista dal profilo e caricala qui. La lista viene creata nella sezione "Le mie liste" con tutti i film.', exportListHelp: 'Per esportare una lista: vai sulla lista nel tuo profilo Letterboxd → icona ••• →', listName: 'Nome lista', optionalDetected: '(opzionale — viene rilevato automaticamente dal file)', listPlaceholder: 'Lascia vuoto per usare il nome dal CSV', listCsv: 'Lista .csv', listHint: 'Trascina il file della lista qui', newItems: 'nuovi', merged: 'uniti', skipped: 'saltati', importing: 'Importazione in corso...', importFrom: 'Importa da Letterboxd'
+  },
+  en: {
+    selectCsv: 'Select a .csv file', fileTooLarge: 'File too large (max 10MB)', removeFile: 'Remove file', drag: (hint: string) => hint.replace('Trascina', 'Drag').replace('qui', 'here'), click: 'or click to select', importError: 'Import failed', networkError: 'Network error. Try again in a few seconds.', howTitle: 'How to get the files:', how1: 'Go to', exportData: 'Export Your Data', how2: 'Download and unzip the .zip file: you will find the files listed below.', watchedTitle: 'Watched films + ratings', recommended: 'Recommended:', watchedHelp: 'upload both —', watchedContains: 'contains all watched films,', ratingsAdds: 'adds ratings to the films you rated.', alsoOne: 'You can also upload only one of the two.', watchedSub: '— all watched films', ratingsSub: '— rated films (adds ratings)', watchlistOptional: '— optional', watchlistHelp: 'films you want to watch, saved as "to watch".', customList: 'Custom list', customHelp: 'Export one of your profile lists and upload it here. The list will be created in "My lists" with all films.', exportListHelp: 'To export a list: open the list on your Letterboxd profile → ••• icon →', listName: 'List name', optionalDetected: '(optional — automatically detected from the file)', listPlaceholder: 'Leave empty to use the CSV name', listCsv: 'List .csv', listHint: 'Drag the list file here', newItems: 'new', merged: 'merged', skipped: 'skipped', importing: 'Importing...', importFrom: 'Import from Letterboxd'
+  },
+} as const
 
 // ── FileDropZone ──────────────────────────────────────────────────────────────
 
@@ -108,6 +119,8 @@ function FileDropZone({
 // ── Componente principale ─────────────────────────────────────────────────────
 
 export function LetterboxdImport() {
+  const { locale } = useLocale()
+  const t = LETTERBOXD_COPY[locale]
   const [watched,   setWatched]   = useState<FileState>(emptyFile())
   const [ratings,   setRatings]   = useState<FileState>(emptyFile())
   const [watchlist, setWatchlist] = useState<FileState>(emptyFile())
@@ -142,8 +155,8 @@ export function LetterboxdImport() {
       const res = await fetch('/api/import/letterboxd', { method: 'POST', body: formData })
 
       if (!res.ok) {
-        try { const data = await res.json(); setGlobalError(data.error || "Errore durante l'importazione") }
-        catch { setGlobalError("Errore durante l'importazione") }
+        try { const data = await res.json(); setGlobalError(data.error || t.importError) }
+        catch { setGlobalError(t.importError) }
         setLoading(false); return
       }
 
@@ -168,7 +181,7 @@ export function LetterboxdImport() {
         }
       }
     } catch {
-      setGlobalError('Errore di rete. Riprova tra qualche secondo.')
+      setGlobalError(t.networkError)
     }
 
     setLoading(false)
@@ -184,15 +197,15 @@ export function LetterboxdImport() {
       {/* Header */}
       {/* Come esportare */}
       <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-2xl p-4 mb-5 text-xs text-zinc-500 space-y-2">
-        <p className="font-semibold text-zinc-400">Come ottenere i file:</p>
+        <p className="font-semibold text-zinc-400">{t.howTitle}</p>
         <p>
-          Vai su{' '}
+          {t.how1}{' '}
           <a href="https://letterboxd.com/settings/data/" target="_blank" rel="noopener noreferrer"
             className="text-emerald-400 hover:underline">
             letterboxd.com → Settings → Data
           </a>
-          {' '}→ <strong className="text-zinc-300">Export Your Data</strong>.
-          Scarica e decomprimi lo .zip: troverai i file elencati sotto.
+          {' '}→ <strong className="text-zinc-300">{t.exportData}</strong>.
+          {t.how2}
         </p>
       </div>
 
@@ -203,25 +216,25 @@ export function LetterboxdImport() {
           <div className="flex items-start gap-2">
             <Film size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-white">Film visti + voti</p>
+              <p className="text-sm font-semibold text-white">{t.watchedTitle}</p>
               <p className="text-xs text-zinc-500 mt-0.5">
-                <strong className="text-zinc-400">Consigliato:</strong> carica entrambi —
-                <code className="text-zinc-300 mx-1">watched.csv</code> contiene tutti i film visti,
-                <code className="text-zinc-300 mx-1">ratings.csv</code> aggiunge i voti a quelli che hai votato.
-                Puoi caricare anche solo uno dei due.
+                <strong className="text-zinc-400">{t.recommended}</strong> {t.watchedHelp}
+                <code className="text-zinc-300 mx-1">watched.csv</code> {t.watchedContains}
+                <code className="text-zinc-300 mx-1">ratings.csv</code> {t.ratingsAdds}
+                {t.alsoOne}
               </p>
             </div>
           </div>
 
           <FileDropZone
             label="watched.csv"
-            sublabel="— tutti i film visti"
+            sublabel={t.watchedSub}
             hint="Trascina watched.csv qui"
             state={watched} setter={setWatched} inputRef={watchedRef} disabled={loading}
           />
           <FileDropZone
             label="ratings.csv"
-            sublabel="— film votati (aggiunge i voti)"
+            sublabel={t.ratingsSub}
             hint="Trascina ratings.csv qui"
             state={ratings} setter={setRatings} inputRef={ratingsRef} disabled={loading}
           />
@@ -232,9 +245,9 @@ export function LetterboxdImport() {
           <div className="flex items-start gap-2">
             <List size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-white">Watchlist <span className="text-zinc-500 font-normal text-xs">— opzionale</span></p>
+              <p className="text-sm font-semibold text-white">Watchlist <span className="text-zinc-500 font-normal text-xs">{t.watchlistOptional}</span></p>
               <p className="text-xs text-zinc-500 mt-0.5">
-                <code className="text-zinc-300">watchlist.csv</code> — film che vuoi vedere, salvati come "da vedere".
+                <code className="text-zinc-300">watchlist.csv</code> — {t.watchlistHelp}
               </p>
             </div>
           </div>
@@ -245,7 +258,7 @@ export function LetterboxdImport() {
           />
         </div>
 
-        {/* Lista personalizzata — collassabile */}
+        {/* {t.customList} — collassabile */}
         <div className="bg-zinc-800/30 border border-zinc-700/50 rounded-2xl overflow-hidden">
           <button
             onClick={() => setShowList(v => !v)}
@@ -254,10 +267,10 @@ export function LetterboxdImport() {
             <FolderOpen size={16} className="text-zinc-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
-                Lista personalizzata <span className="text-zinc-500 font-normal text-xs">— opzionale</span>
+                {t.customList} <span className="text-zinc-500 font-normal text-xs">{t.watchlistOptional}</span>
               </p>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Esporta una tua lista dal profilo e caricala qui. La lista viene creata nella sezione "Le mie liste" con tutti i film.
+                {t.customHelp}
               </p>
             </div>
             {showList ? <ChevronUp size={15} className="text-zinc-500" /> : <ChevronDown size={15} className="text-zinc-500" />}
@@ -266,24 +279,24 @@ export function LetterboxdImport() {
           {showList && (
             <div className="px-4 pb-4 space-y-3 border-t border-zinc-700/50 pt-3">
               <p className="text-xs text-zinc-500">
-                Per esportare una lista: vai sulla lista nel tuo profilo Letterboxd → icona ••• → <strong className="text-zinc-400">Export list as CSV</strong>.
+                {t.exportListHelp} <strong className="text-zinc-400">Export list as CSV</strong>.
               </p>
               <div>
                 <label className="block text-sm text-zinc-300 font-medium mb-1.5">
-                  Nome lista <span className="text-zinc-500 font-normal text-xs">(opzionale — viene rilevato automaticamente dal file)</span>
+                  {t.listName} <span className="text-zinc-500 font-normal text-xs">{t.optionalDetected}</span>
                 </label>
                 <input
                   type="text"
                   value={listName}
                   onChange={e => setListName(e.target.value.slice(0, 50))}
-                  placeholder="Lascia vuoto per usare il nome dal CSV"
+                  placeholder={t.listPlaceholder}
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
                   disabled={loading}
                 />
               </div>
               <FileDropZone
-                label="Lista .csv"
-                hint="Trascina il file della lista qui"
+                label={t.listCsv}
+                hint={t.listHint}
                 state={listFile} setter={setListFile} inputRef={listRef} disabled={loading}
               />
             </div>
@@ -305,10 +318,10 @@ export function LetterboxdImport() {
           <div className="min-w-0">
             <p className="font-medium">{result.message}</p>
             <p className="text-xs text-emerald-600 mt-1 space-x-2">
-              {result.imported > 0 && <span>{result.imported} nuovi</span>}
-              {result.merged > 0 && <span>• {result.merged} uniti</span>}
+              {result.imported > 0 && <span>{result.imported} {t.newItems}</span>}
+              {result.merged > 0 && <span>• {result.merged} {t.merged}</span>}
               {result.watchlist > 0 && <span>• {result.watchlist} watchlist</span>}
-              {result.skipped > 0 && <span>• {result.skipped} saltati</span>}
+              {result.skipped > 0 && <span>• {result.skipped} {t.skipped}</span>}
             </p>
           </div>
         </div>
@@ -341,8 +354,8 @@ export function LetterboxdImport() {
         className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-2xl font-semibold text-sm transition flex items-center justify-center gap-2"
       >
         {loading
-          ? <><Loader2 size={16} className="animate-spin" />Importazione in corso...</>
-          : <><Download size={16} />Importa da Letterboxd</>
+          ? <><Loader2 size={16} className="animate-spin" />{t.importing}</>
+          : <><Download size={16} />{t.importFrom}</>
         }
       </button>
     </div>

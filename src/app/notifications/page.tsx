@@ -11,15 +11,65 @@ import { Avatar } from '@/components/ui/Avatar'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocale } from '@/lib/locale'
 
 type NotificationFilter = 'all' | 'social' | 'system' | 'integration'
 
-const FILTERS: Array<{ id: NotificationFilter; label: string }> = [
-  { id: 'all', label: 'Tutto' },
-  { id: 'social', label: 'Social' },
-  { id: 'system', label: 'Sistema' },
-  { id: 'integration', label: 'Integrazioni' },
-]
+const NOTIFICATIONS_COPY = {
+  it: {
+    title: 'Notifiche',
+    description: 'Segnali social e update dalla community.',
+    filters: { all: 'Tutto', social: 'Social', system: 'Sistema', integration: 'Integrazioni' },
+    now: 'ORA', minutes: 'M', hours: 'H', days: 'G', weeks: 'SETT',
+    like: 'ha acceso il tuo post.',
+    comment: 'ha commentato il tuo post.',
+    follow: 'ha iniziato a seguirti.',
+    rating: 'ha votato un media.',
+    integration: 'ha sincronizzato una nuova integrazione.',
+    fallback: 'ha una nuova raccomandazione per te.',
+    today: 'Oggi', yesterday: 'Ieri', week: 'Questa settimana', previous: 'Precedenti',
+    unread: (n: number) => `${n} da leggere`,
+    allRead: 'Tutto letto',
+    total: (n: number) => `${n} totali`,
+    emptyTitle: 'Nessuna notifica',
+    emptyBody: 'Quando arriveranno like, commenti, follow o update dalle integrazioni li troverai qui.',
+    findFriends: 'Trova amici',
+    someone: 'Qualcuno',
+    otherPeople: (n: number) => `e altre ${n} persone`,
+  },
+  en: {
+    title: 'Notifications',
+    description: 'Social signals and community updates.',
+    filters: { all: 'All', social: 'Social', system: 'System', integration: 'Integrations' },
+    now: 'NOW', minutes: 'M', hours: 'H', days: 'D', weeks: 'W',
+    like: 'lit up your post.',
+    comment: 'commented on your post.',
+    follow: 'started following you.',
+    rating: 'rated a media item.',
+    integration: 'synced a new integration.',
+    fallback: 'has a new recommendation for you.',
+    today: 'Today', yesterday: 'Yesterday', week: 'This week', previous: 'Earlier',
+    unread: (n: number) => `${n} unread`,
+    allRead: 'All read',
+    total: (n: number) => `${n} total`,
+    emptyTitle: 'No notifications',
+    emptyBody: 'Likes, comments, follows and integration updates will show up here.',
+    findFriends: 'Find friends',
+    someone: 'Someone',
+    otherPeople: (n: number) => `and ${n} other people`,
+  },
+} as const
+
+type NotificationsCopy = (typeof NOTIFICATIONS_COPY)['it'] | (typeof NOTIFICATIONS_COPY)['en']
+
+function filters(copy: NotificationsCopy): Array<{ id: NotificationFilter; label: string }> {
+  return [
+    { id: 'all', label: copy.filters.all },
+    { id: 'social', label: copy.filters.social },
+    { id: 'system', label: copy.filters.system },
+    { id: 'integration', label: copy.filters.integration },
+  ]
+}
 
 function notificationBucket(type: string): NotificationFilter {
   if (type === 'like' || type === 'comment' || type === 'follow') return 'social'
@@ -35,16 +85,16 @@ function setAppBadge(count: number) {
   }
 }
 
-function compactTimeAgo(dateStr: string): string {
+function compactTimeAgo(dateStr: string, copy: NotificationsCopy): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 1) return 'ORA'
-  if (m < 60) return `${m}M`
+  if (m < 1) return copy.now
+  if (m < 60) return `${m}${copy.minutes}`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}H`
+  if (h < 24) return `${h}${copy.hours}`
   const d = Math.floor(h / 24)
-  if (d < 7) return `${d}G`
-  return `${Math.floor(d / 7)}SETT`
+  if (d < 7) return `${d}${copy.days}`
+  return `${Math.floor(d / 7)}${copy.weeks}`
 }
 
 export default function NotificationsPage() {
@@ -52,6 +102,9 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all')
   const supabase = createClient()
+  const { locale } = useLocale()
+  const nc = NOTIFICATIONS_COPY[locale] || NOTIFICATIONS_COPY.it
+  const FILTERS = filters(nc)
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true)
@@ -133,12 +186,12 @@ export default function NotificationsPage() {
   const { distance: pullDistance, refreshing: isRefreshing } = usePullToRefresh({ onRefresh: fetchNotifications })
 
   function notifText(type: string): string {
-    if (type === 'like') return 'ha acceso il tuo post.'
-    if (type === 'comment') return 'ha commentato il tuo post.'
-    if (type === 'follow') return 'ha iniziato a seguirti.'
-    if (type === 'rating') return 'ha votato un media.'
-    if (notificationBucket(type) === 'integration') return 'ha sincronizzato una nuova integrazione.'
-    return 'ha una nuova raccomandazione per te.'
+    if (type === 'like') return nc.like
+    if (type === 'comment') return nc.comment
+    if (type === 'follow') return nc.follow
+    if (type === 'rating') return nc.rating
+    if (notificationBucket(type) === 'integration') return nc.integration
+    return nc.fallback
   }
 
   function NotifIcon({ type }: { type: string }) {
@@ -157,11 +210,11 @@ export default function NotificationsPage() {
 
   function getGroup(dateStr: string): string {
     const d = new Date(dateStr)
-    if (d.toDateString() === today.toDateString()) return 'Oggi'
-    if (d.toDateString() === yesterday.toDateString()) return 'Ieri'
+    if (d.toDateString() === today.toDateString()) return nc.today
+    if (d.toDateString() === yesterday.toDateString()) return nc.yesterday
     const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
-    if (d > weekAgo) return 'Questa settimana'
-    return 'Precedenti'
+    if (d > weekAgo) return nc.week
+    return nc.previous
   }
 
   function aggregateNotifications(list: any[]): any[] {
@@ -209,13 +262,13 @@ export default function NotificationsPage() {
     return acc
   }, {})
 
-  const groupOrder = ['Oggi', 'Ieri', 'Questa settimana', 'Precedenti']
+  const groupOrder = [nc.today, nc.yesterday, nc.week, nc.previous]
   const unread = notifications.filter((n: any) => !n.is_read).length
 
   return (
     <PageScaffold
-      title="Notifiche"
-      description="Segnali social e update dalla community."
+      title={nc.title}
+      description={nc.description}
       icon={<Bell size={16} />}
       className="gk-notifications-page"
       contentClassName="gk-page-density mx-auto max-w-screen-md pt-2 md:pt-8 pb-28"
@@ -229,8 +282,8 @@ export default function NotificationsPage() {
               <Bell size={18} />
             </div>
             <div className="min-w-0">
-              <h1 className="font-display text-[28px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-[32px]">Notifiche</h1>
-              <p className="mt-1 text-[13px] text-[var(--text-muted)]">{unread > 0 ? `${unread} da leggere` : 'Tutto letto'} · {notifications.length} totali</p>
+              <h1 className="font-display text-[28px] font-black leading-none tracking-[-0.04em] text-[var(--text-primary)] md:text-[32px]">{nc.title}</h1>
+              <p className="mt-1 text-[13px] text-[var(--text-muted)]">{unread > 0 ? nc.unread(unread) : nc.allRead} · {nc.total(notifications.length)}</p>
             </div>
           </div>
 
@@ -273,8 +326,8 @@ export default function NotificationsPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <BellOff size={28} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessuna notifica</p>
-          <p className="gk-body mx-auto mb-6 max-w-sm">Quando arriveranno like, commenti, follow o update dalle integrazioni li troverai qui.</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{nc.emptyTitle}</p>
+          <p className="gk-body mx-auto mb-6 max-w-sm">{nc.emptyBody}</p>
           <Link href="/friends" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
             Trova amici
           </Link>
@@ -287,13 +340,13 @@ export default function NotificationsPage() {
               <div className="space-y-2">
                 {grouped[group].map((n: any) => {
                   const username = n.sender?.username
-                  const name = n.sender?.display_name || username || 'Qualcuno'
+                  const name = n.sender?.display_name || username || nc.someone
                   function aggregatedText(n: any): React.ReactNode {
-                    const first = n._firstSender?.display_name || n._firstSender?.username || 'Qualcuno'
+                    const first = n._firstSender?.display_name || n._firstSender?.username || nc.someone
                     const second = n._secondSender?.display_name || n._secondSender?.username
                     const others = n._othersCount
                     const action = notifText(n.type)
-                    return <><Link href={`/profile/${n._firstSender?.username}`} className="font-black transition-opacity hover:opacity-70">{first}</Link>{second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-black transition-opacity hover:opacity-70">{second}</Link></>}{others > 0 && <> e altre <span className="font-black">{others}</span> persone</>} {' '}{action}</>
+                    return <><Link href={`/profile/${n._firstSender?.username}`} className="font-black transition-opacity hover:opacity-70">{first}</Link>{second && <>, <Link href={`/profile/${n._secondSender?.username}`} className="font-black transition-opacity hover:opacity-70">{second}</Link></>}{others > 0 && <> {nc.otherPeople(others)}</>} {' '}{action}</>
                   }
                   return (
                     <div
@@ -327,7 +380,7 @@ export default function NotificationsPage() {
                         <p className="text-[14px] leading-snug text-[var(--text-secondary)]">
                           {n._aggregated ? aggregatedText(n) : <>{username ? <Link href={`/profile/${username}`} className="font-black text-[var(--text-primary)] transition-opacity hover:opacity-70">{name}</Link> : n.sender ? <span className="font-black text-[var(--text-primary)]">{name}</span> : null}{' '}<span>{notifText(n.type)}</span></>}
                         </p>
-                        <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(n.created_at)}</p>
+                        <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{compactTimeAgo(n.created_at, nc)}</p>
                       </div>
                       <div className="flex-shrink-0">{!n._aggregated && n.type === 'follow' && n.sender_id ? <FollowBackButton targetId={n.sender_id} isFollowingInitial={n._isFollowing} /> : null}</div>
                     </div>

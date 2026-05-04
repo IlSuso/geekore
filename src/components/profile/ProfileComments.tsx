@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { MessageSquare, Send, MoreHorizontal, Loader2, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { it } from 'date-fns/locale'
+import { it, enUS } from 'date-fns/locale'
+import { useLocale } from '@/lib/locale'
 
 interface Comment {
   id: string
@@ -42,6 +43,9 @@ function CommentAvatar({ author }: { author: Comment['author'] }) {
 }
 
 export function ProfileComments({ profileId, profileUsername, isOwner }: ProfileCommentsProps) {
+  const { locale } = useLocale()
+  const dateLocale = locale === 'it' ? it : enUS
+  const copy = locale === 'it' ? { user: 'utente', publish: 'Pubblica', emptyTitle: 'Nessun messaggio ancora', emptyBody: 'Sii il primo a lasciare un commento su questo profilo.', commentOptions: 'Opzioni commento', deleteTitle: 'Eliminare il commento?', deleteHint: 'L’azione non può essere annullata.', delete: 'Elimina', cancel: 'Annulla' } : { user: 'user', publish: 'Post', emptyTitle: 'No messages yet', emptyBody: 'Be the first to leave a comment on this profile.', commentOptions: 'Comment options', deleteTitle: 'Delete this comment?', deleteHint: 'This action cannot be undone.', delete: 'Delete', cancel: 'Cancel' }
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
   const [newComment, setNewComment] = useState('')
@@ -87,7 +91,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
 
     setComments(data.map((c: any) => ({
       ...c,
-      author: profileMap.get(c.author_id) || { username: 'utente', display_name: undefined, avatar_url: undefined },
+      author: profileMap.get(c.author_id) || { username: copy.user, display_name: undefined, avatar_url: undefined },
     })))
     setLoading(false)
   }
@@ -178,7 +182,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}
               >
                 {posting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                Pubblica
+                {copy.publish}
               </button>
             </div>
           </div>
@@ -195,8 +199,8 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
               <MessageSquare size={28} className="text-[var(--text-muted)]" />
             </div>
-            <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun messaggio ancora</p>
-            <p className="gk-body mx-auto max-w-sm">Sii il primo a lasciare un commento su questo profilo.</p>
+            <p className="gk-headline mb-1 text-[var(--text-primary)]">{copy.emptyTitle}</p>
+            <p className="gk-body mx-auto max-w-sm">{copy.emptyBody}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -208,17 +212,17 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <Link href={`/profile/${comment.author?.username}`} className="truncate text-sm font-black text-[var(--text-primary)] transition-colors hover:text-[var(--accent)]">
-                      @{comment.author?.username || 'utente'}
+                      @{comment.author?.username || copy.user}
                     </Link>
                     <div className="flex flex-shrink-0 items-center gap-2">
                       <span className="gk-mono text-[var(--text-muted)]">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: it })}
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: dateLocale })}
                       </span>
                       {(currentUserId === comment.author_id || isOwner) && (
                         <button
                           onClick={() => setConfirmDelete({ id: comment.id, authorId: comment.author_id })}
                           className="rounded-lg p-1 text-[var(--text-muted)] opacity-55 transition-all hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] hover:opacity-100"
-                          aria-label="Opzioni commento"
+                          aria-label={copy.commentOptions}
                         >
                           <MoreHorizontal size={15} />
                         </button>
@@ -243,8 +247,8 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
             onClick={e => e.stopPropagation()}
           >
             <div className="border-b border-[var(--border)] px-5 py-4 text-center">
-              <p className="gk-headline text-[var(--text-primary)]">Eliminare il commento?</p>
-              <p className="gk-caption mt-1">L’azione non può essere annullata.</p>
+              <p className="gk-headline text-[var(--text-primary)]">{copy.deleteTitle}</p>
+              <p className="gk-caption mt-1">{copy.deleteHint}</p>
             </div>
             <button
               onClick={() => {
@@ -254,13 +258,13 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
               }}
               className="w-full border-b border-[var(--border-subtle)] px-5 py-4 text-sm font-black text-red-400 transition-colors hover:bg-red-500/10"
             >
-              Elimina
+              {copy.delete}
             </button>
             <button
               onClick={() => setConfirmDelete(null)}
               className="w-full px-5 py-4 text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-card-hover)]"
             >
-              Annulla
+              {copy.cancel}
             </button>
           </div>
         </div>,

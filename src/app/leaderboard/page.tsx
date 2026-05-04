@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { SkeletonLeaderboardRow } from '@/components/ui/SkeletonCard'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocale } from '@/lib/locale'
 
 let leaderboardCache: { data: any[]; ts: number } | null = null
 const LEADERBOARD_CACHE_TTL = 3 * 60 * 1000
@@ -26,21 +27,38 @@ interface Leader {
   movie_count: number
 }
 
-const TABS: Array<{ id: LeaderboardTab; label: string; short: string; icon: React.ReactNode }> = [
-  { id: 'score', label: 'Geek Score', short: 'Score', icon: <Zap size={13} /> },
-  { id: 'game_hours', label: 'Ore Steam', short: 'Steam', icon: <Gamepad2 size={13} /> },
-  { id: 'anime_count', label: 'Anime tracciati', short: 'Anime', icon: <Tv size={13} /> },
-]
+const LEADERBOARD_COPY = {
+  it: {
+    title: 'Classifica', description: 'Il lato competitivo della community Geekore.', eyebrow: 'Community ranking',
+    hero: 'Score, ore e anime tracciati: una lettura veloce di chi sta spingendo di più nella community.',
+    orderAria: 'Ordina classifica', users: 'utenti', totalScore: 'score tot.', gameHours: 'ore game', steamHours: 'ore Steam', trackedAnime: 'Anime tracciati', anime: 'anime', points: 'pts', noDataTitle: 'Nessun dato disponibile', noDataBody: 'Aggiungi media alla tua collezione per entrare nella classifica.', podium: 'Podio attuale', fullRanking: 'Ranking completo',
+  },
+  en: {
+    title: 'Leaderboard', description: 'The competitive side of the Geekore community.', eyebrow: 'Community ranking',
+    hero: 'Score, hours and tracked anime: a quick read on who is pushing the community forward.',
+    orderAria: 'Sort leaderboard', users: 'users', totalScore: 'total score', gameHours: 'game hours', steamHours: 'Steam hours', trackedAnime: 'Tracked anime', anime: 'anime', points: 'pts', noDataTitle: 'No data available', noDataBody: 'Add media to your collection to enter the leaderboard.', podium: 'Current podium', fullRanking: 'Full ranking',
+  },
+} as const
 
-function formatValue(leader: Leader, tab: LeaderboardTab): string {
-  if (tab === 'game_hours') return `${Math.round(leader.game_hours || 0).toLocaleString('it')}h`
-  if (tab === 'anime_count') return `${leader.anime_count.toLocaleString('it')} anime`
-  return `${leader.score.toLocaleString('it')} pts`
+type LeaderboardCopy = (typeof LEADERBOARD_COPY)['it'] | (typeof LEADERBOARD_COPY)['en']
+
+function getTabs(copy: LeaderboardCopy): Array<{ id: LeaderboardTab; label: string; short: string; icon: React.ReactNode }> {
+  return [
+    { id: 'score', label: 'Geek Score', short: 'Score', icon: <Zap size={13} /> },
+    { id: 'game_hours', label: copy.steamHours, short: 'Steam', icon: <Gamepad2 size={13} /> },
+    { id: 'anime_count', label: copy.trackedAnime, short: 'Anime', icon: <Tv size={13} /> },
+  ]
 }
 
-function metricLabel(tab: LeaderboardTab): string {
-  if (tab === 'game_hours') return 'ore Steam'
-  if (tab === 'anime_count') return 'anime'
+function formatValue(leader: Leader, tab: LeaderboardTab, locale: 'it' | 'en', copy: LeaderboardCopy): string {
+  if (tab === 'game_hours') return `${Math.round(leader.game_hours || 0).toLocaleString(locale)}h`
+  if (tab === 'anime_count') return `${leader.anime_count.toLocaleString(locale)} ${copy.anime}`
+  return `${leader.score.toLocaleString(locale)} ${copy.points}`
+}
+
+function metricLabel(tab: LeaderboardTab, copy: LeaderboardCopy): string {
+  if (tab === 'game_hours') return copy.steamHours
+  if (tab === 'anime_count') return copy.anime
   return 'Geek Score'
 }
 
@@ -56,7 +74,7 @@ function CompactStat({ label, value, icon }: { label: string; value: string | nu
   )
 }
 
-function PodiumCard({ leader, rank, tab }: { leader: Leader; rank: number; tab: LeaderboardTab }) {
+function PodiumCard({ leader, rank, tab, locale, copy }: { leader: Leader; rank: number; tab: LeaderboardTab; locale: 'it' | 'en'; copy: LeaderboardCopy }) {
   const medalClass = rank === 1 ? 'text-yellow-300' : rank === 2 ? 'text-zinc-300' : 'text-amber-600'
   return (
     <Link
@@ -73,14 +91,14 @@ function PodiumCard({ leader, rank, tab }: { leader: Leader; rank: number; tab: 
         <p className="mt-3 max-w-full truncate text-[15px] font-black text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">{leader.display_name || leader.username}</p>
         <p className="gk-mono text-[var(--text-muted)]">@{leader.username}</p>
         <div className="mt-3 rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.08)] px-3 py-1.5">
-          <p className="font-mono-data text-[15px] font-black text-[var(--accent)]">{formatValue(leader, tab)}</p>
+          <p className="font-mono-data text-[15px] font-black text-[var(--accent)]">{formatValue(leader, tab, locale, copy)}</p>
         </div>
       </div>
     </Link>
   )
 }
 
-function LeaderRow({ leader, rank, tab }: { leader: Leader; rank: number; tab: LeaderboardTab }) {
+function LeaderRow({ leader, rank, tab, locale, copy }: { leader: Leader; rank: number; tab: LeaderboardTab; locale: 'it' | 'en'; copy: LeaderboardCopy }) {
   const medalClass = rank === 1 ? 'text-yellow-300' : rank === 2 ? 'text-zinc-300' : rank === 3 ? 'text-amber-600' : 'text-[var(--text-muted)]'
   return (
     <Link
@@ -97,8 +115,8 @@ function LeaderRow({ leader, rank, tab }: { leader: Leader; rank: number; tab: L
         <p className="gk-mono text-[var(--text-muted)]">@{leader.username}</p>
       </div>
       <div className="text-right">
-        <p className="font-mono-data text-sm font-black text-[var(--text-primary)]">{formatValue(leader, tab)}</p>
-        <p className="hidden text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)] sm:block">{metricLabel(tab)}</p>
+        <p className="font-mono-data text-sm font-black text-[var(--text-primary)]">{formatValue(leader, tab, locale, copy)}</p>
+        <p className="hidden text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)] sm:block">{metricLabel(tab, copy)}</p>
       </div>
     </Link>
   )
@@ -109,6 +127,9 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<LeaderboardTab>('score')
   const supabase = createClient()
+  const { locale } = useLocale()
+  const lc = LEADERBOARD_COPY[locale] || LEADERBOARD_COPY.it
+  const TABS = getTabs(lc)
 
   useEffect(() => {
     const load = async () => {
@@ -140,19 +161,19 @@ export default function LeaderboardPage() {
 
   return (
     <PageScaffold
-      title="Classifica"
-      description="Il lato competitivo della community Geekore."
+      title={lc.title}
+      description={lc.description}
       icon={<Trophy size={16} />}
       contentClassName="mx-auto max-w-screen-md pt-2 md:pt-8 pb-28"
     >
       <section className="mb-5 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.16)] bg-[radial-gradient(circle_at_18%_0%,rgba(230,255,61,0.12),transparent_42%),linear-gradient(135deg,rgba(230,255,61,0.055),rgba(18,18,26,0.96))] p-5 ring-1 ring-white/5">
-        <div className="mb-2 gk-section-eyebrow"><Trophy size={13} /> Community ranking</div>
+        <div className="mb-2 gk-section-eyebrow"><Trophy size={13} /> {lc.eyebrow}</div>
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">Classifica</h1>
-            <p className="mt-2 max-w-xl text-[14px] leading-6 text-[var(--text-secondary)]">Score, ore e anime tracciati: una lettura veloce di chi sta spingendo di più nella community.</p>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">{lc.title}</h1>
+            <p className="mt-2 max-w-xl text-[14px] leading-6 text-[var(--text-secondary)]">{lc.hero}</p>
           </div>
-          <div className="flex gap-2 rounded-[20px] border border-[var(--border)] bg-black/18 p-1.5" data-no-swipe="true" role="tablist" aria-label="Ordina classifica">
+          <div className="flex gap-2 rounded-[20px] border border-[var(--border)] bg-black/18 p-1.5" data-no-swipe="true" role="tablist" aria-label={lc.orderAria}>
             {TABS.map(item => (
               <button
                 key={item.id}
@@ -171,9 +192,9 @@ export default function LeaderboardPage() {
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <CompactStat label="utenti" value={leaders.length} icon={<Users size={14} />} />
-          <CompactStat label="score tot." value={totalScore.toLocaleString('it')} icon={<Zap size={14} />} />
-          <CompactStat label="ore game" value={Math.round(totalGameHours).toLocaleString('it')} icon={<Gamepad2 size={14} />} />
+          <CompactStat label={lc.users} value={leaders.length} icon={<Users size={14} />} />
+          <CompactStat label={lc.totalScore} value={totalScore.toLocaleString(locale)} icon={<Zap size={14} />} />
+          <CompactStat label={lc.gameHours} value={Math.round(totalGameHours).toLocaleString(locale)} icon={<Gamepad2 size={14} />} />
         </div>
       </section>
 
@@ -182,8 +203,8 @@ export default function LeaderboardPage() {
       ) : sorted.length === 0 ? (
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
           <Trophy size={30} className="mx-auto mb-3 text-[var(--text-muted)]" />
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">Nessun dato disponibile</p>
-          <p className="gk-body mx-auto max-w-sm">Aggiungi media alla tua collezione per entrare nella classifica.</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{lc.noDataTitle}</p>
+          <p className="gk-body mx-auto max-w-sm">{lc.noDataBody}</p>
         </div>
       ) : (
         <>
@@ -191,23 +212,23 @@ export default function LeaderboardPage() {
             <section className="mb-5">
               <div className="mb-3 flex items-center gap-2">
                 <Sparkles size={15} className="text-[var(--accent)]" />
-                <h2 className="gk-label">Podio attuale</h2>
+                <h2 className="gk-label">{lc.podium}</h2>
               </div>
               <div className="grid gap-3 md:grid-cols-3 md:items-end">
-                {podium.map((leader, index) => <PodiumCard key={leader.user_id} leader={leader} rank={index + 1} tab={tab} />)}
+                {podium.map((leader, index) => <PodiumCard key={leader.user_id} leader={leader} rank={index + 1} tab={tab} locale={locale} copy={lc} />)}
               </div>
             </section>
           )}
 
           <section className="rounded-[28px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/55 p-3 ring-1 ring-white/5">
             <div className="mb-3 flex items-center justify-between gap-3 px-1">
-              <h2 className="gk-label">Ranking completo</h2>
-              <span className="rounded-full border border-[var(--border)] px-2 py-1 font-mono-data text-[10px] font-black text-[var(--text-muted)]">{sorted.length} utenti</span>
+              <h2 className="gk-label">{lc.fullRanking}</h2>
+              <span className="rounded-full border border-[var(--border)] px-2 py-1 font-mono-data text-[10px] font-black text-[var(--text-muted)]">{sorted.length} {lc.users}</span>
             </div>
             <div className="space-y-2">
               {rest.length > 0
-                ? rest.map((leader, i) => <LeaderRow key={leader.user_id} leader={leader} rank={i + 4} tab={tab} />)
-                : podium.map((leader, i) => <LeaderRow key={leader.user_id} leader={leader} rank={i + 1} tab={tab} />)}
+                ? rest.map((leader, i) => <LeaderRow key={leader.user_id} leader={leader} rank={i + 4} tab={tab} locale={locale} copy={lc} />)
+                : podium.map((leader, i) => <LeaderRow key={leader.user_id} leader={leader} rank={i + 1} tab={tab} locale={locale} copy={lc} />)}
             </div>
           </section>
         </>

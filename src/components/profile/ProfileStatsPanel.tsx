@@ -4,6 +4,7 @@
 
 import React, { useMemo } from 'react'
 import { Star, Clock, Tv, Layers, Sparkles, Gamepad2, Film, Dice5 } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 type UserMedia = {
   id: string
@@ -37,6 +38,8 @@ function ProfileDNAStat({ label, value, accent = false }: { label: string; value
 }
 
 export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
+  const { locale } = useLocale()
+  const copy = locale === 'it' ? { tv: 'Serie TV', game: 'Game', movie: 'Film', boardgame: 'Board', steamHours: 'Ore Steam', animeHours: 'Ore anime', mangaChapters: 'Cap. manga', avgRating: 'Voto medio', dna: 'Profile DNA', footprint: 'Impronta media', caption: 'Distribuzione, ore e generi dominanti della libreria.', titles: 'titoli', rated: 'valutati', rating: 'rating' } : { tv: 'TV Shows', game: 'Games', movie: 'Movies', boardgame: 'Board', steamHours: 'Steam hours', animeHours: 'Anime hours', mangaChapters: 'Manga chapters', avgRating: 'Average rating', dna: 'Profile DNA', footprint: 'Media footprint', caption: 'Distribution, hours, and dominant genres in the library.', titles: 'titles', rated: 'rated', rating: 'rating' }
   const stats = useMemo(() => {
     const byType = (t: string) => mediaList.filter(m => normalizeType(m.type) === t)
     const steamHours = byType('game').filter(m => m.is_steam).reduce((s, m) => s + (m.current_episode || 0), 0)
@@ -84,10 +87,10 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
   ]
 
   const metrics = [
-    stats.steamHours > 0  && { icon: <Gamepad2 size={13} />, label: 'Ore Steam',  value: `${stats.steamHours}h` },
-    stats.animeHours > 0  && { icon: <Clock size={13} />,    label: 'Ore anime',  value: `~${stats.animeHours}h` },
-    stats.mangaChapters > 0 && { icon: <Layers size={13} />, label: 'Cap. manga', value: `${stats.mangaChapters}` },
-    stats.avgRating       && { icon: <Star size={13} />,      label: 'Voto medio', value: stats.avgRating },
+    stats.steamHours > 0  && { icon: <Gamepad2 size={13} />, label: copy.steamHours,  value: `${stats.steamHours}h` },
+    stats.animeHours > 0  && { icon: <Clock size={13} />,    label: copy.animeHours,  value: `~${stats.animeHours}h` },
+    stats.mangaChapters > 0 && { icon: <Layers size={13} />, label: copy.mangaChapters, value: `${stats.mangaChapters}` },
+    stats.avgRating       && { icon: <Star size={13} />,      label: copy.avgRating, value: stats.avgRating },
   ].filter(Boolean) as { icon: React.ReactElement; label: string; value: string }[]
 
   if (stats.total === 0) return null
@@ -98,22 +101,22 @@ export function ProfileStatsPanel({ mediaList }: { mediaList: UserMedia[] }) {
         <div className="min-w-0">
           <div className="mb-2 gk-section-eyebrow">
             <Sparkles size={12} />
-            Profile DNA
+            {copy.dna}
           </div>
-          <p className="gk-title text-[var(--text-primary)]">Impronta media</p>
-          <p className="gk-caption">Distribuzione, ore e generi dominanti della libreria.</p>
+          <p className="gk-title text-[var(--text-primary)]">{copy.footprint}</p>
+          <p className="gk-caption">{copy.caption}</p>
         </div>
       </div>
 
       <div className="mb-3 grid grid-cols-3 gap-2">
-        <ProfileDNAStat label="titoli" value={stats.total} accent />
-        <ProfileDNAStat label="valutati" value={stats.ratedCount} />
-        <ProfileDNAStat label="rating" value={stats.avgRating || '—'} />
+        <ProfileDNAStat label={copy.titles} value={stats.total} accent />
+        <ProfileDNAStat label={copy.rated} value={stats.ratedCount} />
+        <ProfileDNAStat label={copy.rating} value={stats.avgRating || '—'} />
       </div>
 
       <div className="mb-3 grid grid-cols-3 gap-2 md:grid-cols-6">
         {typeRows.map(({ key, value }) => {
-          const cfg = TYPE_CONFIG[key]
+          const cfg = { ...TYPE_CONFIG[key], label: key === 'tv' ? copy.tv : key === 'game' ? copy.game : key === 'movie' ? copy.movie : key === 'boardgame' ? copy.boardgame : TYPE_CONFIG[key].label }
           const Icon = cfg.icon
           const isEmpty = value === 0
           return (

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { ArrowRight, BookOpen, Film, Gamepad2, Layers, Sparkles, Tv, Users, Zap } from 'lucide-react'
+import { getServerLocale, type Locale } from '@/lib/i18n/serverLocale'
 
 async function getCommunityStats() {
   const supabase = await createClient()
@@ -19,8 +20,9 @@ function formatCount(n: number): string {
   return n.toString()
 }
 
-async function CommunityLive() {
+async function CommunityLive({ locale }: { locale: Locale }) {
   const { userCount, mediaCount } = await getCommunityStats()
+  const labels = locale === 'en' ? { universes: 'Universes' } : { universes: 'Universi' }
 
   return (
     <div className="flex items-center gap-5 text-left">
@@ -36,23 +38,36 @@ async function CommunityLive() {
       <div className="h-8 w-px bg-white/10" />
       <div>
         <p className="font-display text-2xl font-black tracking-[-0.04em] text-[var(--accent)]">5+</p>
-        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Universi</p>
+        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{labels.universes}</p>
       </div>
     </div>
   )
 }
 
-const FEATURE_LINKS = [
-  { icon: Gamepad2, label: 'Videogiochi', text: 'Steam, Xbox, IGDB', color: '#22C55E' },
-  { icon: Layers, label: 'Anime & Manga', text: 'AniList, MAL', color: '#E6FF3D' },
-  { icon: Tv, label: 'Serie TV', text: 'TMDB', color: '#0EA5E9' },
-  { icon: Film, label: 'Film', text: 'Letterboxd', color: '#F97316' },
-  { icon: BookOpen, label: 'Board game', text: 'BGG', color: '#10B981' },
-  { icon: Sparkles, label: 'Per te', text: 'Taste DNA', color: '#EC4899' },
-  { icon: Users, label: 'Social', text: 'Feed e amici', color: '#8B5CF6' },
-]
+function getFeatureLinks(locale: Locale) {
+  return locale === 'en' ? [
+    { icon: Gamepad2, label: 'Video games', text: 'Steam, Xbox, IGDB', color: '#22C55E' },
+    { icon: Layers, label: 'Anime & Manga', text: 'AniList, MAL', color: '#E6FF3D' },
+    { icon: Tv, label: 'TV Shows', text: 'TMDB', color: '#0EA5E9' },
+    { icon: Film, label: 'Movies', text: 'Letterboxd', color: '#F97316' },
+    { icon: BookOpen, label: 'Board games', text: 'BGG', color: '#10B981' },
+    { icon: Sparkles, label: 'For You', text: 'Taste DNA', color: '#EC4899' },
+    { icon: Users, label: 'Social', text: 'Feed and friends', color: '#8B5CF6' },
+  ] : [
+    { icon: Gamepad2, label: 'Videogiochi', text: 'Steam, Xbox, IGDB', color: '#22C55E' },
+    { icon: Layers, label: 'Anime & Manga', text: 'AniList, MAL', color: '#E6FF3D' },
+    { icon: Tv, label: 'Serie TV', text: 'TMDB', color: '#0EA5E9' },
+    { icon: Film, label: 'Film', text: 'Letterboxd', color: '#F97316' },
+    { icon: BookOpen, label: 'Board game', text: 'BGG', color: '#10B981' },
+    { icon: Sparkles, label: 'Per te', text: 'Taste DNA', color: '#EC4899' },
+    { icon: Users, label: 'Social', text: 'Feed e amici', color: '#8B5CF6' },
+  ]
+}
 
-function AppPreview() {
+function AppPreview({ locale }: { locale: Locale }) {
+  const preview = locale === 'en'
+    ? { forYou: 'For You', subtitle: 'Recommendations from your Taste DNA', media: 'Media', score: 'Score', friends: 'Friends' }
+    : { forYou: 'Per te', subtitle: 'Consigli dal tuo Taste DNA', media: 'Media', score: 'Score', friends: 'Amici' }
   const rows = [
     { title: 'Frieren', type: 'Anime', score: '9.0', color: '#7C3AED' },
     { title: 'Hades II', type: 'Game', score: '9.4', color: '#22C55E' },
@@ -79,8 +94,8 @@ function AppPreview() {
         <div className="p-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Per te</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">Consigli dal tuo Taste DNA</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">{preview.forYou}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{preview.subtitle}</p>
             </div>
             <div className="rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.08)] px-3 py-1 text-[11px] font-black text-[var(--accent)]">
               92% match
@@ -109,15 +124,15 @@ function AppPreview() {
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-[18px] border border-[rgba(230,255,61,0.16)] bg-[rgba(230,255,61,0.055)] p-3 text-center">
             <div>
               <p className="font-display text-[16px] font-black text-[var(--accent)]">142</p>
-              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Media</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">{preview.media}</p>
             </div>
             <div>
               <p className="font-display text-[16px] font-black text-[var(--accent)]">4.2★</p>
-              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Score</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">{preview.score}</p>
             </div>
             <div>
               <p className="font-display text-[16px] font-black text-[var(--accent)]">18</p>
-              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">Amici</p>
+              <p className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">{preview.friends}</p>
             </div>
           </div>
         </div>
@@ -127,6 +142,19 @@ function AppPreview() {
 }
 
 export default async function LandingPage() {
+  const locale = await getServerLocale()
+  const landing = locale === 'en' ? {
+    login: 'Log in', register: 'Sign up', badge: 'Your geek universe',
+    title: 'Everything you love, in one profile.',
+    subtitle: 'Anime, manga, video games, TV shows, movies and board games in one place: library, recommendations, swipe and social feed without splitting everything across a thousand apps.',
+    registerFree: 'Sign up free', communityLive: 'Live community', connected: 'Connected universes', connectedTitle: 'One place, more signals.', footer: 'Geekore — made with passion for geeks'
+  } : {
+    login: 'Accedi', register: 'Registrati', badge: 'Il tuo universo geek',
+    title: 'Tutto ciò che ami, in un profilo.',
+    subtitle: 'Anime, manga, videogiochi, serie TV, film e board game nello stesso posto: library, consigli, swipe e feed sociale senza duplicare tutto tra mille app.',
+    registerFree: 'Registrati gratis', communityLive: 'Community live', connected: 'Universi collegati', connectedTitle: 'Un solo posto, più segnali.', footer: 'Geekore — fatto con passione per i geek'
+  }
+  const featureLinks = getFeatureLinks(locale)
   const supabase = await createClient()
   const {
     data: { user },
@@ -152,10 +180,10 @@ export default async function LandingPage() {
 
         <div className="flex items-center gap-2">
           <Link href="/login" className="flex h-10 items-center rounded-[14px] bg-white/[0.045] px-4 text-sm font-bold text-[var(--text-secondary)] ring-1 ring-white/10 transition hover:bg-white/[0.075]">
-            Accedi
+            {landing.login}
           </Link>
           <Link href="/register" className="flex h-10 items-center gap-1.5 rounded-[14px] bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition hover:scale-[1.02]">
-            Registrati <ArrowRight size={14} />
+            {landing.register} <ArrowRight size={14} />
           </Link>
         </div>
       </header>
@@ -165,50 +193,50 @@ export default async function LandingPage() {
           <div>
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.075)] px-4 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
-              Il tuo universo geek
+              {landing.badge}
             </div>
 
             <h1 className="max-w-[720px] font-display text-[clamp(52px,7.5vw,96px)] font-black leading-[0.88] tracking-[-0.07em]">
-              Tutto ciò che ami, in un profilo.
+              {landing.title}
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-[var(--text-secondary)]">
-              Anime, manga, videogiochi, serie TV, film e board game nello stesso posto: library, consigli, swipe e feed sociale senza duplicare tutto tra mille app.
+              {landing.subtitle}
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link href="/register" className="flex h-14 items-center justify-center gap-2 rounded-[18px] bg-[var(--accent)] px-7 font-display text-[15px] font-black text-[#0B0B0F] shadow-[0_18px_50px_rgba(230,255,61,0.12)] transition hover:scale-[1.015]">
-                Registrati gratis <ArrowRight size={16} />
+                {landing.registerFree} <ArrowRight size={16} />
               </Link>
               <Link href="/login" className="flex h-14 items-center justify-center rounded-[18px] bg-white/[0.045] px-7 text-[15px] font-bold text-[var(--text-primary)] ring-1 ring-white/10 transition hover:bg-white/[0.075]">
-                Accedi
+                {landing.login}
               </Link>
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-5">
               <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Community live
+                {landing.communityLive}
               </div>
               <Suspense fallback={<span className="text-sm text-[var(--text-muted)]">...</span>}>
-                <CommunityLive />
+                <CommunityLive locale={locale} />
               </Suspense>
             </div>
           </div>
 
-          <AppPreview />
+          <AppPreview locale={locale} />
         </section>
 
         <section className="relative mx-auto max-w-6xl px-5 pb-20 md:px-10 xl:px-0">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">Universi collegati</p>
-              <h2 className="mt-2 font-display text-3xl font-black tracking-[-0.05em] text-[var(--text-primary)]">Un solo posto, più segnali.</h2>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{landing.connected}</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-[-0.05em] text-[var(--text-primary)]">{landing.connectedTitle}</h2>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-            {FEATURE_LINKS.map(({ icon: Icon, label, text, color }) => (
+            {featureLinks.map(({ icon: Icon, label, text, color }) => (
               <div key={label} className="rounded-[20px] bg-white/[0.032] p-4 ring-1 ring-white/8 transition hover:-translate-y-0.5 hover:bg-white/[0.055]">
                 <div className="mb-3 grid h-10 w-10 place-items-center rounded-[14px]" style={{ background: `${color}18` }}>
                   <Icon size={18} style={{ color }} />
@@ -222,7 +250,7 @@ export default async function LandingPage() {
       </main>
 
       <footer className="relative z-10 border-t border-white/6 py-5 text-center text-[12px] text-[var(--text-muted)]">
-        Geekore — fatto con passione per i geek
+        {landing.footer}
       </footer>
     </div>
   )

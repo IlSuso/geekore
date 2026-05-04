@@ -5,8 +5,43 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle, Loader2, MailCheck, XCircle, Zap } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 type Status = 'loading' | 'success' | 'error'
+
+const emailChangeCopy = {
+  it: {
+    expired: 'Il link è scaduto o è già stato usato.',
+    missing: 'Link non valido o mancante.',
+    expiredSettings: 'Il link è scaduto o già stato usato. Riprova dal pannello impostazioni.',
+    loadingKicker: 'Cambio email',
+    loadingTitle: 'Verifica in corso',
+    loadingBody: 'Stiamo confermando il nuovo indirizzo email.',
+    successKicker: 'Email aggiornata',
+    successTitle: 'Tutto fatto',
+    successBody: 'Il tuo indirizzo email è stato cambiato. Tra poco ti riportiamo al profilo.',
+    errorKicker: 'Link non valido',
+    errorTitle: 'Problema con il link',
+    backSettings: 'Torna alle impostazioni',
+    login: 'Vai al login',
+  },
+  en: {
+    expired: 'The link has expired or has already been used.',
+    missing: 'Invalid or missing link.',
+    expiredSettings: 'The link has expired or has already been used. Try again from settings.',
+    loadingKicker: 'Email change',
+    loadingTitle: 'Verifying',
+    loadingBody: 'We are confirming your new email address.',
+    successKicker: 'Email updated',
+    successTitle: 'All done',
+    successBody: 'Your email address has been changed. We will take you back to your profile in a moment.',
+    errorKicker: 'Invalid link',
+    errorTitle: 'Link problem',
+    backSettings: 'Back to settings',
+    login: 'Go to login',
+  },
+} as const
+
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
@@ -62,6 +97,8 @@ function StatusIcon({ status }: { status: Status }) {
 
 function EmailChangeContent() {
   const router = useRouter()
+  const { locale } = useLocale()
+  const copy = emailChangeCopy[locale]
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<Status>('loading')
   const [errorMessage, setErrorMessage] = useState('')
@@ -81,13 +118,13 @@ function EmailChangeContent() {
           setTimeout(() => router.push('/profile/me'), 2200)
           return
         }
-        setErrorMessage('Il link è scaduto o è già stato usato.')
+        setErrorMessage(copy.expired)
         setStatus('error')
         return
       }
 
       if (!tokenHash) {
-        setErrorMessage('Link non valido o mancante.')
+        setErrorMessage(copy.missing)
         setStatus('error')
         return
       }
@@ -99,7 +136,7 @@ function EmailChangeContent() {
       })
 
       if (error) {
-        setErrorMessage('Il link è scaduto o già stato usato. Riprova dal pannello impostazioni.')
+        setErrorMessage(copy.expiredSettings)
         setStatus('error')
         return
       }
@@ -117,25 +154,25 @@ function EmailChangeContent() {
 
       {status === 'loading' && (
         <>
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Cambio email</p>
-          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Verifica in corso</h1>
-          <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">Stiamo confermando il nuovo indirizzo email.</p>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">{copy.loadingKicker}</p>
+          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.loadingTitle}</h1>
+          <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{copy.loadingBody}</p>
         </>
       )}
 
       {status === 'success' && (
         <>
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">Email aggiornata</p>
-          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Tutto fatto</h1>
-          <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">Il tuo indirizzo email è stato cambiato. Tra poco ti riportiamo al profilo.</p>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-300">{copy.successKicker}</p>
+          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.successTitle}</h1>
+          <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{copy.successBody}</p>
           <CheckCircle size={18} className="mx-auto mt-6 text-emerald-300" />
         </>
       )}
 
       {status === 'error' && (
         <>
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300">Link non valido</p>
-          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">Problema con il link</h1>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300">{copy.errorKicker}</p>
+          <h1 className="font-display text-[32px] font-black leading-none tracking-[-0.05em]">{copy.errorTitle}</h1>
           <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{errorMessage}</p>
           <div className="mt-8 space-y-3 text-left">
             <Link href="/settings/profile" className="flex h-13 w-full items-center justify-center rounded-[18px] bg-[var(--accent)] px-4 font-black text-[#0B0B0F] transition hover:brightness-105">

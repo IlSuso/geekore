@@ -17,10 +17,13 @@ import {
   Tv,
   X,
 } from 'lucide-react'
-import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
+import { getMediaTypeColor } from '@/lib/mediaTypes'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { PageScaffold } from '@/components/ui/PageScaffold'
 import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
+import { useLocale } from '@/lib/locale'
+import { pageCopy } from '@/lib/i18n/pageCopy'
+import { typeLabel } from '@/lib/i18n/uiCopy'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Swords,
@@ -32,14 +35,14 @@ const TYPE_ICON: Record<string, React.ElementType> = {
   board_game: Layers,
 }
 
-function daysUntil(dateStr: string | null): { label: string; available: boolean } {
+function daysUntil(dateStr: string | null, locale: 'it' | 'en', copy: ReturnType<typeof pageCopy>['wishlist']): { label: string; available: boolean } {
   if (!dateStr) return { label: '', available: false }
   const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
-  if (diff <= 0) return { label: 'Disponibile ora', available: true }
-  if (diff === 1) return { label: 'Domani', available: false }
-  if (diff < 30) return { label: `tra ${diff} giorni`, available: false }
+  if (diff <= 0) return { label: copy.availableNow, available: true }
+  if (diff === 1) return { label: copy.tomorrow, available: false }
+  if (diff < 30) return { label: copy.inDays(diff), available: false }
   return {
-    label: new Date(dateStr).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
+    label: new Date(dateStr).toLocaleDateString(locale === 'en' ? 'en-US' : 'it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
     available: false,
   }
 }
@@ -58,9 +61,9 @@ function WishlistMetric({ label, value, tone = 'default' }: { label: string; val
   )
 }
 
-function WishlistCard({ item, onRemove, isRemoving }: { item: any; onRemove: (id: string) => void; isRemoving: boolean }) {
+function WishlistCard({ item, onRemove, isRemoving, locale, copy }: { item: any; onRemove: (id: string) => void; isRemoving: boolean; locale: 'it' | 'en'; copy: ReturnType<typeof pageCopy>['wishlist'] }) {
   const Icon = TYPE_ICON[item.type] ?? Bookmark
-  const countdown = daysUntil(item.release_date)
+  const countdown = daysUntil(item.release_date, locale, copy)
   const color = getMediaTypeColor(item.type)
 
   return (
@@ -91,7 +94,7 @@ function WishlistCard({ item, onRemove, isRemoving }: { item: any; onRemove: (id
           <MediaTypeBadge type={item.type} size="xs" />
           {countdown.available && (
             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-300">
-              <CheckCircle2 size={10} /> ora
+              <CheckCircle2 size={10} /> {copy.now}
             </span>
           )}
         </div>
@@ -107,7 +110,7 @@ function WishlistCard({ item, onRemove, isRemoving }: { item: any; onRemove: (id
             </span>
           </div>
         ) : (
-          <p className="gk-mono mt-2 text-[var(--text-muted)]">salvato per dopo</p>
+          <p className="gk-mono mt-2 text-[var(--text-muted)]">{copy.savedForLater}</p>
         )}
       </div>
 
@@ -116,8 +119,8 @@ function WishlistCard({ item, onRemove, isRemoving }: { item: any; onRemove: (id
         onClick={() => onRemove(item.id)}
         disabled={isRemoving}
         className="flex h-10 w-10 flex-shrink-0 items-center justify-center self-start rounded-2xl border border-transparent text-[var(--text-muted)] transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
-        title="Rimuovi dalla wishlist"
-        aria-label={`Rimuovi ${item.title} dalla wishlist`}
+        title={copy.removeTitle}
+        aria-label={copy.removeAria(item.title)}
       >
         {isRemoving ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
       </button>
@@ -129,6 +132,8 @@ function WishlistCard({ item, onRemove, isRemoving }: { item: any; onRemove: (id
 
 export default function WishlistPage() {
   const supabase = createClient()
+  const { locale } = useLocale()
+  const copy = pageCopy(locale).wishlist
   const [wishlist, setWishlist] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
@@ -190,21 +195,21 @@ export default function WishlistPage() {
 
   return (
     <PageScaffold
-      title="Wishlist"
-      description="Titoli salvati per dopo. Pulita, rapida, senza dashboard inutili."
+      title={copy.title}
+      description={copy.description}
       icon={<Bookmark size={16} />}
       contentClassName="mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <section className="mb-5 rounded-[30px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-4 ring-1 ring-white/5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <div className="mb-2 gk-section-eyebrow"><Bookmark size={12} /> Coda personale</div>
-            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[40px]">Wishlist</h1>
+            <div className="mb-2 gk-section-eyebrow"><Bookmark size={12} /> {copy.eyebrow}</div>
+            <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[40px]">{copy.title}</h1>
           </div>
           <div className="grid grid-cols-3 gap-2 lg:w-[440px]">
-            <WishlistMetric label="salvati" value={wishlist.length} tone="accent" />
-            <WishlistMetric label="disponibili" value={availableCount} tone="green" />
-            <WishlistMetric label="in arrivo" value={upcomingCount} />
+            <WishlistMetric label={copy.saved} value={wishlist.length} tone="accent" />
+            <WishlistMetric label={copy.available} value={availableCount} tone="green" />
+            <WishlistMetric label={copy.upcoming} value={upcomingCount} />
           </div>
         </div>
       </section>
@@ -216,7 +221,7 @@ export default function WishlistPage() {
             <input
               value={query}
               onChange={event => setQuery(event.target.value)}
-              placeholder="Cerca nella wishlist..."
+              placeholder={copy.searchPlaceholder}
               className="w-full rounded-2xl border border-[var(--border)] bg-black/14 py-3 pl-10 pr-10 text-[14px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.42)]"
             />
             {query && (
@@ -224,7 +229,7 @@ export default function WishlistPage() {
                 type="button"
                 onClick={() => setQuery('')}
                 className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-xl text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]"
-                aria-label="Cancella ricerca wishlist"
+                aria-label={copy.clearSearchAria}
               >
                 <X size={14} />
               </button>
@@ -247,7 +252,7 @@ export default function WishlistPage() {
                       ? { background: type === 'all' ? 'var(--accent)' : `color-mix(in srgb, ${typeColor} 18%, transparent)`, color: type === 'all' ? '#0B0B0F' : typeColor, borderColor: typeColor }
                       : { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                   >
-                    {type === 'all' ? 'Tutti' : getMediaTypeLabel(type)}
+                    {type === 'all' ? copy.all : typeLabel(type, locale)}
                     <span className="opacity-60">{count}</span>
                   </button>
                 )
@@ -262,24 +267,24 @@ export default function WishlistPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <Bookmark size={28} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">{localizedWishlist.length === 0 ? 'Wishlist vuota' : 'Nessun titolo trovato'}</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{localizedWishlist.length === 0 ? copy.emptyTitle : copy.noTitleFound}</p>
           <p className="gk-body mx-auto mb-5 max-w-sm">
-            {localizedWishlist.length === 0 ? 'Salva titoli da Discover o Swipe e li ritrovi qui.' : 'Prova a cambiare ricerca o filtro.'}
+            {localizedWishlist.length === 0 ? copy.emptyDescription : copy.noResultsDescription}
           </p>
           {localizedWishlist.length === 0 ? (
             <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-              Apri Discover
+              {pageCopy(locale).common.openDiscover}
             </Link>
           ) : (
             <button type="button" onClick={() => { setQuery(''); setActiveFilter('all') }} className="inline-flex h-10 items-center justify-center rounded-2xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]">
-              Cancella filtri
+              {pageCopy(locale).common.clearFilters}
             </button>
           )}
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((item) => (
-            <WishlistCard key={item.id} item={item} isRemoving={removing === item.id} onRemove={handleRemove} />
+            <WishlistCard key={item.id} item={item} isRemoving={removing === item.id} onRemove={handleRemove} locale={locale} copy={copy} />
           ))}
         </div>
       )}

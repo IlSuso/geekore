@@ -1,73 +1,65 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Shuffle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { SwipeMode } from '@/components/for-you/SwipeMode'
-import type { SwipeItem } from '@/components/for-you/SwipeMode'
-import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
-import { useLocale } from '@/lib/locale'
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Shuffle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { SwipeMode } from "@/components/for-you/SwipeMode";
+import type { SwipeItem } from "@/components/for-you/SwipeMode";
+import { profileInvalidateBridge } from "@/hooks/profileInvalidateBridge";
+import { useLocale } from "@/lib/locale";
+
+const SWIPE_PAGE_COPY = {
+  it: {
+    preparing: "Preparazione Swipe",
+    loadingBest: "Sto cercando i titoli migliori per te…",
+  },
+  en: {
+    preparing: "Preparing Swipe",
+    loadingBest: "Finding the best titles for you…",
+  },
+} as const;
 
 function triggerTasteDelta(options: {
-  action: 'rating' | 'status_change' | 'wishlist_add' | 'rewatch' | 'progress'
-  mediaId: string; mediaType: string; genres: string[]
-  rating?: number; prevRating?: number; status?: string; prevStatus?: string
+  action: "rating" | "status_change" | "wishlist_add" | "rewatch" | "progress";
+  mediaId: string;
+  mediaType: string;
+  genres: string[];
+  rating?: number;
+  prevRating?: number;
+  status?: string;
+  prevStatus?: string;
 }) {
-  fetch('/api/taste/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) }).catch(() => {})
+  fetch("/api/taste/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options),
+  }).catch(() => {});
 }
 
 const QUEUE_TABLE_MAP: Record<string, string> = {
-  all: 'swipe_queue_all',
-  anime: 'swipe_queue_anime',
-  manga: 'swipe_queue_manga',
-  movie: 'swipe_queue_movie',
-  tv: 'swipe_queue_tv',
-  game: 'swipe_queue_game',
-  boardgame: 'swipe_queue_boardgame',
-}
+  all: "swipe_queue_all",
+  anime: "swipe_queue_anime",
+  manga: "swipe_queue_manga",
+  movie: "swipe_queue_movie",
+  tv: "swipe_queue_tv",
+  game: "swipe_queue_game",
+  boardgame: "swipe_queue_boardgame",
+};
 
-function cleanSwipeString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const text = value.trim()
-  return text ? text : undefined
-}
-
-function pickLocalizedValue(row: any, locale: string, field: 'title' | 'description' | 'coverImage') {
-  if (field === 'title') {
-    return locale === 'it'
-      ? cleanSwipeString(row.localized?.it?.title) || cleanSwipeString(row.title_it) || cleanSwipeString(row.title_original) || cleanSwipeString(row.title) || cleanSwipeString(row.title_en)
-      : cleanSwipeString(row.localized?.en?.title) || cleanSwipeString(row.title_en) || cleanSwipeString(row.title_original) || cleanSwipeString(row.title) || cleanSwipeString(row.title_it)
-  }
-
-  if (field === 'description') {
-    return locale === 'it'
-      ? cleanSwipeString(row.localized?.it?.description) || cleanSwipeString(row.description_it) || cleanSwipeString(row.description)
-      : cleanSwipeString(row.localized?.en?.description) || cleanSwipeString(row.description_en) || cleanSwipeString(row.description)
-  }
-
-  return locale === 'it'
-    ? cleanSwipeString(row.localized?.it?.coverImage) || cleanSwipeString(row.cover_image_it) || cleanSwipeString(row.cover_image)
-    : cleanSwipeString(row.localized?.en?.coverImage) || cleanSwipeString(row.cover_image_en) || cleanSwipeString(row.cover_image)
-}
-
-function rowToSwipeItem(row: any, locale: string): SwipeItem {
-  const title = pickLocalizedValue(row, locale, 'title') || 'Untitled'
-  const description = pickLocalizedValue(row, locale, 'description')
-  const coverImage = pickLocalizedValue(row, locale, 'coverImage')
-
+function rowToSwipeItem(row: any): SwipeItem {
   return {
     id: row.external_id,
-    title,
+    title: row.title,
     title_original: row.title_original,
     title_en: row.title_en,
     title_it: row.title_it,
-    type: row.type as SwipeItem['type'],
-    coverImage,
+    type: row.type as SwipeItem["type"],
+    coverImage: row.cover_image,
     year: row.year,
     genres: row.genres || [],
     score: row.score,
-    description,
+    description: row.description_it || row.description_en || row.description,
     description_en: row.description_en,
     description_it: row.description_it,
     localized: row.localized,
@@ -80,33 +72,25 @@ function rowToSwipeItem(row: any, locale: string): SwipeItem {
     isAwardWinner: row.is_award_winner,
     isDiscovery: row.is_discovery,
     source: row.source,
-  }
+  };
 }
 
 function toQueueRow(r: any, userId: string) {
-  const sourceLocale = r.sourceLocale === 'it' || r.locale === 'it' || r.language === 'it'
-    ? 'it'
-    : r.sourceLocale === 'en' || r.locale === 'en' || r.language === 'en'
-      ? 'en'
-      : null
-
   return {
     user_id: userId,
     external_id: r.id,
     title: r.title,
     title_original: r.title_original || r.title,
-    title_en: r.title_en || r.localized?.en?.title || (sourceLocale === 'en' ? r.title : null),
-    title_it: r.title_it || r.localized?.it?.title || (sourceLocale === 'it' ? r.title : null),
+    title_en: r.title_en || r.localized?.en?.title || r.title,
+    title_it: r.title_it || r.localized?.it?.title || null,
     type: r.type,
     cover_image: r.coverImage || r.cover_image,
-    cover_image_en: r.cover_image_en || r.localized?.en?.coverImage || null,
-    cover_image_it: r.cover_image_it || r.localized?.it?.coverImage || null,
     year: r.year,
     genres: r.genres || [],
     score: r.score ?? null,
     description: r.description ?? null,
-    description_en: r.description_en || r.localized?.en?.description || (sourceLocale === 'en' ? r.description : null),
-    description_it: r.description_it || r.localized?.it?.description || (sourceLocale === 'it' ? r.description : null),
+    description_en: r.description_en || r.localized?.en?.description || null,
+    description_it: r.description_it || r.localized?.it?.description || null,
     localized: r.localized || {},
     why: r.why ?? null,
     match_score: r.matchScore || 0,
@@ -117,289 +101,452 @@ function toQueueRow(r: any, userId: string) {
     is_award_winner: r.isAwardWinner || false,
     is_discovery: r.isDiscovery || false,
     source: r.source ?? null,
-  }
+  };
 }
 
-async function localizeSwipeItems(items: SwipeItem[], locale: string): Promise<SwipeItem[]> {
-  if (items.length === 0) return items
+async function localizeSwipeItems(
+  items: SwipeItem[],
+  locale: string,
+): Promise<SwipeItem[]> {
+  if (items.length === 0) return items;
   const res = await fetch(`/api/media/localize?lang=${locale}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-lang': locale, 'x-geekore-locale': locale },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items }),
-  }).catch(() => null)
-  if (!res?.ok) return items
-  const json = await res.json().catch(() => null)
-  return Array.isArray(json?.items) ? json.items : items
+  }).catch(() => null);
+  if (!res?.ok) return items;
+  const json = await res.json().catch(() => null);
+  return Array.isArray(json?.items) ? json.items : items;
 }
 
 export default function SwipePage() {
-  const supabase = createClient()
-  const router = useRouter()
-  const { locale } = useLocale()
-  const addedTitlesRef = useRef<Set<string>>(new Set())
-  const addedIdsRef = useRef<Set<string>>(new Set())
-  const requestSeqRef = useRef(0)
-  const userIdRef = useRef<string | null>(null)
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const supabase = createClient();
+  const router = useRouter();
+  const { locale } = useLocale();
+  const copy = SWIPE_PAGE_COPY[locale];
+  const addedTitlesRef = useRef<Set<string>>(new Set());
+  const addedIdsRef = useRef<Set<string>>(new Set());
+  const requestSeqRef = useRef(0);
+  const userIdRef = useRef<string | null>(null);
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function init() {
-      const requestSeq = ++requestSeqRef.current
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (requestSeq !== requestSeqRef.current) return
-      if (!user) { router.push('/login'); return }
-      userIdRef.current = user.id
+      const requestSeq = ++requestSeqRef.current;
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (requestSeq !== requestSeqRef.current) return;
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      userIdRef.current = user.id;
 
-      addedTitlesRef.current = new Set()
-      addedIdsRef.current = new Set()
+      addedTitlesRef.current = new Set();
+      addedIdsRef.current = new Set();
       const { data: entries } = await supabase
-        .from('user_media_entries')
-        .select('external_id, title')
-        .eq('user_id', user.id)
+        .from("user_media_entries")
+        .select("external_id, title")
+        .eq("user_id", user.id);
       for (const e of entries || []) {
-        if (e.title) addedTitlesRef.current.add((e.title as string).toLowerCase())
-        if ((e as any).external_id) addedIdsRef.current.add(String((e as any).external_id))
+        if (e.title)
+          addedTitlesRef.current.add((e.title as string).toLowerCase());
+        if ((e as any).external_id)
+          addedIdsRef.current.add(String((e as any).external_id));
       }
 
       const { data: skippedRows } = await supabase
-        .from('swipe_skipped')
-        .select('external_id')
-        .eq('user_id', user.id)
-      const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
+        .from("swipe_skipped")
+        .select("external_id")
+        .eq("user_id", user.id);
+      const skippedSet = new Set(
+        (skippedRows || []).map((r: any) => r.external_id as string),
+      );
 
       const { data: queueRows } = await supabase
-        .from('swipe_queue_all')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('inserted_at', { ascending: true })
+        .from("swipe_queue_all")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("inserted_at", { ascending: true });
 
-      const existingRows = (queueRows || []).filter((r: any) => !skippedSet.has(r.external_id))
+      const existingRows = (queueRows || []).filter(
+        (r: any) => !skippedSet.has(r.external_id),
+      );
 
       if (existingRows.length >= 10) {
-        const localized = await localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
-        if (requestSeq !== requestSeqRef.current) return
-        setInitialItems(localized)
-        setLoading(false)
-        return
+        const localized = await localizeSwipeItems(
+          existingRows.map(rowToSwipeItem),
+          locale,
+        );
+        if (requestSeq !== requestSeqRef.current) return;
+        setInitialItems(localized);
+        setLoading(false);
+        return;
       }
 
       try {
-        const res = await fetch(`/api/recommendations?type=all&lang=${locale}`)
+        const res = await fetch(`/api/recommendations?type=all&lang=${locale}`);
         if (res.ok) {
-          const json = await res.json()
-          const freshRecs = (Object.values(json.recommendations || {}) as any[][]).flat()
-          const existingIds = new Set(existingRows.map((r: any) => r.external_id as string))
-          const validTypes = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
-          const newRecs = freshRecs.filter((r: any) =>
-            validTypes.includes(r.type) &&
-            !skippedSet.has(r.id) &&
-            !existingIds.has(r.id) &&
-            !addedIdsRef.current.has(String(r.id)) &&
-            !addedTitlesRef.current.has((r.title as string)?.toLowerCase())
-          ).slice(0, 50 - existingRows.length)
+          const json = await res.json();
+          const freshRecs = (
+            Object.values(json.recommendations || {}) as any[][]
+          ).flat();
+          const existingIds = new Set(
+            existingRows.map((r: any) => r.external_id as string),
+          );
+          const validTypes = [
+            "anime",
+            "manga",
+            "movie",
+            "tv",
+            "game",
+            "boardgame",
+          ];
+          const newRecs = freshRecs
+            .filter(
+              (r: any) =>
+                validTypes.includes(r.type) &&
+                !skippedSet.has(r.id) &&
+                !existingIds.has(r.id) &&
+                !addedIdsRef.current.has(String(r.id)) &&
+                !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
+            )
+            .slice(0, 50 - existingRows.length);
 
           if (newRecs.length > 0) {
-            const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-            await fetch('/api/swipe/queue', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ queue: 'all', rows, mirrorByType: true }),
-            }).catch(() => null)
+            const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
+            await fetch("/api/swipe/queue", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ queue: "all", rows, mirrorByType: true }),
+            }).catch(() => null);
           }
 
-          const localized = await localizeSwipeItems([
-            ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-            ...newRecs.map((r: any) => ({
-              id: r.id, title: r.title, type: r.type as SwipeItem['type'],
-              coverImage: r.coverImage, year: r.year, genres: r.genres || [],
-              score: r.score, description: r.description, why: r.why,
-              matchScore: r.matchScore || 0, episodes: r.episodes,
-              authors: r.authors, developers: r.developers,
-              platforms: r.platforms, isAwardWinner: r.isAwardWinner,
-              title_original: r.title_original, title_en: r.title_en, title_it: r.title_it,
-              description_en: r.description_en, description_it: r.description_it, localized: r.localized,
-              isDiscovery: r.isDiscovery, source: r.source,
-            }))
-          ], locale)
-          if (requestSeq !== requestSeqRef.current) return
-          setInitialItems(localized)
+          const localized = await localizeSwipeItems(
+            [
+              ...existingRows.map(rowToSwipeItem),
+              ...newRecs.map((r: any) => ({
+                id: r.id,
+                title: r.title,
+                type: r.type as SwipeItem["type"],
+                coverImage: r.coverImage,
+                year: r.year,
+                genres: r.genres || [],
+                score: r.score,
+                description: r.description,
+                why: r.why,
+                matchScore: r.matchScore || 0,
+                episodes: r.episodes,
+                authors: r.authors,
+                developers: r.developers,
+                platforms: r.platforms,
+                isAwardWinner: r.isAwardWinner,
+                title_original: r.title_original,
+                title_en: r.title_en,
+                title_it: r.title_it,
+                description_en: r.description_en,
+                description_it: r.description_it,
+                localized: r.localized,
+                isDiscovery: r.isDiscovery,
+                source: r.source,
+              })),
+            ],
+            locale,
+          );
+          if (requestSeq !== requestSeqRef.current) return;
+          setInitialItems(localized);
         }
       } catch {}
 
-      if (requestSeq === requestSeqRef.current) setLoading(false)
+      if (requestSeq === requestSeqRef.current) setLoading(false);
     }
-    init()
-  }, [locale]) // eslint-disable-line
+    init();
+  }, [locale]); // eslint-disable-line
 
-  const removeFromPool = useCallback(async (_userId: string, _externalId: string) => {
-    fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
-  }, [])
+  const removeFromPool = useCallback(
+    async (_userId: string, _externalId: string) => {
+      fetch("/api/recommendations?invalidateCache=true", {
+        method: "POST",
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [],
+  );
 
-  const handleSwipeSeen = useCallback(async (item: SwipeItem, rating: number | null, skipPersist = false) => {
-    if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase())) return
+  const handleSwipeSeen = useCallback(
+    async (item: SwipeItem, rating: number | null, skipPersist = false) => {
+      if (!skipPersist && addedTitlesRef.current.has(item.title.toLowerCase()))
+        return;
 
-    const uid = userIdRef.current
-    if (!uid) return
+      const uid = userIdRef.current;
+      if (!uid) return;
 
-    if (skipPersist) {
-      removeFromPool(uid, item.id)
-      fetch('/api/recommendations/feedback', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
-      }).catch(() => {})
-      return
-    }
+      if (skipPersist) {
+        removeFromPool(uid, item.id);
+        fetch("/api/recommendations/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rec_id: item.id,
+            rec_type: item.type,
+            rec_genres: item.genres,
+            action: "added",
+          }),
+        }).catch(() => {});
+        return;
+      }
 
-    const isBoardgame = item.type === 'boardgame'
-    const bggAchievementData = isBoardgame && ((item as any).complexity != null || (item as any).min_players != null || (item as any).playing_time != null)
-      ? { bgg: { score: (item as any).score ?? null, complexity: (item as any).complexity ?? null, min_players: (item as any).min_players ?? null, max_players: (item as any).max_players ?? null, playing_time: (item as any).playing_time ?? null } }
-      : null
-    const insertData: any = {
-      external_id: item.id, title: item.title,
-      type: item.type, cover_image: item.coverImage, genres: item.genres,
-      tags: isBoardgame ? ((item as any).mechanics || []) : [],
-      authors: isBoardgame ? ((item as any).designers || []) : [],
-      ...(bggAchievementData ? { achievement_data: bggAchievementData } : {}),
-      status: 'completed',
-      display_order: Date.now(),
-      upsert: true,
-    }
-    if (rating !== null) insertData.rating = rating
+      const isBoardgame = item.type === "boardgame";
+      const bggAchievementData =
+        isBoardgame &&
+        ((item as any).complexity != null ||
+          (item as any).min_players != null ||
+          (item as any).playing_time != null)
+          ? {
+              bgg: {
+                score: (item as any).score ?? null,
+                complexity: (item as any).complexity ?? null,
+                min_players: (item as any).min_players ?? null,
+                max_players: (item as any).max_players ?? null,
+                playing_time: (item as any).playing_time ?? null,
+              },
+            }
+          : null;
+      const insertData: any = {
+        external_id: item.id,
+        title: item.title,
+        type: item.type,
+        cover_image: item.coverImage,
+        genres: item.genres,
+        tags: isBoardgame ? (item as any).mechanics || [] : [],
+        authors: isBoardgame ? (item as any).designers || [] : [],
+        ...(bggAchievementData ? { achievement_data: bggAchievementData } : {}),
+        status: "completed",
+        display_order: Date.now(),
+        upsert: true,
+      };
+      if (rating !== null) insertData.rating = rating;
 
-    fetch('/api/collection', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(insertData),
-    }).then(async (res) => {
-      if (res.ok) { addedTitlesRef.current.add(item.title.toLowerCase()); addedIdsRef.current.add(String(item.id)) }
-      fetch('/api/recommendations/feedback', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
-      }).catch(() => {})
-      fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true }).catch(() => {})
-      if (res.ok) profileInvalidateBridge.invalidate()
-    }).catch(() => {})
+      fetch("/api/collection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(insertData),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            addedTitlesRef.current.add(item.title.toLowerCase());
+            addedIdsRef.current.add(String(item.id));
+          }
+          fetch("/api/recommendations/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              rec_id: item.id,
+              rec_type: item.type,
+              rec_genres: item.genres,
+              action: "added",
+            }),
+          }).catch(() => {});
+          fetch("/api/recommendations?invalidateCache=true", {
+            method: "POST",
+            keepalive: true,
+          }).catch(() => {});
+          if (res.ok) profileInvalidateBridge.invalidate();
+        })
+        .catch(() => {});
 
-    removeFromPool(uid, item.id)
-    if (item.genres.length > 0) {
-      triggerTasteDelta({ action: 'status_change', mediaId: item.id, mediaType: item.type, genres: item.genres, status: 'completed' })
-      if (rating) triggerTasteDelta({ action: 'rating', mediaId: item.id, mediaType: item.type, genres: item.genres, rating })
-    }
-  }, [removeFromPool])
+      removeFromPool(uid, item.id);
+      if (item.genres.length > 0) {
+        triggerTasteDelta({
+          action: "status_change",
+          mediaId: item.id,
+          mediaType: item.type,
+          genres: item.genres,
+          status: "completed",
+        });
+        if (rating)
+          triggerTasteDelta({
+            action: "rating",
+            mediaId: item.id,
+            mediaType: item.type,
+            genres: item.genres,
+            rating,
+          });
+      }
+    },
+    [removeFromPool],
+  );
 
-  const handleSwipeSkip = useCallback((_item: SwipeItem) => {}, [])
+  const handleSwipeSkip = useCallback((_item: SwipeItem) => {}, []);
 
   const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
-    if (!addedTitlesRef.current.has(item.title.toLowerCase())) return
-    const uid = userIdRef.current
-    if (!uid) return
-    const res = await fetch('/api/collection', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+    if (!addedTitlesRef.current.has(item.title.toLowerCase())) return;
+    const uid = userIdRef.current;
+    if (!uid) return;
+    const res = await fetch("/api/collection", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ external_id: item.id }),
-    }).catch(() => null)
-    if (!res?.ok) return
-    addedTitlesRef.current.delete(item.title.toLowerCase()); addedIdsRef.current.delete(String(item.id))
-    profileInvalidateBridge.invalidate()
-  }, [])
+    }).catch(() => null);
+    if (!res?.ok) return;
+    addedTitlesRef.current.delete(item.title.toLowerCase());
+    addedIdsRef.current.delete(String(item.id));
+    profileInvalidateBridge.invalidate();
+  }, []);
 
-  const handleSwipeRequestMore = useCallback(async (filter: string = 'all'): Promise<SwipeItem[]> => {
-    const uid = userIdRef.current
-    if (!uid) return []
-    const user = { id: uid }
+  const handleSwipeRequestMore = useCallback(
+    async (filter: string = "all"): Promise<SwipeItem[]> => {
+      const uid = userIdRef.current;
+      if (!uid) return [];
+      const user = { id: uid };
 
-    const table = QUEUE_TABLE_MAP[filter] ?? 'swipe_queue_all'
-    const TARGET = 50
-    const REFILL_TRIGGER = 20
+      const table = QUEUE_TABLE_MAP[filter] ?? "swipe_queue_all";
+      const TARGET = 50;
+      const REFILL_TRIGGER = 20;
 
-    const { data: skippedRows } = await supabase
-      .from('swipe_skipped')
-      .select('external_id')
-      .eq('user_id', user.id)
-    const skippedSet = new Set((skippedRows || []).map((r: any) => r.external_id as string))
+      const { data: skippedRows } = await supabase
+        .from("swipe_skipped")
+        .select("external_id")
+        .eq("user_id", user.id);
+      const skippedSet = new Set(
+        (skippedRows || []).map((r: any) => r.external_id as string),
+      );
 
-    const { data: queueRows } = await supabase
-      .from(table)
-      .select('*')
-      .eq('user_id', user.id)
-      .order('inserted_at', { ascending: true })
-    const existingRows = (queueRows || []).filter((r: any) => !skippedSet.has(r.external_id))
-    const existingIds = new Set(existingRows.map((r: any) => r.external_id as string))
+      const { data: queueRows } = await supabase
+        .from(table)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("inserted_at", { ascending: true });
+      const existingRows = (queueRows || []).filter(
+        (r: any) => !skippedSet.has(r.external_id),
+      );
+      const existingIds = new Set(
+        existingRows.map((r: any) => r.external_id as string),
+      );
 
-    if (existingRows.length >= REFILL_TRIGGER) {
-      return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
-    }
-
-    try {
-      const apiFilter = filter === 'all' ? 'all' : filter
-      const res = await fetch(`/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`)
-      if (!res.ok) return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
-      const json = await res.json()
-
-      let freshRecs: any[] = []
-      if (filter === 'all') {
-        freshRecs = (Object.values(json.recommendations || {}) as any[][]).flat()
-      } else {
-        const typed = (json.recommendations?.[filter] || []) as any[]
-        freshRecs = typed.length > 0
-          ? typed
-          : (Object.values(json.recommendations || {}) as any[][]).flat().filter((r: any) => r.type === filter)
+      if (existingRows.length >= REFILL_TRIGGER) {
+        return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
       }
 
-      const validTypes = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
-      const newRecs = freshRecs.filter((r: any) =>
-        validTypes.includes(r.type) &&
-        !skippedSet.has(r.id) &&
-        !existingIds.has(r.id) &&
-        !addedIdsRef.current.has(String(r.id)) &&
-        !addedTitlesRef.current.has((r.title as string)?.toLowerCase())
-      ).slice(0, TARGET - existingRows.length)
+      try {
+        const apiFilter = filter === "all" ? "all" : filter;
+        const res = await fetch(
+          `/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`,
+        );
+        if (!res.ok)
+          return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
+        const json = await res.json();
 
-      if (newRecs.length > 0) {
-        const rows = newRecs.map((r: any) => toQueueRow(r, user.id))
-        await fetch('/api/swipe/queue', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: filter === 'all' ? 'all' : filter, rows }),
-        }).catch(() => null)
+        let freshRecs: any[] = [];
+        if (filter === "all") {
+          freshRecs = (
+            Object.values(json.recommendations || {}) as any[][]
+          ).flat();
+        } else {
+          const typed = (json.recommendations?.[filter] || []) as any[];
+          freshRecs =
+            typed.length > 0
+              ? typed
+              : (Object.values(json.recommendations || {}) as any[][])
+                  .flat()
+                  .filter((r: any) => r.type === filter);
+        }
+
+        const validTypes = [
+          "anime",
+          "manga",
+          "movie",
+          "tv",
+          "game",
+          "boardgame",
+        ];
+        const newRecs = freshRecs
+          .filter(
+            (r: any) =>
+              validTypes.includes(r.type) &&
+              !skippedSet.has(r.id) &&
+              !existingIds.has(r.id) &&
+              !addedIdsRef.current.has(String(r.id)) &&
+              !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
+          )
+          .slice(0, TARGET - existingRows.length);
+
+        if (newRecs.length > 0) {
+          const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
+          await fetch("/api/swipe/queue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              queue: filter === "all" ? "all" : filter,
+              rows,
+            }),
+          }).catch(() => null);
+        }
+
+        return localizeSwipeItems(
+          [
+            ...existingRows.map(rowToSwipeItem),
+            ...newRecs.map((r: any) => ({
+              id: r.id,
+              title: r.title,
+              title_original: r.title_original,
+              title_en: r.title_en,
+              title_it: r.title_it,
+              type: r.type as SwipeItem["type"],
+              coverImage: r.coverImage,
+              year: r.year,
+              genres: r.genres || [],
+              score: r.score,
+              description: r.description,
+              description_en: r.description_en,
+              description_it: r.description_it,
+              localized: r.localized,
+              why: r.why,
+              matchScore: r.matchScore || 0,
+              episodes: r.episodes,
+              authors: r.authors,
+              developers: r.developers,
+              platforms: r.platforms,
+              isAwardWinner: r.isAwardWinner,
+              isDiscovery: r.isDiscovery,
+              source: r.source,
+            })),
+          ],
+          locale,
+        );
+      } catch {
+        return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
       }
-
-      return localizeSwipeItems([
-        ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-        ...newRecs.map((r: any) => ({
-          id: r.id, title: r.title, title_original: r.title_original, title_en: r.title_en, title_it: r.title_it, type: r.type as SwipeItem['type'],
-          coverImage: r.coverImage, year: r.year, genres: r.genres || [],
-          score: r.score, description: r.description, description_en: r.description_en, description_it: r.description_it, localized: r.localized, why: r.why,
-          matchScore: r.matchScore || 0, episodes: r.episodes,
-          authors: r.authors, developers: r.developers,
-          platforms: r.platforms, isAwardWinner: r.isAwardWinner,
-          isDiscovery: r.isDiscovery, source: r.source,
-        }))
-      ], locale)
-    } catch {
-      return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
-    }
-  }, [supabase, locale])
+    },
+    [supabase, locale],
+  );
 
   if (loading) {
     return (
       <div className="fixed inset-0 md:pt-16 bg-black flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="relative">
-            <div className="absolute inset-0 w-16 h-16 rounded-3xl blur-xl" style={{ background: 'rgba(230,255,61,0.2)' }} />
-            <div className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl" style={{ background: 'var(--accent)' }}>
+            <div
+              className="absolute inset-0 w-16 h-16 rounded-3xl blur-xl"
+              style={{ background: "rgba(230,255,61,0.2)" }}
+            />
+            <div
+              className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl"
+              style={{ background: "var(--accent)" }}
+            >
               <Shuffle size={28} className="text-black" />
             </div>
           </div>
           <div>
-            <p className="text-white font-semibold">Preparazione Swipe</p>
-            <p className="text-zinc-500 text-sm mt-1">Sto cercando i titoli migliori per te…</p>
+            <p className="text-white font-semibold">{copy.preparing}</p>
+            <p className="text-zinc-500 text-sm mt-1">{copy.loadingBest}</p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -412,7 +559,7 @@ export default function SwipePage() {
       onSkip={handleSwipeSkip}
       onUndo={handleSwipeUndo}
       onRequestMore={handleSwipeRequestMore}
-      onClose={() => router.push('/for-you')}
+      onClose={() => router.push("/for-you")}
     />
-  )
+  );
 }

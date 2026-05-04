@@ -2,28 +2,34 @@
 
 import Link from 'next/link'
 import { List, Shuffle } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface ForYouModeSwitchProps {
   active: 'list' | 'swipe'
   className?: string
 }
 
-const MODES = [
-  { id: 'list' as const, href: '/for-you', label: 'Lista', icon: List, caption: 'rail' },
-  { id: 'swipe' as const, href: '/swipe', label: 'Swipe', icon: Shuffle, caption: 'cards' },
-]
-
 export function ForYouModeSwitch({ active, className = '' }: ForYouModeSwitchProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en'
+    ? { aria: 'For You mode', list: 'List', swipe: 'Swipe', rail: 'rail', cards: 'cards' }
+    : { aria: 'Modalità Per te', list: 'Lista', swipe: 'Swipe', rail: 'rail', cards: 'card' }
+
+  const modes = [
+    { id: 'list' as const, href: '/for-you', label: copy.list, icon: List, caption: copy.rail },
+    { id: 'swipe' as const, href: '/swipe', label: copy.swipe, icon: Shuffle, caption: copy.cards },
+  ]
+
   return (
     <nav
       data-no-swipe="true"
       data-interactive="true"
       className={`inline-flex items-center gap-1 rounded-[18px] border border-[rgba(230,255,61,0.18)] bg-[rgba(20,20,27,0.94)] p-1 shadow-[0_14px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl ${className}`}
-      aria-label="Modalità For You"
+      aria-label={copy.aria}
       onClick={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
     >
-      {MODES.map(({ id, href, label, icon: Icon, caption }) => {
+      {modes.map(({ id, href, label, icon: Icon, caption }) => {
         const isActive = active === id
         return (
           <Link
