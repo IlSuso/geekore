@@ -1,607 +1,257 @@
+// src/lib/locale.tsx
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { persistLocale } from '@/lib/i18n/clientLocale'
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 export type Locale = 'it' | 'en'
 
-const translations = {
-  it: {
-    nav: {
-      home: 'Home', discover: 'Discover', news: 'Novità',
-      notifications: 'Notifiche', profile: 'Profilo',
-      settings: 'Impostazioni', logout: 'Esci', forYou: 'Per te', search: 'Cerca',
-    },
-    login: {
-      welcome: 'Bentornato',
-      subtitle: 'Accedi al tuo account per continuare',
-      email: 'Email',
-      emailPlaceholder: 'tuo@email.com',
-      password: 'Password',
-      passwordPlaceholder: '••••••••',
-      signIn: 'Accedi',
-      signingIn: 'Accesso in corso...',
-      noAccount: 'Non hai un account?',
-      registerLink: 'Registrati gratis',
-      error: 'Email o password non corretti',
-      tagline: 'Tutto ciò che ami.',
-      description: 'Anime, manga, videogiochi, film e serie. Traccia tutto in un unico posto e condividi con la community.',
-      features: ['Anime & Manga', 'Videogiochi & Steam', 'Film & Serie TV'],
-      footer: 'Geekore — fatto con passione per i geek',
-    },
-    register: {
-      title: 'Crea il tuo account',
-      subtitle: 'Unisciti alla community di Geekore',
-      displayName: 'Nome visualizzato',
-      displayNamePlaceholder: 'Il tuo nome o nickname',
-      email: 'Email',
-      emailPlaceholder: 'tuo@email.com',
-      password: 'Password',
-      passwordPlaceholder: 'Almeno 6 caratteri',
-      creating: 'Creazione in corso...',
-      create: 'Crea account',
-      hasAccount: 'Hai già un account?',
-      loginLink: 'Accedi qui',
-      error: 'Errore durante la registrazione. Riprova più tardi.',
-      tagline: 'Entra nella community.',
-      description: 'Crea il tuo profilo geek, traccia i tuoi progressi e scopri cosa stanno guardando e giocando gli altri.',
-      tags: ['Gratis', 'Nessuna pubblicità', 'Open Source', 'Privacy first'],
-      footer: 'Geekore — fatto con passione per i geek',
-      confirmTitle: 'Controlla la tua email',
-      confirmSent: 'Abbiamo inviato un link di conferma a',
-      confirmLink: "Clicca il link nell'email per attivare l'account",
-      confirmSpam: 'Controlla anche la cartella spam',
-      backToLogin: 'Torna al Login',
-    },
-    feed: {
-      placeholder: 'Cosa bolle nel tuo calderone geek oggi?',
-      addImage: 'Aggiungi immagine',
-      publishing: 'Pubblicazione in corso...',
-      publish: 'Pubblica',
-      filterAll: 'Tutti',
-      filterFollowing: 'Following',
-      noFollowingTitle: 'Nessun post dai tuoi following',
-      noFollowingHint: 'Inizia a seguire qualcuno per vedere i loro post qui.',
-      emptyTitle: 'Il feed è vuoto',
-      emptyHint: 'Sii il primo a condividere qualcosa!',
-      commentPlaceholder: 'Scrivi un commento...',
-      send: 'Invia',
-      loadMore: 'Carica altri post',
-      loading: 'Caricamento...',
-      imageError: 'Formato immagine non supportato. Usa JPG, PNG, GIF o WebP.',
-    },
-    notifications: {
-      title: 'Notifiche',
-      recentActivity: (n: number) => `${n} attività recenti`,
-      empty: 'Nessuna notifica',
-      emptyHint: 'Le interazioni appariranno qui',
-      likeAction: 'ha messo like al tuo post',
-      followAction: 'ha iniziato a seguirti',
-      commentAction: 'ha commentato il tuo post',
-    },
-    discover: {
-      title: 'Discover',
-      subtitle: 'Solo contenuti con copertina valida',
-      searchPlaceholder: 'Cerca anime, giochi, film, serie...',
-      searching: 'Ricerca in corso...',
-      noResults: 'Nessun risultato con copertina valida trovato.',
-      minChars: 'Scrivi almeno 2 caratteri per cercare.',
-      searchError: 'Errore durante la ricerca. Verifica la connessione o riprova tra qualche secondo.',
-      all: 'Tutto', anime: 'Anime', manga: 'Manga', movie: 'Film',
-      tv: 'Serie TV', game: 'Videogiochi',
-      added: 'Aggiunto', add: 'Aggiungi',
-      wishlistAdd: 'Aggiunto alla wishlist', wishlistRemove: 'Rimosso dalla wishlist',
-      addToWishlist: 'Aggiungi alla wishlist', removeFromWishlist: 'Rimuovi dalla wishlist',
-      addProgress: 'Aggiungi ai progressi',
-      ratingLabel: 'Voto (opzionale)',
-      stars: (n: number) => `${n} / 5 stelle`,
-      season: 'Stagione', currentEpisode: 'Episodio corrente',
-      episodePlaceholder: 'Numero episodio', invalidEpisode: 'Numero episodio non valido',
-      movieNote: 'Il film verrà aggiunto come completato.',
-      adding: 'Aggiungendo...',
-      alreadyAdded: 'Già presente nella tua collezione',
-    },
-    settings: {
-      title: 'Impostazioni',
-      language: 'Lingua',
-      languageDesc: 'Lingua dell\'interfaccia e delle news (TMDb)',
-      italian: 'Italiano',
-      english: 'English',
-      apiNote: 'Le descrizioni di anime (AniList), videogiochi (IGDB) e giochi da tavolo (BGG) sono sempre in inglese per limitazioni delle rispettive API. TMDb supporta l\'italiano per film e serie TV.',
-    },
-    news: {
-      title: 'Novità',
-      subtitle: 'Uscite imminenti e in corso — Film, Serie, Anime, Manga, Videogiochi',
-      all: 'Tutto', cinema: 'Film', tv: 'Serie TV', anime: 'Anime', gaming: 'Videogiochi', manga: 'Manga', boardgame: 'Giochi da tavolo',
-      refresh: 'Aggiorna', load: 'Carica contenuti', loading: 'Caricamento...',
-      empty: 'Nessun contenuto disponibile.',
-      updated: 'Aggiornato alle',
-      episode: (n: number) => `Ep. ${n} in arrivo`,
-    },
-    profileEdit: {
-      title: 'Modifica Profilo',
-      backToProfile: 'Torna al profilo',
-      changePhoto: 'Cambia foto',
-      removePhoto: 'Rimuovi',
-      displayName: 'Nome visualizzato',
-      username: 'Username',
-      usernameHint: 'Solo lettere minuscole, numeri e underscore',
-      bio: 'Bio',
-      bioPlaceholder: 'Di cosa sei fan?',
-      save: 'Salva modifiche',
-      saving: 'Salvataggio...',
-      saved: 'Profilo aggiornato con successo!',
-      usernameTaken: 'Username già in uso, scegline un altro',
-      saveError: 'Errore nel salvataggio. Riprova.',
-      usernameTooShort: (n: number) => `Username troppo corto (minimo ${n} caratteri)`,
-      usernameTooLong: (n: number) => `Username troppo lungo (massimo ${n} caratteri)`,
-      usernameInvalid: 'Solo lettere minuscole, numeri e underscore',
-      bioTooLong: (n: number) => `Bio troppo lunga (massimo ${n} caratteri)`,
-      imageTooLarge: 'Immagine troppo grande (massimo 5MB)',
-    },
-    profile: {
-      editProfile: 'Modifica Profilo',
-      follower: 'Follower', following: 'Following',
-      myProgress: 'I miei progressi',
-      progressOf: (u: string) => `Progressi di @${u}`,
-      notFound: 'Utente non trovato',
-      logout: 'Esci',
-      categories: {
-        games: 'Videogiochi',
-        anime: 'Anime',
-        tv: 'Serie TV',
-        manga: 'Manga',
-        movies: 'Film',
-        boardgames: 'Giochi da Tavolo',
-        other: 'Altro',
-      },
-      statsAnime: 'Anime', statsGames: 'Giochi', statsSteamHours: 'Ore Steam',
-      statsAvgRating: 'Voto medio', statsCollection: 'Nella collezione',
-      emptyOwner: 'Non hai ancora nulla nella tua collezione.',
-      emptyOther: 'Questo utente non ha ancora nulla nella collezione.',
-      elements: (n: number) => `${n} elementi`,
-      notesTitle: (title: string) => `Note su ${title}`,
-      notesPlaceholder: 'Scrivi qui le tue note personali...',
-    },
-    media: {
-      completed: 'Completato',
-      season: (n: number) => `Stagione ${n}`,
-      ep: (n: number) => `Ep. ${n}`,
-      hoursPlayed: (n: number) => `${n} ore`,
-      gamesPlayed: (n: number) =>
-        n === 0 ? 'Non ancora giocato' : `${n} ${n === 1 ? 'partita' : 'partite'}`,
-      progress: (n: number) => `${n}% completato`,
-      cancel: 'Annulla', delete: 'Elimina', reset: 'Ripristina',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Videogioco', tv: 'Serie', movie: 'Film', board_game: 'Gioco da Tavolo', boardgame: 'Gioco da Tavolo' },
-    },
-    toasts: {
-      deleted: 'Eliminato dalla collezione',
-      completed: 'Completato!',
-      progressReset: 'Progresso ripristinato',
-      progressSaved: 'Progresso salvato',
-      ratingSaved: 'Voto salvato',
-      notesSaved: 'Note aggiornate',
-      steamNoGames: 'Nessun gioco trovato o profilo Steam privato.',
-      steamImported: (n: number) => `${n} giochi importati con successo!`,
-    },
-    follow: {
-      follow: 'Segui',
-      following: 'Seguito',
-    },
-    steam: {
-      title: 'Steam',
-      accountTitle: 'Account Steam',
-      importBtn: 'Importa giochi',
-      importing: 'Importazione...',
-      updating: 'Aggiornamento...',
-      updateBtn: 'Aggiorna giochi da Steam',
-      reorderBtn: 'Riordina per ore',
-      reordering: 'Riordinamento...',
-      connected: 'Collegato',
-      notConnected: 'Non collegato',
-      connectBtn: 'Collega Account Steam',
-    },
-    forYou: {
-      title: 'Per te',
-      subtitle: 'Selezionati in base ai tuoi gusti',
-      refresh: 'Aggiorna',
-      refreshing: 'Aggiornamento...',
-      preferences: 'Personalizza gusti',
-      cacheInfo: (h: number) => `Aggiornato ${h}h fa`,
-      entriesAnalyzed: (n: number) => `${n} titoli analizzati`,
-      emptyState: 'Aggiungi almeno un titolo alla tua collezione per abilitare i consigli personalizzati.',
-      emptyStateCta: 'Vai su Discover',
-      sectionEmpty: 'Non abbastanza dati per questa categoria.',
-      sectionError: 'Temporaneamente non disponibile.',
-      whyAdored: (title: string) => `Perché hai amato "${title}"`,
-      whyGenres: (genres: string) => `Basato su: ${genres}`,
-      whyPopular: (genre: string) => `Popolare tra chi ama ${genre}`,
-      upcomingTitle: 'In arrivo',
-      upcomingSubtitle: 'Prossime uscite nei tuoi generi preferiti',
-      tasteTitle: 'I tuoi gusti',
-      sections: {
-        anime: 'Anime consigliati',
-        manga: 'Manga consigliati',
-        game: 'Videogiochi consigliati',
-        movie: 'Film consigliati',
-        tv: 'Serie TV consigliate',
-        boardgame: 'Giochi da Tavolo consigliati',
-      },
-      addToCollection: 'Aggiungi',
-      addToWishlist: 'Wishlist',
-      prefsTitle: 'Personalizza i tuoi gusti',
-      prefsGameGenres: 'Generi videogiochi preferiti',
-      prefsAnimeGenres: 'Generi anime preferiti',
-      prefsMovieGenres: 'Generi film preferiti',
-      prefsTvGenres: 'Generi serie TV preferiti',
-      prefsMangaGenres: 'Generi manga preferiti',
-      prefsDisliked: 'Generi da escludere',
-      prefsSave: 'Salva preferenze',
-      prefsSaving: 'Salvataggio...',
-      prefsSaved: 'Preferenze salvate!',
-    },
-    legal: {
-      privacy: 'Privacy Policy',
-      terms: 'Termini di Servizio',
-      cookies: 'Cookie Policy',
-      rights: '© 2025 Geekore. Tutti i diritti riservati.',
-      madeWith: 'Fatto con ♥ per i nerd',
-    },
-    common: {
-      loading: 'Caricamento...', save: 'Salva', cancel: 'Annulla',
-      delete: 'Elimina', add: 'Aggiungi', notFound: 'Utente non trovato',
-    },
-  },
-
-  en: {
-    nav: {
-      home: 'Home', discover: 'Discover', news: 'New & Upcoming',
-      notifications: 'Notifications', profile: 'Profile',
-      settings: 'Settings', logout: 'Logout', forYou: 'For You', search: 'Search',
-    },
-    login: {
-      welcome: 'Welcome back',
-      subtitle: 'Sign in to your account to continue',
-      email: 'Email',
-      emailPlaceholder: 'you@email.com',
-      password: 'Password',
-      passwordPlaceholder: '••••••••',
-      signIn: 'Sign In',
-      signingIn: 'Signing in...',
-      noAccount: "Don't have an account?",
-      registerLink: 'Sign up for free',
-      error: 'Incorrect email or password',
-      tagline: 'Everything you love.',
-      description: 'Anime, manga, video games, movies and series. Track everything in one place and share with the community.',
-      features: ['Anime & Manga', 'Games & Steam', 'Movies & TV Shows'],
-      footer: 'Geekore — made with passion for geeks',
-    },
-    register: {
-      title: 'Create your account',
-      subtitle: 'Join the Geekore community',
-      displayName: 'Display name',
-      displayNamePlaceholder: 'Your name or nickname',
-      email: 'Email',
-      emailPlaceholder: 'you@email.com',
-      password: 'Password',
-      passwordPlaceholder: 'At least 6 characters',
-      creating: 'Creating...',
-      create: 'Create account',
-      hasAccount: 'Already have an account?',
-      loginLink: 'Sign in',
-      error: 'Registration error. Please try again.',
-      tagline: 'Join the community.',
-      description: 'Create your geek profile, track your progress and discover what others are watching and playing.',
-      tags: ['Free', 'No ads', 'Open Source', 'Privacy first'],
-      footer: 'Geekore — made with passion for geeks',
-      confirmTitle: 'Check your email',
-      confirmSent: 'We sent a confirmation link to',
-      confirmLink: 'Click the link in the email to activate your account',
-      confirmSpam: 'Check your spam folder too',
-      backToLogin: 'Back to Login',
-    },
-    feed: {
-      placeholder: "What's on your geek radar today?",
-      addImage: 'Add image',
-      publishing: 'Publishing...',
-      publish: 'Publish',
-      filterAll: 'All',
-      filterFollowing: 'Following',
-      noFollowingTitle: 'No posts from people you follow',
-      noFollowingHint: 'Start following someone to see their posts here.',
-      emptyTitle: 'The feed is empty',
-      emptyHint: 'Be the first to share something!',
-      commentPlaceholder: 'Write a comment...',
-      send: 'Send',
-      loadMore: 'Load more posts',
-      loading: 'Loading...',
-      imageError: 'Unsupported image format. Use JPG, PNG, GIF or WebP.',
-    },
-    notifications: {
-      title: 'Notifications',
-      recentActivity: (n: number) => `${n} recent activities`,
-      empty: 'No notifications',
-      emptyHint: 'Interactions will appear here',
-      likeAction: 'liked your post',
-      followAction: 'started following you',
-      commentAction: 'commented on your post',
-    },
-    discover: {
-      title: 'Discover',
-      subtitle: 'Only content with valid covers',
-      searchPlaceholder: 'Search anime, games, movies, series...',
-      searching: 'Searching...',
-      noResults: 'No results with valid cover found.',
-      minChars: 'Type at least 2 characters to search.',
-      searchError: 'Search error. Check your connection or try again.',
-      all: 'All', anime: 'Anime', manga: 'Manga', movie: 'Movies',
-      tv: 'TV Shows', game: 'Games',
-      added: 'Added', add: 'Add',
-      wishlistAdd: 'Added to wishlist', wishlistRemove: 'Removed from wishlist',
-      addToWishlist: 'Add to wishlist', removeFromWishlist: 'Remove from wishlist',
-      addProgress: 'Add to progress',
-      ratingLabel: 'Rating (optional)',
-      stars: (n: number) => `${n} / 5 stars`,
-      season: 'Season', currentEpisode: 'Current episode',
-      episodePlaceholder: 'Episode number', invalidEpisode: 'Invalid episode number',
-      movieNote: 'The movie will be added as completed.',
-      adding: 'Adding...',
-      alreadyAdded: 'Already in your collection',
-    },
-    settings: {
-      title: 'Settings',
-      language: 'Language',
-      languageDesc: 'Interface and news language (TMDb)',
-      italian: 'Italian',
-      english: 'English',
-      apiNote: 'Anime (AniList), game (IGDB) and board game (BGG) descriptions are always in English due to API limitations. TMDb supports Italian for movies and TV shows.',
-    },
-    news: {
-      title: 'New & Upcoming',
-      subtitle: 'Coming soon and now airing — Movies, TV, Anime, Manga, Games',
-      all: 'All', cinema: 'Movies', tv: 'TV Shows', anime: 'Anime', gaming: 'Games', manga: 'Manga', boardgame: 'Board Games',
-      refresh: 'Refresh', load: 'Load content', loading: 'Loading...',
-      empty: 'No content available.',
-      updated: 'Updated at',
-      episode: (n: number) => `Ep. ${n} upcoming`,
-    },
-    profileEdit: {
-      title: 'Edit Profile',
-      backToProfile: 'Back to profile',
-      changePhoto: 'Change photo',
-      removePhoto: 'Remove',
-      displayName: 'Display name',
-      username: 'Username',
-      usernameHint: 'Lowercase letters, numbers and underscores only',
-      bio: 'Bio',
-      bioPlaceholder: 'What are you a fan of?',
-      save: 'Save changes',
-      saving: 'Saving...',
-      saved: 'Profile updated successfully!',
-      usernameTaken: 'Username already taken, choose another',
-      saveError: 'Save error. Please try again.',
-      usernameTooShort: (n: number) => `Username too short (minimum ${n} characters)`,
-      usernameTooLong: (n: number) => `Username too long (maximum ${n} characters)`,
-      usernameInvalid: 'Lowercase letters, numbers and underscores only',
-      bioTooLong: (n: number) => `Bio too long (maximum ${n} characters)`,
-      imageTooLarge: 'Image too large (maximum 5MB)',
-    },
-    profile: {
-      editProfile: 'Edit Profile',
-      follower: 'Follower', following: 'Following',
-      myProgress: 'My progress',
-      progressOf: (u: string) => `${u}'s progress`,
-      notFound: 'User not found',
-      logout: 'Logout',
-      categories: {
-        games: 'Games',
-        anime: 'Anime',
-        tv: 'TV Shows',
-        manga: 'Manga',
-        movies: 'Movies',
-        boardgames: 'Board Games',
-        other: 'Other',
-      },
-      statsAnime: 'Anime', statsGames: 'Games', statsSteamHours: 'Steam Hours',
-      statsAvgRating: 'Avg Rating', statsCollection: 'In collection',
-      emptyOwner: 'You have nothing in your collection yet.',
-      emptyOther: "This user doesn't have anything in their collection yet.",
-      elements: (n: number) => `${n} items`,
-      notesTitle: (title: string) => `Notes on ${title}`,
-      notesPlaceholder: 'Write your personal notes here...',
-    },
-    media: {
-      completed: 'Completed',
-      season: (n: number) => `Season ${n}`,
-      ep: (n: number) => `Ep. ${n}`,
-      hoursPlayed: (n: number) => `${n} hrs`,
-      gamesPlayed: (n: number) =>
-        n === 0 ? 'Not played yet' : `${n} ${n === 1 ? 'session' : 'sessions'}`,
-      progress: (n: number) => `${n}% complete`,
-      cancel: 'Cancel', delete: 'Delete', reset: 'Reset',
-      typeLabels: { anime: 'Anime', manga: 'Manga', game: 'Game', tv: 'TV', movie: 'Movie', board_game: 'Board', boardgame: 'Board' },
-    },
-    toasts: {
-      deleted: 'Removed from collection',
-      completed: 'Completed!',
-      progressReset: 'Progress reset',
-      progressSaved: 'Progress saved',
-      ratingSaved: 'Rating saved',
-      notesSaved: 'Notes updated',
-      steamNoGames: 'No games found or Steam profile is private.',
-      steamImported: (n: number) => `${n} games imported successfully!`,
-    },
-    follow: {
-      follow: 'Follow',
-      following: 'Following',
-    },
-    steam: {
-      title: 'Steam',
-      accountTitle: 'Steam Account',
-      importBtn: 'Import games',
-      importing: 'Importing...',
-      updating: 'Updating...',
-      updateBtn: 'Update games from Steam',
-      reorderBtn: 'Sort by hours',
-      reordering: 'Sorting...',
-      connected: 'Connected',
-      notConnected: 'Not connected',
-      connectBtn: 'Connect Steam Account',
-    },
-    forYou: {
-      title: 'For You',
-      subtitle: 'Curated based on your taste',
-      refresh: 'Refresh',
-      refreshing: 'Refreshing...',
-      preferences: 'Customize taste',
-      cacheInfo: (h: number) => `Updated ${h}h ago`,
-      entriesAnalyzed: (n: number) => `${n} titles analyzed`,
-      emptyState: 'Add at least one title to your collection to enable personalized recommendations.',
-      emptyStateCta: 'Go to Discover',
-      sectionEmpty: 'Not enough data for this category.',
-      sectionError: 'Temporarily unavailable.',
-      whyAdored: (title: string) => `Because you loved "${title}"`,
-      whyGenres: (genres: string) => `Based on: ${genres}`,
-      whyPopular: (genre: string) => `Popular among ${genre} fans`,
-      upcomingTitle: 'Coming Soon',
-      upcomingSubtitle: 'Upcoming releases in your favorite genres',
-      tasteTitle: 'Your taste',
-      sections: {
-        anime: 'Recommended Anime',
-        manga: 'Recommended Manga',
-        game: 'Recommended Games',
-        movie: 'Recommended Movies',
-        tv: 'Recommended TV Shows',
-        boardgame: 'Recommended Board Games',
-      },
-      addToCollection: 'Add',
-      addToWishlist: 'Wishlist',
-      prefsTitle: 'Customize your taste',
-      prefsGameGenres: 'Favorite game genres',
-      prefsAnimeGenres: 'Favorite anime genres',
-      prefsMovieGenres: 'Favorite movie genres',
-      prefsTvGenres: 'Favorite TV genres',
-      prefsMangaGenres: 'Favorite manga genres',
-      prefsDisliked: 'Genres to exclude',
-      prefsSave: 'Save preferences',
-      prefsSaving: 'Saving...',
-      prefsSaved: 'Preferences saved!',
-    },
-    legal: {
-      privacy: 'Privacy Policy',
-      terms: 'Terms of Service',
-      cookies: 'Cookie Policy',
-      rights: '© 2025 Geekore. All rights reserved.',
-      madeWith: 'Made with ♥ for nerds',
-    },
-    common: {
-      loading: 'Loading...', save: 'Save', cancel: 'Cancel',
-      delete: 'Delete', add: 'Add', notFound: 'User not found',
-    },
-  },
-} as const
-
-export type T = typeof translations.it
-
-type LocaleContextType = { locale: Locale; setLocale: (l: Locale) => void; t: T }
-
-const LocaleContext = createContext<LocaleContextType>({
-  locale: 'it', setLocale: () => {}, t: translations.it,
-})
-
-
-const LOCALIZED_API_PREFIXES = [
-  '/api/tmdb',
-  '/api/anilist',
-  '/api/igdb',
-  '/api/bgg',
-  '/api/recommendations',
-  '/api/trending',
-  '/api/news',
-  '/api/translate/description',
-]
-
-function installLocaleFetchBridge() {
-  if (typeof window === 'undefined') return
-  const w = window as any
-  if (w.__geekoreFetchBridgeInstalled) return
-
-  w.__geekoreFetchBridgeInstalled = true
-  w.__geekoreOriginalFetch = window.fetch.bind(window)
-
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const currentLocale: Locale = w.__geekoreLocale === 'en' ? 'en' : 'it'
-
-    try {
-      const rawUrl = typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url
-      const url = new URL(rawUrl, window.location.origin)
-      const isSameOrigin = url.origin === window.location.origin
-      const shouldLocalize = isSameOrigin && LOCALIZED_API_PREFIXES.some(prefix => url.pathname.startsWith(prefix))
-
-      if (shouldLocalize) {
-        const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
-        const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
-        headers.set('x-lang', currentLocale)
-        headers.set('x-geekore-locale', currentLocale)
-
-        let nextInput: RequestInfo | URL = input
-        if (method === 'GET') {
-          if (!url.searchParams.has('lang')) url.searchParams.set('lang', currentLocale)
-          nextInput = rawUrl.startsWith('/') ? `${url.pathname}${url.search}${url.hash}` : url.toString()
-        }
-
-        return w.__geekoreOriginalFetch(nextInput, { ...init, headers })
-      }
-    } catch {
-      // fallback to original fetch
-    }
-
-    return w.__geekoreOriginalFetch(input, init)
-  }
+type Dictionary = {
+  [key: string]: any
+  common: Record<string, any>
+  nav: Record<string, any>
+  settings: Record<string, any>
+  discover: Record<string, any>
+  forYou: Record<string, any>
+  feed: Record<string, any>
+  login: Record<string, any>
+  register: Record<string, any>
+  media: Record<string, any>
+  profile: Record<string, any>
+  profileEdit: Record<string, any>
+  toasts: Record<string, any>
+  legal: Record<string, any>
 }
 
-function getCookieLocale(): Locale | null {
+const dictionaries: Record<Locale, Dictionary> = {
+  it: {
+    common: {
+      loading: 'Caricamento…', searching: 'Ricerca in corso…', refresh: 'Aggiorna', retry: 'Riprova',
+      close: 'Chiudi', cancel: 'Annulla', save: 'Salva', add: 'Aggiungi', remove: 'Rimuovi',
+      wishlist: 'Wishlist', noResults: 'Nessun risultato', error: 'Qualcosa è andato storto',
+    },
+    nav: {
+      home: 'Home', forYou: 'Per te', discover: 'Discover', library: 'Libreria', profile: 'Profilo', settings: 'Impostazioni',
+    },
+    settings: {
+      title: 'Impostazioni', language: 'Lingua', languageDesc: 'Scegli la lingua dell’app. I titoli ufficiali e le descrizioni vengono localizzati quando disponibili.', italian: 'Italiano', english: 'English',
+    },
+    discover: {
+      searchLabel: 'Ricerca Discover', searchPlaceholder: 'Cerca anime, film, giochi, serie...', listeningPlaceholder: 'In ascolto...', placeholder: 'Cerca anime, film, giochi, serie...',
+      listening: 'In ascolto...', cancelVoice: 'Annulla', clearSearch: 'Cancella ricerca', filtersLabel: 'Filtri Discover', voiceStart: 'Avvia ricerca vocale', voiceStop: 'Ferma ricerca vocale',
+      browseTitle: 'Parti da un universo', browseSubtitle: 'Shortcut editoriali per aprire subito ricerche utili', trendingTitle: 'Trending oggi', trendingSubtitle: 'Il mix più caldo tra community e cataloghi',
+      startUniverse: 'Parti da un universo', startUniverseSubtitle: 'Shortcut editoriali per aprire subito ricerche utili', trendingToday: 'Trending oggi', trendingTodaySubtitle: 'Il mix più caldo tra community e cataloghi',
+      searching: 'Ricerca in corso…', noResults: 'Nessun risultato trovato', searchError: 'Errore durante la ricerca',
+    },
+    forYou: {
+      title: 'Per te', refresh: 'Aggiorna', refreshing: 'Aggiornamento…', loading: 'Caricamento…', empty: 'Nessun consiglio disponibile', retry: 'Riprova', preferences: 'Preferenze',
+      emptyState: 'Non abbiamo ancora abbastanza segnali per costruire consigli affidabili.', emptyStateCta: 'Vai su Discover', sectionEmpty: 'Nessun titolo disponibile in questa sezione.',
+      sections: { anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogiochi', boardgame: 'Giochi da Tavolo' },
+    },
+    feed: {
+      placeholder: 'Condividi un pensiero, una scoperta o un consiglio...', current: 'In corso', emptyTitle: 'Il feed è vuoto', emptyHint: 'Segui qualcuno o pubblica il primo post.', noFollowingTitle: 'Nessun post dai profili che segui', noFollowingHint: 'Segui altri utenti per vedere attività qui.',
+    },
+    login: {
+      welcome: 'Bentornato', subtitle: 'Accedi al tuo universo Geekore.', email: 'Email', emailPlaceholder: 'La tua email', password: 'Password', passwordPlaceholder: 'La tua password', signIn: 'Accedi', signingIn: 'Accesso…', registerLink: 'Non hai un account? Registrati', error: 'Email o password non validi',
+    },
+    register: {
+      title: 'Crea il tuo account', subtitle: 'Costruisci il tuo profilo nerd in pochi secondi.', email: 'Email', emailPlaceholder: 'La tua email', password: 'Password', passwordPlaceholder: 'Crea una password', displayName: 'Nome visualizzato', displayNamePlaceholder: 'Come vuoi apparire', create: 'Crea account', creating: 'Creazione…', loginLink: 'Hai già un account? Accedi', backToLogin: 'Torna al login', confirmTitle: 'Controlla la tua email', confirmSent: 'Ti abbiamo inviato un link di conferma.', confirmSpam: 'Controlla anche spam/promozioni.', confirmLink: 'Torna al login', error: 'Impossibile creare l’account',
+    },
+    media: {
+      cancel: 'Annulla', delete: 'Elimina', genres: 'Generi', rating: 'Voto', status: 'Stato',
+      hoursPlayed: (hours: number) => `${hours} ore giocate`, season: (n: number) => `Stagione ${n}`, ep: (n: number) => `Ep. ${n}`,
+    },
+    profile: {
+      notFound: 'Profilo non trovato', editProfile: 'Modifica profilo', follower: 'Follower', following: 'Seguiti', emptyOwner: 'La tua libreria è ancora vuota.', emptyOther: 'Questo profilo non ha ancora elementi pubblici.', elements: (n: number) => `${n} elementi`, notesTitle: (title: string) => `Note su ${title}`, notesPlaceholder: 'Scrivi una nota privata...',
+      categories: { all: 'Tutti', games: 'Videogiochi', manga: 'Manga', anime: 'Anime', tv: 'Serie TV', movies: 'Film', boardgames: 'Giochi da Tavolo' },
+    },
+    profileEdit: {
+      backToProfile: 'Torna al profilo', username: 'Username', usernameHint: 'Solo lettere, numeri e underscore.', usernameTooShort: (n: number) => `Minimo ${n} caratteri`, usernameTooLong: (n: number) => `Massimo ${n} caratteri`, usernameInvalid: 'Username non valido', usernameTaken: 'Username già occupato', displayName: 'Nome visualizzato', bio: 'Bio', bioPlaceholder: 'Racconta qualcosa di te...', bioTooLong: (n: number) => `Massimo ${n} caratteri`, changePhoto: 'Cambia foto', removePhoto: 'Rimuovi foto', imageTooLarge: 'Immagine troppo grande', save: 'Salva modifiche', saving: 'Salvataggio…', saved: 'Profilo salvato', saveError: 'Errore durante il salvataggio',
+    },
+    toasts: {
+      steamNoGames: 'Nessun gioco Steam trovato', steamImported: (count: number) => `${count} giochi Steam importati`,
+    },
+    legal: {
+      privacy: 'Privacy', terms: 'Termini', rights: '© Geekore. Tutti i diritti riservati.',
+    },
+  },
+  en: {
+    common: {
+      loading: 'Loading…', searching: 'Searching…', refresh: 'Refresh', retry: 'Retry',
+      close: 'Close', cancel: 'Cancel', save: 'Save', add: 'Add', remove: 'Remove', wishlist: 'Wishlist', noResults: 'No results', error: 'Something went wrong',
+    },
+    nav: {
+      home: 'Home', forYou: 'For You', discover: 'Discover', library: 'Library', profile: 'Profile', settings: 'Settings',
+    },
+    settings: {
+      title: 'Settings', language: 'Language', languageDesc: 'Choose the app language. Official titles and descriptions are localized when available.', italian: 'Italiano', english: 'English',
+    },
+    discover: {
+      searchLabel: 'Discover search', searchPlaceholder: 'Search anime, movies, games, shows...', listeningPlaceholder: 'Listening...', placeholder: 'Search anime, movies, games, shows...',
+      listening: 'Listening...', cancelVoice: 'Cancel', clearSearch: 'Clear search', filtersLabel: 'Discover filters', voiceStart: 'Start voice search', voiceStop: 'Stop voice search',
+      browseTitle: 'Start from a universe', browseSubtitle: 'Editorial shortcuts to open useful searches fast', trendingTitle: 'Trending today', trendingSubtitle: 'The hottest mix across community and catalogs',
+      startUniverse: 'Start from a universe', startUniverseSubtitle: 'Editorial shortcuts to open useful searches fast', trendingToday: 'Trending today', trendingTodaySubtitle: 'The hottest mix across community and catalogs',
+      searching: 'Searching…', noResults: 'No results found', searchError: 'Search error',
+    },
+    forYou: {
+      title: 'For You', refresh: 'Refresh', refreshing: 'Refreshing…', loading: 'Loading…', empty: 'No recommendations available', retry: 'Retry', preferences: 'Preferences',
+      emptyState: 'We do not have enough signals yet to build reliable recommendations.', emptyStateCta: 'Go to Discover', sectionEmpty: 'No titles available in this section.',
+      sections: { anime: 'Anime', manga: 'Manga', movie: 'Movies', tv: 'TV Shows', game: 'Games', boardgame: 'Board Games' },
+    },
+    feed: {
+      placeholder: 'Share a thought, discovery, or recommendation...', current: 'Current', emptyTitle: 'The feed is empty', emptyHint: 'Follow someone or publish the first post.', noFollowingTitle: 'No posts from people you follow', noFollowingHint: 'Follow more users to see activity here.',
+    },
+    login: {
+      welcome: 'Welcome back', subtitle: 'Sign in to your Geekore universe.', email: 'Email', emailPlaceholder: 'Your email', password: 'Password', passwordPlaceholder: 'Your password', signIn: 'Sign in', signingIn: 'Signing in…', registerLink: 'No account yet? Sign up', error: 'Invalid email or password',
+    },
+    register: {
+      title: 'Create your account', subtitle: 'Build your nerd profile in seconds.', email: 'Email', emailPlaceholder: 'Your email', password: 'Password', passwordPlaceholder: 'Create a password', displayName: 'Display name', displayNamePlaceholder: 'How you want to appear', create: 'Create account', creating: 'Creating…', loginLink: 'Already have an account? Sign in', backToLogin: 'Back to login', confirmTitle: 'Check your email', confirmSent: 'We sent you a confirmation link.', confirmSpam: 'Check spam/promotions too.', confirmLink: 'Back to login', error: 'Could not create account',
+    },
+    media: {
+      cancel: 'Cancel', delete: 'Delete', genres: 'Genres', rating: 'Rating', status: 'Status',
+      hoursPlayed: (hours: number) => `${hours} hours played`, season: (n: number) => `Season ${n}`, ep: (n: number) => `Ep. ${n}`,
+    },
+    profile: {
+      notFound: 'Profile not found', editProfile: 'Edit profile', follower: 'Followers', following: 'Following', emptyOwner: 'Your library is still empty.', emptyOther: 'This profile has no public items yet.', elements: (n: number) => `${n} items`, notesTitle: (title: string) => `Notes on ${title}`, notesPlaceholder: 'Write a private note...',
+      categories: { all: 'All', games: 'Games', manga: 'Manga', anime: 'Anime', tv: 'TV Shows', movies: 'Movies', boardgames: 'Board Games' },
+    },
+    profileEdit: {
+      backToProfile: 'Back to profile', username: 'Username', usernameHint: 'Letters, numbers, and underscores only.', usernameTooShort: (n: number) => `At least ${n} characters`, usernameTooLong: (n: number) => `Max ${n} characters`, usernameInvalid: 'Invalid username', usernameTaken: 'Username already taken', displayName: 'Display name', bio: 'Bio', bioPlaceholder: 'Tell something about yourself...', bioTooLong: (n: number) => `Max ${n} characters`, changePhoto: 'Change photo', removePhoto: 'Remove photo', imageTooLarge: 'Image too large', save: 'Save changes', saving: 'Saving…', saved: 'Profile saved', saveError: 'Could not save profile',
+    },
+    toasts: {
+      steamNoGames: 'No Steam games found', steamImported: (count: number) => `${count} Steam games imported`,
+    },
+    legal: {
+      privacy: 'Privacy', terms: 'Terms', rights: '© Geekore. All rights reserved.',
+    },
+  },
+}
+
+type LocaleContextValue = {
+  locale: Locale
+  setLocale: (locale: Locale) => void
+  t: Dictionary
+}
+
+const LocaleContext = createContext<LocaleContextValue | null>(null)
+
+function normalizeLocale(value: unknown): Locale | null {
+  if (typeof value !== 'string') return null
+  const v = value.toLowerCase()
+  if (v === 'it' || v === 'it-it' || v === 'italiano') return 'it'
+  if (v === 'en' || v === 'en-us' || v === 'en-gb' || v === 'english') return 'en'
+  return null
+}
+
+function cookieLocale(): Locale | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(/(?:^|;\s*)geekore_locale=([^;]+)/)
-  const val = match?.[1]
-  return val === 'it' || val === 'en' ? val : null
+  return normalizeLocale(match ? decodeURIComponent(match[1]) : null)
 }
 
-function setCookieLocale(l: Locale) {
-  document.cookie = `geekore_locale=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+function storageLocale(): Locale | null {
+  if (typeof window === 'undefined') return null
+  try { return normalizeLocale(window.localStorage.getItem('geekore_locale')) } catch { return null }
 }
 
-export function LocaleProvider({ children, initialLocale = 'it' }: { children: ReactNode; initialLocale?: Locale }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === 'undefined') return initialLocale
-    const fromStorage = localStorage.getItem('geekore_locale')
-    if (fromStorage === 'it' || fromStorage === 'en') return fromStorage as Locale
-    return initialLocale
-  })
-
-  useEffect(() => {
-    const w = window as any
-    w.__geekoreLocale = locale
-    installLocaleFetchBridge()
-    setCookieLocale(locale)
+function writeLocaleEverywhere(locale: Locale) {
+  if (typeof document !== 'undefined') {
+    document.cookie = `geekore_locale=${locale}; path=/; max-age=31536000; samesite=lax`
     document.documentElement.lang = locale
-  }, [locale])
+  }
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.setItem('geekore_locale', locale) } catch {}
+  }
+}
 
-  const setLocale = (l: Locale) => {
-    setLocaleState(l)
-    if (typeof document !== 'undefined') document.documentElement.lang = l
-    void persistLocale(l)
+function isLocaleSensitiveUrl(url: URL): boolean {
+  const path = url.pathname
+  return path.startsWith('/api/tmdb') || path.startsWith('/api/anilist') || path.startsWith('/api/igdb') || path.startsWith('/api/bgg') || path.startsWith('/api/recommendations') || path.startsWith('/api/swipe/queue') || path.startsWith('/api/media/localize') || path.startsWith('/api/trending') || path.startsWith('/api/news') || path.startsWith('/api/translate/description')
+}
+
+function installLocaleFetchBridge(getLocale: () => Locale) {
+  if (typeof window === 'undefined') return () => {}
+  const w = window as any
+  if (w.__geekoreLocaleFetchBridgeInstalled) return () => {}
+  w.__geekoreLocaleFetchBridgeInstalled = true
+  const originalFetch = window.fetch.bind(window)
+  w.__geekoreOriginalFetch = originalFetch
+
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    try {
+      const locale = getLocale()
+      const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const url = new URL(rawUrl, window.location.origin)
+      if (url.origin === window.location.origin && isLocaleSensitiveUrl(url)) {
+        if (!url.searchParams.get('lang')) url.searchParams.set('lang', locale)
+        const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
+        headers.set('x-lang', locale)
+        headers.set('x-geekore-locale', locale)
+        const nextInit = { ...(init || {}), headers }
+        if (typeof input === 'string') {
+          const nextUrl = rawUrl.startsWith('http') ? url.toString() : `${url.pathname}${url.search}${url.hash}`
+          return originalFetch(nextUrl, nextInit)
+        }
+        if (input instanceof URL) return originalFetch(url, nextInit)
+        return originalFetch(new Request(url.toString(), input), nextInit)
+      }
+    } catch {}
+    return originalFetch(input as any, init)
+  }) as typeof window.fetch
+
+  return () => {}
+}
+
+async function safeWarmFetch(url: string, locale: Locale) {
+  try {
+    await fetch(url, {
+      method: 'GET', credentials: 'include', cache: 'no-store', keepalive: true,
+      headers: { 'x-lang': locale, 'x-geekore-locale': locale, 'x-geekore-prewarm': 'locale-switch' },
+    }).catch(() => null)
+  } catch {}
+}
+
+function prewarmForYouAndSwipeForLocale(locale: Locale) {
+  if (typeof window === 'undefined') return
+  const run = async () => {
+    try {
+      await fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true, headers: { 'x-lang': locale, 'x-geekore-locale': locale } }).catch(() => null)
+      await safeWarmFetch(`/api/recommendations?source=refresh_pool&type=all&lang=${locale}`, locale)
+      for (const queue of ['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
+        await safeWarmFetch(`/api/swipe/queue?queue=${queue}&type=${queue}&limit=40&prewarm=1&lang=${locale}`, locale)
+      }
+      window.dispatchEvent(new CustomEvent('geekore:locale-prewarm-complete', { detail: { locale, targets: ['for-you', 'swipe'] } }))
+    } catch {}
+  }
+  const w = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number }
+  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 1500 })
+  else globalThis.setTimeout(run, 250)
+}
+
+export function LocaleProvider({ children, initialLocale }: { children: React.ReactNode; initialLocale?: Locale }) {
+  const [localeState, setLocaleState] = useState<Locale>(() => normalizeLocale(initialLocale) || storageLocale() || cookieLocale() || 'it')
+  const localeRef = useRef<Locale>(localeState)
+  localeRef.current = localeState
+
+  useEffect(() => { writeLocaleEverywhere(localeState) }, [localeState])
+  useEffect(() => installLocaleFetchBridge(() => localeRef.current), [])
+
+  const setLocale = (next: Locale) => {
+    const normalized = normalizeLocale(next) || 'it'
+    if (normalized === localeRef.current) { writeLocaleEverywhere(normalized); return }
+    localeRef.current = normalized
+    setLocaleState(normalized)
+    writeLocaleEverywhere(normalized)
+    fetch('/api/user/locale', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-lang': normalized, 'x-geekore-locale': normalized }, body: JSON.stringify({ locale: normalized }) }).catch(() => null)
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('geekore:locale-changed', { detail: { locale: normalized } }))
+    prewarmForYouAndSwipeForLocale(normalized)
   }
 
-  return (
-    <LocaleContext.Provider value={{ locale, setLocale, t: translations[locale] as unknown as T }}>
-      {children}
-    </LocaleContext.Provider>
-  )
+  const value = useMemo<LocaleContextValue>(() => ({ locale: localeState, setLocale, t: dictionaries[localeState] }), [localeState])
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
 
-export function useLocale() { return useContext(LocaleContext) }
+export function useLocale() {
+  const context = useContext(LocaleContext)
+  if (!context) throw new Error('useLocale must be used inside LocaleProvider')
+  return context
+}

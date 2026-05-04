@@ -41,6 +41,142 @@ function cleanText(value: unknown): string | undefined {
   return text
 }
 
+function tmdbId(item: any): string | null {
+  const raw = String(item?.external_id || item?.id || '')
+  if (!raw) return null
+  if (/^\d+$/.test(raw)) return raw
+
+  const match = raw.match(/tmdb-(?:movie|tv|anime)-(\d+)/)
+  return match?.[1] || null
+}
+
+function isTmdbTitleType(item: any): boolean {
+  return item?.type === 'movie' || item?.type === 'tv'
+}
+
+function tmdbLanguage(locale: Locale): 'it-IT' | 'en-US' {
+  return locale === 'it' ? 'it-IT' : 'en-US'
+}
+
+function tmdbImage(path: string | null | undefined): string | undefined {
+  if (!path) return undefined
+  return `https://image.tmdb.org/t/p/w780${path}`
+}
+
+function pickPoster(posters: any[], preferredLanguage: 'it' | 'en'): string | undefined {
+  if (!Array.isArray(posters) || posters.length === 0) return undefined
+
+  const ranked = [...posters]
+    .filter(p => p?.file_path)
+    .sort((a, b) => {
+      const aLang = a.iso_639_1 === preferredLanguage ? 3 : a.iso_639_1 === null ? 2 : 1
+      const bLang = b.iso_639_1 === preferredLanguage ? 3 : b.iso_639_1 === null ? 2 : 1
+      if (aLang !== bLang) return bLang - aLang
+      const aScore = (Number(a.vote_average) || 0) * 100 + (Number(a.vote_count) || 0)
+      const bScore = (Number(b.vote_average) || 0) * 100 + (Number(b.vote_count) || 0)
+      return bScore - aScore
+    })
+
+  return tmdbImage(ranked[0]?.file_path)
+}
+
+async function fetchOfficialTmdbLocaleAssets(item: any, locale: Locale): Promise<{ title?: string; coverImage?: string }> {
+  const token = process.env.TMDB_API_KEY
+  if (!token || !isTmdbTitleType(item)) return {}
+
+  const id = tmdbId(item)
+  if (!id) return {}
+
+  try {
+    const endpoint = item.type === 'movie' ? 'movie' : 'tv'
+    const [detailsRes, imagesRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/${endpoint}/${id}?language=${tmdbLanguage(locale)}`, {
+        headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+        signal: AbortSignal.timeout(4500),
+        next: { revalidate: 60 * 60 * 24 },
+      }),
+      fetch(`https://api.themoviedb.org/3/${endpoint}/${id}/images?include_image_language=${locale},null`, {
+        headers: { Authorization: `Bearer ${token}`, accept: 'application/json' },
+        signal: AbortSignal.timeout(4500),
+        next: { revalidate: 60 * 60 * 24 },
+      }),
+    ])
+
+    const details = detailsRes.ok ? await detailsRes.json() : null
+    const images = imagesRes.ok ? await imagesRes.json() : null
+
+    return {
+      title: cleanText(details?.title || details?.name),
+      coverImage: pickPoster(images?.posters || [], locale),
+    }
+  } catch {
+    return {}
+  }
+}
+
+async function ensureOfficialTitlesLocale<T extends Recommendation>(
+  items: T[],
+  locale: Locale,
+  options?: { maxSync?: number },
+): Promise<T[]> {
+  const maxSync = options?.maxSync ?? 60
+  const out = items.map(item => ({ ...item })) as T[]
+
+  // IMPORTANTE:
+  // Per movie/tv TMDb bisogna forzare il titolo ufficiale della lingua richiesta.
+  // Non basta controllare title_en/title_it, perché i backfill vecchi hanno spesso
+  // copiato title italiano dentro title_en. Quindi qui sovrascriviamo la response
+  // con il titolo ufficiale TMDb quando disponibile.
+  const tmdbItems = out
+    .filter(item => isTmdbTitleType(item))
+    .filter(item => Boolean(tmdbId(item)))
+    .slice(0, maxSync)
+
+  if (tmdbItems.length === 0) return out
+
+  const results = await Promise.allSettled(
+    tmdbItems.map(async item => ({
+      item,
+      ...(await fetchOfficialTmdbLocaleAssets(item, locale)),
+    })),
+  )
+
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue
+    const title = cleanText(result.value.title)
+    const coverImage = cleanText(result.value.coverImage)
+    if (!title && !coverImage) continue
+
+    const mutable = result.value.item as any
+
+    if (title) {
+      mutable[`title_${locale}`] = title
+      // Questo serve perché alcuni componenti usano direttamente item.title.
+      mutable.title = title
+    }
+
+    if (coverImage) {
+      mutable[`cover_image_${locale}`] = coverImage
+      mutable.coverImage = coverImage
+      mutable.cover_image = coverImage
+    }
+
+    mutable.localized = {
+      ...(mutable.localized || {}),
+      [locale]: {
+        ...(mutable.localized?.[locale] || {}),
+        ...(title ? { title } : {}),
+        ...(coverImage ? { coverImage } : {}),
+        ...(cleanText(mutable.localized?.[locale]?.description)
+          ? { description: mutable.localized[locale].description }
+          : {}),
+      },
+    }
+  }
+
+  return out
+}
+
 function translationKey(item: any, sourceLocale: Locale, targetLocale: Locale) {
   const source = item?.source || item?.type || 'media'
   const id = item?.external_id || item?.id || item?.appid || item?.title || 'unknown'
@@ -58,6 +194,7 @@ function getLocalizedField(item: any, locale: Locale, field: 'title' | 'descript
   if (direct) return direct
 
   if (field === 'title') {
+    // Movie/TV vengono forzati prima da ensureOfficialTitlesLocale().
     if (locale === 'it') {
       return cleanText(item?.title_it)
         || cleanText(item?.title)
@@ -71,10 +208,6 @@ function getLocalizedField(item: any, locale: Locale, field: 'title' | 'descript
       || cleanText(item?.title_it)
   }
 
-  // IMPORTANTISSIMO:
-  // Per le descrizioni non facciamo fallback libero alla lingua opposta.
-  // Se locale=en e abbiamo solo description/description_it in italiano, la traduzione lazy
-  // viene gestita da ensureRecommendationDescriptionsLocale().
   if (locale === 'it') {
     return cleanText(item?.description_it)
       || cleanText(item?.localized?.it?.description)
@@ -96,9 +229,8 @@ function fallbackDescriptionCandidate(item: any, locale: Locale): string | undef
     || cleanText(item?.description)
 }
 
-function sourceLocaleForMissingTarget(item: any, targetLocale: Locale): Locale {
-  if (targetLocale === 'it') return 'en'
-  return 'it'
+function sourceLocaleForMissingTarget(targetLocale: Locale): Locale {
+  return targetLocale === 'it' ? 'en' : 'it'
 }
 
 export function mediaTypeLabel(type: string, locale: Locale): string {
@@ -118,6 +250,7 @@ function localizeWhy(why: unknown, locale: Locale): string {
       .replace(/^Stessa energia/i, 'Same energy')
       .replace(/^Segnali simili/i, 'Similar signals')
       .replace(/^In linea con i tuoi gusti/i, 'Matches your taste')
+      .replace(/^Disponibile su /i, 'Available on ')
   }
 
   return text
@@ -127,6 +260,7 @@ function localizeWhy(why: unknown, locale: Locale): string {
     .replace(/^Same energy/i, 'Stessa energia')
     .replace(/^Similar signals/i, 'Segnali simili')
     .replace(/^Matches your taste/i, 'In linea con i tuoi gusti')
+    .replace(/^Available on /i, 'Disponibile su ')
 }
 
 export function localizeRecommendationItem<T extends Recommendation>(item: T, locale: Locale): T {
@@ -157,7 +291,7 @@ export async function ensureRecommendationDescriptionsLocale<T extends Recommend
 
   if (missing.length === 0) return out
 
-  const sourceLocale = sourceLocaleForMissingTarget(missing[0].item, locale)
+  const sourceLocale = sourceLocaleForMissingTarget(locale)
   const targetLang = locale === 'it' ? 'IT' : 'EN-US'
   const sourceLang = locale === 'it' ? 'EN' : 'IT'
 
@@ -193,13 +327,17 @@ export async function ensureRecommendationDescriptionsLocale<T extends Recommend
 export async function localizeRecommendationsRecord(
   recommendations: RecommendationsByType,
   locale: Locale,
-  options?: { maxSyncTranslations?: number },
+  options?: { maxSyncTranslations?: number; maxSyncTitles?: number },
 ): Promise<RecommendationsByType> {
   const entries = await Promise.all(
     Object.entries(recommendations || {}).map(async ([type, items]) => {
       if (!Array.isArray(items)) return [type, []]
 
-      const withDescriptions = await ensureRecommendationDescriptionsLocale(items, locale, {
+      const withTitles = await ensureOfficialTitlesLocale(items, locale, {
+        maxSync: options?.maxSyncTitles ?? 60,
+      })
+
+      const withDescriptions = await ensureRecommendationDescriptionsLocale(withTitles, locale, {
         maxSync: options?.maxSyncTranslations ?? 48,
       })
 
@@ -290,9 +428,11 @@ export async function buildLocalizedRecommendationPayload(params: {
   locale: Locale
   base?: Record<string, unknown>
   maxSyncTranslations?: number
+  maxSyncTitles?: number
 }) {
   const recommendations = await localizeRecommendationsRecord(params.recommendations, params.locale, {
     maxSyncTranslations: params.maxSyncTranslations ?? 48,
+    maxSyncTitles: params.maxSyncTitles ?? 60,
   })
 
   return {
@@ -308,14 +448,20 @@ export async function buildLocalizedRecommendationPayload(params: {
 
 export async function localizeRecommendationPayload<T extends PayloadLike>(payload: T, locale: Locale): Promise<T> {
   const recommendations = payload.recommendations
-    ? await localizeRecommendationsRecord(payload.recommendations, locale, { maxSyncTranslations: 48 })
+    ? await localizeRecommendationsRecord(payload.recommendations, locale, {
+      maxSyncTranslations: 48,
+      maxSyncTitles: 60,
+    })
     : undefined
 
   const items = recommendations
     ? flattenRecommendations(recommendations)
     : Array.isArray(payload.items)
-      ? (await ensureRecommendationDescriptionsLocale(payload.items, locale, { maxSync: 48 }))
-        .map(item => localizeRecommendationItem(item, locale))
+      ? (await ensureRecommendationDescriptionsLocale(
+        await ensureOfficialTitlesLocale(payload.items, locale, { maxSync: 60 }),
+        locale,
+        { maxSync: 48 },
+      )).map(item => localizeRecommendationItem(item, locale))
       : payload.items
 
   return {

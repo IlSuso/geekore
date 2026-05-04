@@ -63,86 +63,43 @@ export function buildMasterPoolSizes(masterByType: Map<string, Recommendation[]>
 export async function serveFromSavedPool(
   supabase: SupabaseLike,
   userId: string,
-  exposuresParam?: Awaited<ReturnType<typeof loadRecommendationExposures>>
 ): Promise<{ payload: RecommendationPayload; cacheHeader?: string } | null> {
-  const [{ data: poolRows }, { data: masterRows }] = await Promise.all([
-    supabase
-      .from('recommendations_pool')
-      .select('media_type, data, taste_profile, total_entries, collection_hash, generated_at')
-      .eq('user_id', userId),
-    supabase
-      .from('master_recommendations_pool')
-      .select('media_type, data')
-      .eq('user_id', userId),
-  ])
+  // IMPORTANTE: source=pool deve leggere il pool salvato e basta.
+  // Non deve ricampionare dal master_recommendations_pool, non deve registrare exposures,
+  // non deve aggiornare generated_at. Altrimenti F5 cambia i titoli.
+  const { data: poolRows } = await supabase
+    .from('recommendations_pool')
+    .select('media_type, data, taste_profile, total_entries, collection_hash, generated_at')
+    .eq('user_id', userId)
 
   if (!poolRows || poolRows.length === 0) return null
 
   const recommendations: Record<string, Recommendation[]> = {}
   let tasteProfile: any = null
   let totalEntries = 0
-  // Usa le exposures passate dal caller (già caricate in route.ts) per evitare doppia query
-  const exposures = exposuresParam ?? await loadRecommendationExposures(supabase, userId)
-  const masterByType = new Map<string, Recommendation[]>()
-  const poolMetaByType = new Map<string, PoolMeta>()
-
-  for (const row of (masterRows || [])) {
-    if (Array.isArray(row.data) && row.data.length > 0) {
-      masterByType.set(row.media_type, row.data as Recommendation[])
-    }
-  }
 
   for (const row of poolRows) {
-    const fallbackPool = Array.isArray(row.data) ? row.data as Recommendation[] : []
-    const sourceItems = masterByType.get(row.media_type) || fallbackPool
-    if (sourceItems.length > 0) {
-      recommendations[row.media_type] = sampleMasterPool(sourceItems, {
-        exposures,
-        size: SERVE_SIZE_PER_TYPE,
-      })
-    }
+    const items = Array.isArray(row.data) ? row.data as Recommendation[] : []
+    if (items.length > 0) recommendations[row.media_type] = items
     if (!tasteProfile && row.taste_profile) tasteProfile = row.taste_profile
     if (row.total_entries) totalEntries = Math.max(totalEntries, row.total_entries)
-    poolMetaByType.set(row.media_type, {
-      taste_profile: row.taste_profile,
-      total_entries: row.total_entries || 0,
-      collection_hash: row.collection_hash,
-    })
   }
 
   const hasData = Object.values(recommendations).some(items => items.length > 0)
   if (!hasData) return null
 
   const tasteProfileResponse = tasteProfile ? { ...tasteProfile, totalEntries } : null
-  const poolUpserts = Object.entries(recommendations).map(([mediaType, items]) => ({
-    user_id: userId,
-    media_type: mediaType,
-    data: items,
-    taste_profile: poolMetaByType.get(mediaType)?.taste_profile || tasteProfile || null,
-    total_entries: poolMetaByType.get(mediaType)?.total_entries || totalEntries,
-    collection_hash: poolMetaByType.get(mediaType)?.collection_hash,
-    generated_at: new Date().toISOString(),
-  }))
 
-  if (poolUpserts.length > 0) {
-    await supabase.from('recommendations_pool').upsert(poolUpserts, { onConflict: 'user_id,media_type' })
-  }
-  await recordRecommendationExposures(supabase, userId, recommendations)
-
-  const source = masterByType.size > 0 ? 'pool_master_sample' : 'pool'
   return {
-    cacheHeader: masterByType.size > 0 ? 'MASTER_POOL_SAMPLE' : 'POOL_HIT',
+    cacheHeader: 'POOL_SAVED_HIT',
     payload: {
       recommendations,
       rails: composeRecommendationRails(recommendations, tasteProfileResponse),
       tasteProfile: tasteProfileResponse,
       cached: true,
-      source,
+      source: 'pool',
       recommendationDiagnostics: {
-        source,
-        exposureCount: exposures.length,
-        masterPoolTypes: [...masterByType.keys()],
-        masterPoolSizes: buildMasterPoolSizes(masterByType),
+        source: 'pool',
         servedCounts: countRecommendations(recommendations),
       },
     },

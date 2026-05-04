@@ -115,12 +115,18 @@ function recToSwipeItem(r: any): SwipeItem {
   return {
     id: r.id,
     title: r.title,
+    title_original: r.title_original,
+    title_en: r.title_en,
+    title_it: r.title_it,
     type: r.type as SwipeItem["type"],
     coverImage: r.coverImage,
     year: r.year,
     genres: r.genres || [],
     score: r.score,
     description: r.description,
+    description_en: r.description_en,
+    description_it: r.description_it,
+    localized: r.localized,
     why: r.why,
     matchScore: r.matchScore || 0,
     episodes: r.episodes,
@@ -131,6 +137,18 @@ function recToSwipeItem(r: any): SwipeItem {
     isDiscovery: r.isDiscovery,
     source: r.source,
   };
+}
+
+async function localizeSwipeItems(items: SwipeItem[], locale: string): Promise<SwipeItem[]> {
+  if (items.length === 0) return items;
+  const res = await fetch(`/api/media/localize?lang=${locale}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  }).catch(() => null);
+  if (!res?.ok) return items;
+  const json = await res.json().catch(() => null);
+  return Array.isArray(json?.items) ? json.items : items;
 }
 
 function interleavedMix(
@@ -155,34 +173,19 @@ function interleavedMix(
   return result;
 }
 
-async function localizeSwipeItems(
-  items: SwipeItem[],
-  locale: "it" | "en",
-): Promise<SwipeItem[]> {
-  if (!items.length) return items;
-  const res = await fetch("/api/media/localize", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ locale, items }),
-  }).catch(() => null);
-  if (!res?.ok) return items;
-  const json = await res.json().catch(() => null);
-  return Array.isArray(json?.items) ? json.items : items;
-}
-
 async function fetchCategoryTitles(
   category: CategoryKey,
   selectedTypes: string[],
   globalSeenIds: Set<string>,
   limit: number = POOL_TARGET,
-  locale: "it" | "en" = "it",
+  locale: string = "it",
 ): Promise<SwipeItem[]> {
   const params = new URLSearchParams();
   if (category === "all" && selectedTypes.length > 0)
     params.set("types", selectedTypes.join(","));
   else if (category !== "all") params.set("types", category);
+  params.set("lang", locale);
   try {
-    params.set("lang", locale);
     const res = await fetch(
       `/api/recommendations/onboarding?${params.toString()}`,
     );
@@ -196,19 +199,18 @@ async function fetchCategoryTitles(
           .sort(() => Math.random() - 0.4)
           .map(recToSwipeItem);
       }
-      return await localizeSwipeItems(interleavedMix(byType, limit), locale);
+      return interleavedMix(byType, limit);
     }
     let recs = (json.recommendations?.[category] || []) as any[];
     if (recs.length === 0)
       recs = (Object.values(json.recommendations || {}) as any[][])
         .flat()
         .filter((r: any) => r.type === category);
-    const mapped = recs
+    return recs
       .sort(() => Math.random() - 0.4)
       .filter((r: any) => !globalSeenIds.has(r.id))
       .slice(0, limit)
       .map(recToSwipeItem);
-    return await localizeSwipeItems(mapped, locale);
   } catch {
     return [];
   }
@@ -442,8 +444,8 @@ function UserSuggestionCard({
 }
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const { locale } = useLocale();
+  const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -477,12 +479,18 @@ export default function OnboardingPage() {
   const rowToSwipeItem = (row: any): SwipeItem => ({
     id: row.external_id,
     title: row.title,
+    title_original: row.title_original,
+    title_en: row.title_en,
+    title_it: row.title_it,
     type: row.type as SwipeItem["type"],
     coverImage: row.cover_image,
     year: row.year,
     genres: row.genres || [],
     score: row.score,
-    description: row.description,
+    description: row.description_it || row.description_en || row.description,
+    description_en: row.description_en,
+    description_it: row.description_it,
+    localized: row.localized,
     why: row.why,
     matchScore: row.match_score || 0,
     episodes: row.episodes,
@@ -497,12 +505,18 @@ export default function OnboardingPage() {
     user_id: uid,
     external_id: r.id,
     title: r.title,
+    title_original: r.title_original || r.title,
+    title_en: r.title_en || r.localized?.en?.title || r.title,
+    title_it: r.title_it || r.localized?.it?.title || null,
     type: r.type,
     cover_image: r.coverImage || r.cover_image,
     year: r.year,
     genres: r.genres || [],
     score: r.score ?? null,
     description: r.description ?? null,
+    description_en: r.description_en || r.localized?.en?.description || null,
+    description_it: r.description_it || r.localized?.it?.description || null,
+    localized: r.localized || {},
     why: r.why ?? null,
     match_score: r.matchScore || 0,
     episodes: r.episodes ?? null,
@@ -568,7 +582,7 @@ export default function OnboardingPage() {
       setUserId(user.id);
       userIdRef.current = user.id;
     });
-  }, [locale]); // eslint-disable-line
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     if (!userId) return;
@@ -641,13 +655,7 @@ export default function OnboardingPage() {
         "boardgame",
       ];
       for (const cat of specificTypes) {
-        const items = await fetchCategoryTitles(
-          cat,
-          [],
-          new Set(),
-          POOL_QUICK,
-          locale,
-        );
+        const items = await fetchCategoryTitles(cat, [], new Set(), POOL_QUICK, locale);
         if (items.length > 0)
           await fetch("/api/swipe/queue", {
             method: "POST",
@@ -674,7 +682,7 @@ export default function OnboardingPage() {
           .catch(() => {});
     };
     run();
-  }, []); // eslint-disable-line
+  }, [locale]); // eslint-disable-line
 
   const toggleType = (id: string) =>
     setSelectedTypes((prev) =>
@@ -769,10 +777,7 @@ export default function OnboardingPage() {
       // salvato boardgame senza dati ricchi o descrizioni game/manga in inglese.
       // In quel caso rifacciamo fetch e permettiamo l'upsert sugli stessi external_id.
       if (existingRows.length >= 20 && !needsQueueRefresh)
-        return await localizeSwipeItems(
-          existingRows.map(rowToSwipeItem),
-          locale,
-        );
+        return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
 
       const items = await fetchCategoryTitles(
         filter as CategoryKey,
@@ -812,10 +817,10 @@ export default function OnboardingPage() {
         const rich = merged.filter((i: SwipeItem) =>
           Boolean(i.coverImage && i.description),
         );
-        if (rich.length >= 10) return await localizeSwipeItems(rich, locale);
+        if (rich.length >= 10) return localizeSwipeItems(rich, locale);
       }
 
-      return await localizeSwipeItems(merged, locale);
+      return localizeSwipeItems(merged, locale);
     },
     [supabase, selectedTypes, getOnboardingSessionProcessedIds, locale],
   );
@@ -878,9 +883,7 @@ export default function OnboardingPage() {
     }).catch(() => null);
     if (!res?.ok) return;
     setOnboardingCookie();
-    fetch(`/api/recommendations?refresh=1&onboarding=1&lang=${locale}`).catch(
-      () => {},
-    );
+    fetch(`/api/recommendations?refresh=1&onboarding=1&lang=${locale}`).catch(() => {});
     router.push("/home");
   }, [selectedTypes, importSkipped, router, locale]);
 

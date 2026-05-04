@@ -78,20 +78,26 @@ import { swipeNavBridge } from "@/hooks/swipeNavBridge";
 
 import { useTabActive } from "@/context/TabActiveContext";
 import { optimizeCover } from "@/lib/imageOptimizer";
-import { useLocale } from "@/lib/locale";
-import { appCopy } from "@/lib/i18n/uiCopy";
+import { useLocale } from '@/lib/locale'
+import { appCopy, typeLabel, genreLabel } from '@/lib/i18n/uiCopy'
 
 type SwipeMediaType = "anime" | "manga" | "movie" | "tv" | "game" | "boardgame";
 
 export interface SwipeItem {
   id: string;
   title: string;
+  title_original?: string;
+  title_en?: string;
+  title_it?: string;
   type: SwipeMediaType;
   coverImage?: string;
   year?: number;
   genres: string[];
   score?: number;
   description?: string;
+  description_en?: string;
+  description_it?: string;
+  localized?: Record<string, { title?: string; description?: string }>;
   why?: string;
   matchScore: number;
   episodes?: number;
@@ -133,14 +139,18 @@ const TYPE_ICONS: Record<SwipeMediaType, React.ElementType> = {
   game: Gamepad2,
   boardgame: Dices,
 };
-const TYPE_LABEL: Record<SwipeMediaType, string> = {
+const TYPE_LABEL_FALLBACK: Record<SwipeMediaType, string> = {
   anime: "Anime",
   manga: "Manga",
-  movie: "Film",
-  tv: "{typeLabel('tv', locale)}",
-  game: "Videogioco",
-  boardgame: "Gioco da Tavolo",
+  movie: "Movie",
+  tv: "TV Show",
+  game: "Game",
+  boardgame: "Board Game",
 };
+
+function swipeTypeLabel(type: SwipeMediaType, locale: "it" | "en") {
+  return typeLabel(type, locale) || TYPE_LABEL_FALLBACK[type] || type;
+}
 const TYPE_COLORS: Record<SwipeMediaType, string> = {
   anime: "from-sky-500 to-blue-600",
   manga: "from-orange-500 to-red-500",
@@ -149,14 +159,14 @@ const TYPE_COLORS: Record<SwipeMediaType, string> = {
   game: "from-emerald-500 to-green-600",
   boardgame: "from-amber-500 to-yellow-600",
 };
-const CATEGORIES: { key: CategoryFilter; label: string }[] = [
-  { key: "all", label: "Tutti" },
-  { key: "anime", label: "Anime" },
-  { key: "manga", label: "Manga" },
-  { key: "movie", label: "Film" },
-  { key: "tv", label: "{typeLabel('tv', locale)}" },
-  { key: "game", label: "{typeLabel('game', locale)}" },
-  { key: "boardgame", label: "{typeLabel('boardgame', locale)}" },
+const CATEGORY_KEYS: CategoryFilter[] = [
+  "all",
+  "anime",
+  "manga",
+  "movie",
+  "tv",
+  "game",
+  "boardgame",
 ];
 
 const SWIPE_FEEDBACK_DISTANCE = 150;
@@ -506,7 +516,9 @@ function SwipeCard({
   isUndoEntering = false,
 }: SwipeCardProps) {
   const Icon = TYPE_ICONS[item.type];
-  const displayGenres = cleanDisplayGenres(item.genres);
+  const { locale } = useLocale();
+  const swipeUi = appCopy[locale].swipe;
+  const displayGenres = cleanDisplayGenres(item.genres).map((g) => genreLabel(g, locale));
   const episodeCount = normalizePositiveNumber(item.episodes);
 
   // Bottoni: glow immediato su touchstart
@@ -611,11 +623,10 @@ function SwipeCard({
             data-testid="swipe-close"
             aria-label="Chiudi swipe"
             title="Chiudi"
-            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${
-              closePress.pressed
-                ? "scale-90 bg-white/20 text-white"
-                : "bg-zinc-900 text-white/80 hover:text-white"
-            }`}
+            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${closePress.pressed
+              ? "scale-90 bg-white/20 text-white"
+              : "bg-zinc-900 text-white/80 hover:text-white"
+              }`}
           >
             <X size={17} strokeWidth={2.5} />
           </button>
@@ -626,7 +637,7 @@ function SwipeCard({
             className={`bg-gradient-to-r ${TYPE_COLORS[item.type]} text-white text-xs font-bold px-3 py-1 rounded-full`}
             style={ICON_DROP}
           >
-            {TYPE_LABEL[item.type]}
+            {swipeTypeLabel(item.type, locale)}
           </div>
         </div>
 
@@ -653,7 +664,7 @@ function SwipeCard({
               className="flex items-center gap-1 bg-emerald-700 text-white text-xs font-bold px-2.5 py-1 rounded-full"
               style={ICON_DROP}
             >
-              ✨ Scoperta
+              ✨ {locale === "it" ? "Scoperta" : "Discovery"}
             </div>
           </div>
         )}
@@ -668,7 +679,7 @@ function SwipeCard({
                 ...TEXT_SHADOW,
               }}
             >
-              Visto ✓
+              {locale === "it" ? "Visto" : "Seen"} ✓
             </div>
             <div
               className="absolute top-16 right-5 border-[3px] border-red-400 text-red-400 font-black text-xl px-4 py-1.5 rounded-2xl tracking-widest uppercase rotate-[18deg] pointer-events-none z-10"
@@ -728,11 +739,10 @@ function SwipeCard({
               data-testid="swipe-undo"
               aria-label="{swipeUi.undo} ultima azione"
               title="Z / Backspace"
-              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                undoPress.pressed
-                  ? "scale-90 bg-white/15 border-white/60 text-white"
-                  : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
-              }`}
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${undoPress.pressed
+                ? "scale-90 bg-white/15 border-white/60 text-white"
+                : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
+                }`}
             >
               <RotateCcw size={17} />
             </button>
@@ -746,11 +756,10 @@ function SwipeCard({
                 data-testid="swipe-skip"
                 aria-label="Salta questo titolo"
                 title="Freccia sinistra"
-                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                  skipPress.pressed
-                    ? "scale-90 bg-red-500/40 border-red-300 text-red-300"
-                    : "bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400"
-                }`}
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${skipPress.pressed
+                  ? "scale-90 bg-red-500/40 border-red-300 text-red-300"
+                  : "bg-zinc-900 border-red-400/90 text-red-400 hover:bg-red-900/60 hover:border-red-400"
+                  }`}
               >
                 <X size={24} strokeWidth={3} />
               </button>
@@ -764,11 +773,10 @@ function SwipeCard({
                   data-testid="swipe-details"
                   aria-label="Apri dettagli"
                   title="Enter"
-                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                    infoPress.pressed
-                      ? "scale-90 bg-white/20 border-white text-white"
-                      : "bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white"
-                  }`}
+                  className={`w-10 h-10 md:w-9 md:h-9 rounded-full border flex items-center justify-center transition-[transform,background-color,border-color] duration-150 ${detailsMobileOnly ? "md:hidden" : ""} ${!isTop ? "opacity-0 pointer-events-none" : ""} ${infoPress.pressed
+                    ? "scale-90 bg-white/20 border-white text-white"
+                    : "bg-zinc-900 border-white/50 text-white/90 hover:bg-zinc-800 hover:text-white"
+                    }`}
                 >
                   <ChevronRight size={20} strokeWidth={2.5} />
                 </button>
@@ -782,11 +790,10 @@ function SwipeCard({
                 data-testid="swipe-seen"
                 aria-label="Segna come visto"
                 title="Freccia destra"
-                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${
-                  checkPress.pressed
-                    ? "scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300"
-                    : "bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400"
-                }`}
+                className={`w-14 h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-[transform,background-color,border-color,color] duration-150 ${!isTop ? "opacity-0 pointer-events-none" : ""} ${checkPress.pressed
+                  ? "scale-90 bg-emerald-500/40 border-emerald-300 text-emerald-300"
+                  : "bg-zinc-900 border-emerald-400/90 text-emerald-400 hover:bg-emerald-900/60 hover:border-emerald-400"
+                  }`}
               >
                 <Check size={24} strokeWidth={3} />
               </button>
@@ -801,11 +808,10 @@ function SwipeCard({
               data-testid="swipe-wishlist"
               aria-label="Aggiungi alla wishlist"
               title="W"
-              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${
-                wishlistPress.pressed
-                  ? "scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400"
-                  : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
-              }`}
+              className={`w-11 h-11 md:w-10 md:h-10 flex items-center justify-center rounded-full border transition-[transform,background-color,border-color,color] duration-150 disabled:opacity-35 disabled:pointer-events-none ${wishlistPress.pressed
+                ? "scale-90 bg-amber-500/20 border-amber-400/60 text-amber-400"
+                : "bg-zinc-900 border-white/25 text-white/85 hover:bg-zinc-800 hover:border-white/45 hover:text-white"
+                }`}
             >
               <Bookmark size={17} fill="none" />
             </button>
@@ -1087,10 +1093,10 @@ export function SwipeMode({
   onUndo: onUndoCallback,
   onUndoWishlist,
 }: SwipeModeProps) {
-  const supabase = createClient();
-  const { locale } = useLocale();
-  const swipeUi = appCopy[locale].swipe;
-  const commonUi = appCopy[locale].common;
+  const supabase = createClient()
+  const { locale } = useLocale()
+  const swipeUi = appCopy[locale].swipe
+  const commonUi = appCopy[locale].common
   const isTabActive = useTabActive();
   // userId risolto una sola volta al mount — evita getUser() ad ogni swipe/skip
   const userIdRef = useRef<string | null>(userIdProp ?? null);
@@ -1193,7 +1199,7 @@ export function SwipeMode({
           ...existing,
           ...fresh.filter((i) => !existingIds.has(i.id)),
         ].slice(0, PRELOAD_TARGET);
-      } catch {}
+      } catch { }
       categoryLoading.current[filter] = false;
     },
     [onRequestMore],
@@ -1254,7 +1260,7 @@ export function SwipeMode({
             retryFresh.forEach((i) => seen.add(i.id));
           }
         }
-      } catch {}
+      } catch { }
       setIsLoadingMore(false);
       loadingRef.current = false;
     },
@@ -1321,7 +1327,7 @@ export function SwipeMode({
         title: item.title,
         type: item.type,
       }),
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const removeSkip = useCallback((item: SwipeItem) => {
@@ -1329,7 +1335,7 @@ export function SwipeMode({
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ external_id: item.id }),
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleSwipe = useCallback(
@@ -1383,7 +1389,7 @@ export function SwipeMode({
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ external_id: last.id }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
       // Notifica il parent (per onboarding)
       onUndoWishlist?.(last);
@@ -1440,81 +1446,46 @@ export function SwipeMode({
   const topItemGenres = topItem ? cleanDisplayGenres(topItem.genres) : [];
 
   const handleWishlist = useCallback(
-    async (item: SwipeItem) => {
-      if (cardFlying) return;
+    (item: SwipeItem) => {
+      // Anima la card verso il basso (flyDir='down') poi rimuove dalla queue.
+      // In onboarding la wishlist non deve essere trattata come skip: la card
+      // sparisce dalla sessione corrente, ma viene salvata dal parent come wishlist.
+      wishlistHistoryRef.current.add(item.id);
+      setCardFlyDir("down");
+      setCardFlying(true);
+      setTimeout(() => {
+        if (isOnboarding && onWishlistCallback) {
+          setHistory((prev) => [item, ...prev].slice(0, 10));
+          setQueue((prev) => prev.filter((i) => i.id !== item.id));
+          setSkippedIds((prev) => {
+            const n = new Set(prev);
+            n.add(item.id);
+            return n;
+          });
+          skippedIdsRef.current.add(item.id);
+          onWishlistCallback(item);
+        } else {
+          handleSwipe("left", item);
+        }
+        setCardDragX(0);
+        setCardFlying(false);
+        setCardFlyDir(null);
+      }, 340);
 
-      const persistWishlist = async () => {
-        const res = await fetch("/api/wishlist", {
+      if (!isOnboarding) {
+        fetch("/api/wishlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             external_id: item.id,
             title: item.title,
-            title_original: (item as any).title_original || item.title,
-            title_en: (item as any).title_en || item.title,
-            title_it: (item as any).title_it || null,
-            description: item.description,
-            description_en: (item as any).description_en || null,
-            description_it: (item as any).description_it || null,
-            localized: (item as any).localized || {},
             type: item.type,
             cover_image: item.coverImage,
-            genres: item.genres || [],
           }),
-        }).catch(() => null);
-        return !!res?.ok;
-      };
-
-      if (!isOnboarding) {
-        const ok = await persistWishlist();
-        if (!ok) return;
-        fetch("/api/taste/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "wishlist_add",
-            mediaId: item.id,
-            mediaType: item.type,
-            genres: item.genres || [],
-          }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
-
-      // Anima la card verso il basso (flyDir='down') poi rimuove dalla queue.
-      // Wishlist non deve diventare feedback negativo: sparisce dal deck e basta.
-      wishlistHistoryRef.current.add(item.id);
-      setCardFlyDir("down");
-      setCardFlying(true);
-      setTimeout(() => {
-        setHistory((prev) => [item, ...prev].slice(0, 10));
-        setQueue((prev) => prev.filter((i) => i.id !== item.id));
-        setSkippedIds((prev) => {
-          const n = new Set(prev);
-          n.add(item.id);
-          return n;
-        });
-        skippedIdsRef.current.add(item.id);
-
-        if (isOnboarding && onWishlistCallback) {
-          onWishlistCallback(item);
-        } else {
-          fetch("/api/swipe/skip", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              external_id: item.id,
-              title: item.title,
-              type: item.type,
-            }),
-          }).catch(() => {});
-        }
-
-        setCardDragX(0);
-        setCardFlying(false);
-        setCardFlyDir(null);
-      }, 340);
     },
-    [cardFlying, isOnboarding, onWishlistCallback],
+    [handleSwipe, isOnboarding, onWishlistCallback],
   );
 
   const handleCardSwipe = useCallback((dx: number) => {
@@ -1736,7 +1707,8 @@ export function SwipeMode({
                         : "flex w-max min-w-full items-center justify-center gap-2 md:w-full md:min-w-0 md:flex-col md:items-stretch md:justify-start"
                 }
               >
-                {CATEGORIES.map((cat) => {
+                {CATEGORY_KEYS.map((key) => {
+                  const cat = { key, label: key === "all" ? swipeUi.categories.all : swipeTypeLabel(key as SwipeMediaType, locale) };
                   const active = activeFilter === cat.key;
                   return (
                     <button
@@ -1744,11 +1716,10 @@ export function SwipeMode({
                       onClick={() => handleFilterChange(cat.key)}
                       data-testid={`swipe-filter-${cat.key}`}
                       aria-pressed={active}
-                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding || isMirrorOnboardingLayout ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${
-                        active
-                          ? "bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]"
-                          : "bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]"
-                      }`}
+                      className={`flex-shrink-0 rounded-full text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${isOnboarding || isMirrorOnboardingLayout ? "px-4 py-2.5 text-[13px]" : isFullscreenSwipe ? "px-3.5 py-2 md:w-full md:justify-start md:px-3.5 md:py-2.5 md:text-left md:text-[13px]" : "px-4 py-2 md:w-full md:justify-center md:px-3 md:py-2"} ${active
+                        ? "bg-[var(--accent)] text-[#0B0B0F] shadow-[0_0_26px_rgba(230,255,61,0.18)]"
+                        : "bg-[rgba(244,244,245,0.07)] text-[var(--text-secondary)] hover:bg-[rgba(244,244,245,0.12)] hover:text-[var(--text-primary)]"
+                        }`}
                     >
                       {cat.label}
                     </button>
@@ -1795,7 +1766,7 @@ export function SwipeMode({
                       onClick={() => handleFilterChange("all")}
                       className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-black text-[#0B0B0F]"
                     >
-                      Tutti
+                      {swipeUi.categories.all}
                     </button>
                   )}
                   {!standalone && !isOnboarding && (
@@ -1805,7 +1776,7 @@ export function SwipeMode({
                       onClick={onClose}
                       className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white"
                     >
-                      Torna alla lista
+                      {locale === "it" ? "Torna alla lista" : "Back to list"}
                     </button>
                   )}
                 </div>
@@ -1854,7 +1825,7 @@ export function SwipeMode({
                     <span
                       className={`h-2 w-2 rounded-full bg-gradient-to-r ${TYPE_COLORS[topItem.type]}`}
                     />
-                    {TYPE_LABEL[topItem.type]}
+                    {swipeTypeLabel(topItem.type, locale)}
                     {topItem.year ? (
                       <span className="text-white/38">· {topItem.year}</span>
                     ) : null}
@@ -1870,9 +1841,7 @@ export function SwipeMode({
                             {swipeUi.description}
                           </p>
                         </div>
-                        <div
-                          className={`gk-onboarding-desc-scroll overflow-y-auto pr-2 text-sm leading-6 text-white/70 ${isOnboarding ? "max-h-[220px]" : "max-h-[150px]"}`}
-                        >
+                        <div className={`gk-onboarding-desc-scroll overflow-y-auto pr-2 text-sm leading-6 text-white/70 ${isOnboarding ? "max-h-[220px]" : "max-h-[150px]"}`}>
                           {topItem.description}
                         </div>
                       </div>
@@ -1888,20 +1857,14 @@ export function SwipeMode({
                       </span>
                     ))}
                   </div>
-                  <div
-                    className={
-                      isOnboarding
-                        ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4"
-                        : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"
-                    }
-                  >
+                  <div className={isOnboarding ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4" : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"}>
                     <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
                       {swipeUi.howItWorks}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/64">
-                      Dai una valutazione, salta ciò che non ti interessa o
-                      salva per dopo. Bastano pochi swipe per rendere i consigli
-                      più precisi.
+                      {locale === "it"
+                        ? "Dai una valutazione, salta ciò che non ti interessa o salva per dopo. Bastano pochi swipe per rendere i consigli più precisi."
+                        : "Rate a title, skip what you do not care about or save it for later. A few swipes are enough to make recommendations sharper."}
                     </p>
                   </div>
                   <div className="mt-4 shrink-0 grid grid-cols-3 gap-2 text-center text-xs font-bold text-white/54">
@@ -1909,10 +1872,10 @@ export function SwipeMode({
                       ← Skip
                     </div>
                     <div className="rounded-2xl bg-white/6 px-3 py-3">
-                      ★ Voto
+                      ★ {locale === "it" ? "Voto" : "Rate"}
                     </div>
                     <div className="rounded-2xl bg-white/6 px-3 py-3">
-                      → Visto
+                      → {locale === "it" ? "Visto" : "Seen"}
                     </div>
                   </div>
                 </aside>
@@ -1929,12 +1892,11 @@ export function SwipeMode({
                       : "relative self-stretch md:self-auto md:h-[min(560px,calc(100dvh-230px))]"
                 }
                 style={{
-                  maxWidth:
-                    isOnboarding || isMirrorOnboardingLayout
-                      ? "min(510px, 92vw)"
-                      : isFullscreenSwipe
-                        ? "min(430px, 88vw)"
-                        : "min(340px, 88vw)",
+                  maxWidth: isOnboarding || isMirrorOnboardingLayout
+                    ? "min(510px, 92vw)"
+                    : isFullscreenSwipe
+                      ? "min(430px, 88vw)"
+                      : "min(340px, 88vw)",
                   width: "100%",
                   margin: "0 auto",
                 }}
@@ -1995,12 +1957,18 @@ export function SwipeMode({
               ) ?? {
                 id: media.id,
                 title: media.title,
+                title_original: (media as any).title_original,
+                title_en: (media as any).title_en,
+                title_it: (media as any).title_it,
                 type: media.type as SwipeMediaType,
                 coverImage: (media as any).coverImage,
                 year: (media as any).year,
                 genres: (media as any).genres || [],
                 score: (media as any).score,
                 description: (media as any).description,
+                description_en: (media as any).description_en,
+                description_it: (media as any).description_it,
+                localized: (media as any).localized,
                 why: (media as any).why,
                 matchScore: (media as any).matchScore || 0,
                 episodes: (media as any).episodes,

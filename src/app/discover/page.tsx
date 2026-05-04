@@ -199,7 +199,7 @@ function trackSearchQuery(query: string, mediaType?: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: query.trim(), media_type: mediaType || null }),
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 function trackSearchClick(query: string, item: MediaItem) {
@@ -213,7 +213,7 @@ function trackSearchClick(query: string, item: MediaItem) {
       result_clicked_type: item.type,
       result_clicked_genres: item.genres || [],
     }),
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 function triggerTasteDelta(options: {
@@ -230,7 +230,7 @@ function triggerTasteDelta(options: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),
-  }).catch(() => {})
+  }).catch(() => { })
 }
 
 function useVoiceSearch(onResult: (text: string) => void, locale: 'it' | 'en' = 'it') {
@@ -304,9 +304,9 @@ export default function DiscoverPage() {
   const searchParams = useSearchParams()
   const supabase = createClient()
   const authUser = useUser()
-  const { t, locale } = useLocale()
-  const d = t.discover
+  const { locale } = useLocale()
   const ui = appCopy[locale]
+  const d = ui.discover
 
   const [searchTerm, setSearchTerm] = useState('')
   const [activeType, setActiveType] = useState<string>('all')
@@ -421,7 +421,7 @@ export default function DiscoverPage() {
           try {
             const data = await r.value.json()
             if (Array.isArray(data)) all.push(...data)
-          } catch {}
+          } catch { }
         }
       }
       if (controller.signal.aborted) return
@@ -562,7 +562,7 @@ export default function DiscoverPage() {
               className={`h-[54px] w-full rounded-[18px] border pl-12 pr-[96px] text-[17px] font-semibold outline-none transition-colors ${isListening
                 ? 'border-red-500/40 bg-red-500/10 text-[var(--text-primary)] placeholder-red-400/60'
                 : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[rgba(230,255,61,0.26)]'
-              }`}
+                }`}
             />
             <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
               {searchTerm && !isListening && (
@@ -613,7 +613,7 @@ export default function DiscoverPage() {
                 className={`flex h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[12px] font-black transition-all ${activeType === tf.id
                   ? 'border-transparent'
                   : 'border-[var(--border)] bg-[rgba(255,255,255,0.035)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+                  }`}
                 style={activeType === tf.id ? { background: 'var(--accent)', color: '#0B0B0F', border: '1px solid var(--accent)' } : {}}
               >
                 {tf.icon}{discoverFilterLabel(tf.id, locale)}
