@@ -22,15 +22,26 @@ function toQueueRow(row: any, userId: string) {
   const core = normalizeMediaCore(row)
   if (!core) return null
 
+  const localized = row?.localized && typeof row.localized === 'object' ? row.localized : {}
+  const sourceLocale = row?.sourceLocale === 'it' || row?.locale === 'it' || row?.language === 'it'
+    ? 'it'
+    : row?.sourceLocale === 'en' || row?.locale === 'en' || row?.language === 'en'
+      ? 'en'
+      : null
+
   return {
     user_id: userId,
     ...core,
     title_original: row?.title_original ?? row?.titleOriginal ?? core.title,
-    title_en: row?.title_en ?? row?.titleEn ?? row?.localized?.en?.title ?? core.title,
-    title_it: row?.title_it ?? row?.titleIt ?? row?.localized?.it?.title ?? null,
-    description_en: row?.description_en ?? row?.descriptionEn ?? row?.localized?.en?.description ?? (row?.sourceLocale === 'en' ? core.description : null),
-    description_it: row?.description_it ?? row?.descriptionIt ?? row?.localized?.it?.description ?? (row?.sourceLocale === 'it' ? core.description : null),
-    localized: row?.localized && typeof row.localized === 'object' ? row.localized : {},
+    // Non copiare automaticamente core.title in title_en/title_it: se la queue viene
+    // riempita mentre l'app è in italiano/inglese, quel titolo localizzato finirebbe
+    // indicizzato come se fosse entrambe le lingue. Salviamo nei campi lingua solo dati
+    // davvero marcati come tali; /api/media/localize poi sceglie/recupera la lingua giusta.
+    title_en: row?.title_en ?? row?.titleEn ?? localized?.en?.title ?? (sourceLocale === 'en' ? core.title : null),
+    title_it: row?.title_it ?? row?.titleIt ?? localized?.it?.title ?? (sourceLocale === 'it' ? core.title : null),
+    description_en: row?.description_en ?? row?.descriptionEn ?? localized?.en?.description ?? (sourceLocale === 'en' ? core.description : null),
+    description_it: row?.description_it ?? row?.descriptionIt ?? localized?.it?.description ?? (sourceLocale === 'it' ? core.description : null),
+    localized,
     is_award_winner: boolValue(row?.is_award_winner ?? row?.isAwardWinner),
     is_discovery: boolValue(row?.is_discovery ?? row?.isDiscovery),
   }

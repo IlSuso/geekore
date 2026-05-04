@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { TrendingUp, Film, Gamepad2, Tv, Layers, Sparkles, Users, Radio } from 'lucide-react'
 import { UserBadge } from '@/components/ui/UserBadge'
+import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
+import { useLocale } from '@/lib/locale'
 
 interface SuggestedUser {
   id: string
@@ -21,6 +23,7 @@ interface TrendingItem {
   title: string
   type: string
   cover_image: string | null
+  external_id?: string | null
   count: number
 }
 
@@ -98,38 +101,46 @@ function PulseCard({ currentUserId }: { currentUserId: string | null }) {
 }
 
 function FriendsTrendingCard() {
+  const { locale } = useLocale()
   const [items, setItems] = useState<TrendingItem[]>([])
 
   useEffect(() => {
     const supabase = createClient()
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    supabase.from('user_media_entries').select('title, type, cover_image')
+    supabase.from('user_media_entries').select('external_id, title, type, cover_image')
       .gte('updated_at', oneWeekAgo)
       .then(({ data }) => {
         if (!data) return
         const map = new Map<string, TrendingItem>()
         for (const row of data) {
           if (!row.title) continue
-          const key = `${row.type}::${row.title}`
+          const key = `${row.type}::${row.external_id || row.title}`
           if (map.has(key)) map.get(key)!.count++
-          else map.set(key, { title: row.title, type: row.type, cover_image: row.cover_image, count: 1 })
+          else map.set(key, { title: row.title, type: row.type, cover_image: row.cover_image, external_id: row.external_id, count: 1 })
         }
         setItems([...map.values()].sort((a, b) => b.count - a.count).slice(0, 5))
       })
   }, [])
 
-  if (!items.length) return null
+  const localizedItems = useLocalizedMediaRows(items, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  })
+
+  if (!localizedItems.length) return null
 
   return (
     <RailCard>
       <RailHeader icon={<TrendingUp size={14} />} title="Trending amici" href="/trending" />
       <div className="space-y-2">
-        {items.map((item, i) => {
+        {localizedItems.map((item, i) => {
           const Icon = TYPE_ICON[item.type] || Film
           return (
             <Link
               href={`/discover?type=${encodeURIComponent(item.type)}&q=${encodeURIComponent(item.title)}`}
-              key={`${item.type}-${item.title}`}
+              key={`${locale}-${item.type}-${item.external_id || item.title}`}
               className="group grid grid-cols-[20px_88px_minmax(0,1fr)] items-center gap-3.5 rounded-[22px] p-2.5 transition-colors hover:bg-[var(--bg-elevated)]"
             >
               <span className="text-center font-mono-data text-[10px] font-bold text-[var(--text-muted)]">{i + 1}</span>

@@ -4,18 +4,20 @@ import { Trophy, Tv, Users } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { useLocalizedMediaRow } from '@/lib/i18n/clientMediaLocalization'
 
+function formatNumber(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toLocaleString('it')
+}
+
 type PopularTitle = {
+  count: number
   item: {
     title: string
     type: string
     cover_image?: string | null
     external_id?: string | null
   }
-  count: number
-}
-
-function formatNumber(n: number) {
-  return n.toLocaleString('it')
 }
 
 export function LocalizedPopularTitleRow({ title, index }: { title: PopularTitle; index: number }) {

@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
 
 interface ListItem {
   id: string
@@ -74,6 +75,18 @@ export default function ListDetailPage() {
   const [searchFilter, setSearchFilter] = useState('')
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
+  const localizedItems = useLocalizedMediaRows(items, {
+    titleKeys: ['media_title'],
+    coverKeys: ['media_cover'],
+    idKeys: ['media_id'],
+    typeKeys: ['media_type'],
+  })
+  const localizedCollectionItems = useLocalizedMediaRows(collectionItems, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  })
 
   useEffect(() => {
     const load = async () => {
@@ -165,13 +178,13 @@ export default function ListDetailPage() {
 
   const filteredCollection = useMemo(() => {
     const q = normalize(searchFilter)
-    return collectionItems.filter(c =>
+    return localizedCollectionItems.filter(c =>
       !items.some(i => i.media_id === c.external_id) &&
       (!q || normalize(c.title || '').includes(q))
     )
-  }, [collectionItems, items, searchFilter])
+  }, [localizedCollectionItems, items, searchFilter])
 
-  const typeCount = useMemo(() => new Set(items.map(item => item.media_type)).size, [items])
+  const typeCount = useMemo(() => new Set(localizedItems.map(item => item.media_type)).size, [localizedItems])
 
   if (loading) {
     return (
@@ -251,7 +264,7 @@ export default function ListDetailPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <CollectionStat label="titoli" value={items.length} accent />
+          <CollectionStat label="titoli" value={localizedItems.length} accent />
           <CollectionStat label="medium" value={typeCount} />
           <CollectionStat label="visibilità" value={list.is_public ? 'pubblica' : 'privata'} />
         </div>
@@ -315,7 +328,7 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {localizedItems.length === 0 ? (
         <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <Film size={28} className="text-[var(--text-muted)]" />
@@ -335,7 +348,7 @@ export default function ListDetailPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((item, idx) => {
+          {localizedItems.map((item, idx) => {
             const Icon = TYPE_ICON[item.media_type] || Film
             const isRemoving = removingId === item.id
             return (

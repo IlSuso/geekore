@@ -27,19 +27,47 @@ const QUEUE_TABLE_MAP: Record<string, string> = {
   boardgame: 'swipe_queue_boardgame',
 }
 
-function rowToSwipeItem(row: any): SwipeItem {
+function cleanSwipeString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const text = value.trim()
+  return text ? text : undefined
+}
+
+function pickLocalizedValue(row: any, locale: string, field: 'title' | 'description' | 'coverImage') {
+  if (field === 'title') {
+    return locale === 'it'
+      ? cleanSwipeString(row.localized?.it?.title) || cleanSwipeString(row.title_it) || cleanSwipeString(row.title_original) || cleanSwipeString(row.title) || cleanSwipeString(row.title_en)
+      : cleanSwipeString(row.localized?.en?.title) || cleanSwipeString(row.title_en) || cleanSwipeString(row.title_original) || cleanSwipeString(row.title) || cleanSwipeString(row.title_it)
+  }
+
+  if (field === 'description') {
+    return locale === 'it'
+      ? cleanSwipeString(row.localized?.it?.description) || cleanSwipeString(row.description_it) || cleanSwipeString(row.description)
+      : cleanSwipeString(row.localized?.en?.description) || cleanSwipeString(row.description_en) || cleanSwipeString(row.description)
+  }
+
+  return locale === 'it'
+    ? cleanSwipeString(row.localized?.it?.coverImage) || cleanSwipeString(row.cover_image_it) || cleanSwipeString(row.cover_image)
+    : cleanSwipeString(row.localized?.en?.coverImage) || cleanSwipeString(row.cover_image_en) || cleanSwipeString(row.cover_image)
+}
+
+function rowToSwipeItem(row: any, locale: string): SwipeItem {
+  const title = pickLocalizedValue(row, locale, 'title') || 'Untitled'
+  const description = pickLocalizedValue(row, locale, 'description')
+  const coverImage = pickLocalizedValue(row, locale, 'coverImage')
+
   return {
     id: row.external_id,
-    title: row.title,
+    title,
     title_original: row.title_original,
     title_en: row.title_en,
     title_it: row.title_it,
     type: row.type as SwipeItem['type'],
-    coverImage: row.cover_image,
+    coverImage,
     year: row.year,
     genres: row.genres || [],
     score: row.score,
-    description: row.description_it || row.description_en || row.description,
+    description,
     description_en: row.description_en,
     description_it: row.description_it,
     localized: row.localized,
@@ -56,21 +84,29 @@ function rowToSwipeItem(row: any): SwipeItem {
 }
 
 function toQueueRow(r: any, userId: string) {
+  const sourceLocale = r.sourceLocale === 'it' || r.locale === 'it' || r.language === 'it'
+    ? 'it'
+    : r.sourceLocale === 'en' || r.locale === 'en' || r.language === 'en'
+      ? 'en'
+      : null
+
   return {
     user_id: userId,
     external_id: r.id,
     title: r.title,
     title_original: r.title_original || r.title,
-    title_en: r.title_en || r.localized?.en?.title || r.title,
-    title_it: r.title_it || r.localized?.it?.title || null,
+    title_en: r.title_en || r.localized?.en?.title || (sourceLocale === 'en' ? r.title : null),
+    title_it: r.title_it || r.localized?.it?.title || (sourceLocale === 'it' ? r.title : null),
     type: r.type,
     cover_image: r.coverImage || r.cover_image,
+    cover_image_en: r.cover_image_en || r.localized?.en?.coverImage || null,
+    cover_image_it: r.cover_image_it || r.localized?.it?.coverImage || null,
     year: r.year,
     genres: r.genres || [],
     score: r.score ?? null,
     description: r.description ?? null,
-    description_en: r.description_en || r.localized?.en?.description || null,
-    description_it: r.description_it || r.localized?.it?.description || null,
+    description_en: r.description_en || r.localized?.en?.description || (sourceLocale === 'en' ? r.description : null),
+    description_it: r.description_it || r.localized?.it?.description || (sourceLocale === 'it' ? r.description : null),
     localized: r.localized || {},
     why: r.why ?? null,
     match_score: r.matchScore || 0,
@@ -88,7 +124,7 @@ async function localizeSwipeItems(items: SwipeItem[], locale: string): Promise<S
   if (items.length === 0) return items
   const res = await fetch(`/api/media/localize?lang=${locale}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-lang': locale, 'x-geekore-locale': locale },
     body: JSON.stringify({ items }),
   }).catch(() => null)
   if (!res?.ok) return items
@@ -101,22 +137,30 @@ export default function SwipePage() {
   const router = useRouter()
   const { locale } = useLocale()
   const addedTitlesRef = useRef<Set<string>>(new Set())
+  const addedIdsRef = useRef<Set<string>>(new Set())
+  const requestSeqRef = useRef(0)
   const userIdRef = useRef<string | null>(null)
   const [initialItems, setInitialItems] = useState<SwipeItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function init() {
+      const requestSeq = ++requestSeqRef.current
+      setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
+      if (requestSeq !== requestSeqRef.current) return
       if (!user) { router.push('/login'); return }
       userIdRef.current = user.id
 
+      addedTitlesRef.current = new Set()
+      addedIdsRef.current = new Set()
       const { data: entries } = await supabase
         .from('user_media_entries')
-        .select('title')
+        .select('external_id, title')
         .eq('user_id', user.id)
       for (const e of entries || []) {
         if (e.title) addedTitlesRef.current.add((e.title as string).toLowerCase())
+        if ((e as any).external_id) addedIdsRef.current.add(String((e as any).external_id))
       }
 
       const { data: skippedRows } = await supabase
@@ -134,7 +178,9 @@ export default function SwipePage() {
       const existingRows = (queueRows || []).filter((r: any) => !skippedSet.has(r.external_id))
 
       if (existingRows.length >= 10) {
-        setInitialItems(await localizeSwipeItems(existingRows.map(rowToSwipeItem), locale))
+        const localized = await localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
+        if (requestSeq !== requestSeqRef.current) return
+        setInitialItems(localized)
         setLoading(false)
         return
       }
@@ -150,6 +196,7 @@ export default function SwipePage() {
             validTypes.includes(r.type) &&
             !skippedSet.has(r.id) &&
             !existingIds.has(r.id) &&
+            !addedIdsRef.current.has(String(r.id)) &&
             !addedTitlesRef.current.has((r.title as string)?.toLowerCase())
           ).slice(0, 50 - existingRows.length)
 
@@ -162,8 +209,8 @@ export default function SwipePage() {
             }).catch(() => null)
           }
 
-          setInitialItems(await localizeSwipeItems([
-            ...existingRows.map(rowToSwipeItem),
+          const localized = await localizeSwipeItems([
+            ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
             ...newRecs.map((r: any) => ({
               id: r.id, title: r.title, type: r.type as SwipeItem['type'],
               coverImage: r.coverImage, year: r.year, genres: r.genres || [],
@@ -175,11 +222,13 @@ export default function SwipePage() {
               description_en: r.description_en, description_it: r.description_it, localized: r.localized,
               isDiscovery: r.isDiscovery, source: r.source,
             }))
-          ], locale))
+          ], locale)
+          if (requestSeq !== requestSeqRef.current) return
+          setInitialItems(localized)
         }
       } catch {}
 
-      setLoading(false)
+      if (requestSeq === requestSeqRef.current) setLoading(false)
     }
     init()
   }, [locale]) // eslint-disable-line
@@ -224,7 +273,7 @@ export default function SwipePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(insertData),
     }).then(async (res) => {
-      if (res.ok) addedTitlesRef.current.add(item.title.toLowerCase())
+      if (res.ok) { addedTitlesRef.current.add(item.title.toLowerCase()); addedIdsRef.current.add(String(item.id)) }
       fetch('/api/recommendations/feedback', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres, action: 'added' })
@@ -252,7 +301,7 @@ export default function SwipePage() {
       body: JSON.stringify({ external_id: item.id }),
     }).catch(() => null)
     if (!res?.ok) return
-    addedTitlesRef.current.delete(item.title.toLowerCase())
+    addedTitlesRef.current.delete(item.title.toLowerCase()); addedIdsRef.current.delete(String(item.id))
     profileInvalidateBridge.invalidate()
   }, [])
 
@@ -280,13 +329,13 @@ export default function SwipePage() {
     const existingIds = new Set(existingRows.map((r: any) => r.external_id as string))
 
     if (existingRows.length >= REFILL_TRIGGER) {
-      return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale)
+      return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
     }
 
     try {
       const apiFilter = filter === 'all' ? 'all' : filter
       const res = await fetch(`/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`)
-      if (!res.ok) return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale)
+      if (!res.ok) return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
       const json = await res.json()
 
       let freshRecs: any[] = []
@@ -304,6 +353,7 @@ export default function SwipePage() {
         validTypes.includes(r.type) &&
         !skippedSet.has(r.id) &&
         !existingIds.has(r.id) &&
+        !addedIdsRef.current.has(String(r.id)) &&
         !addedTitlesRef.current.has((r.title as string)?.toLowerCase())
       ).slice(0, TARGET - existingRows.length)
 
@@ -317,7 +367,7 @@ export default function SwipePage() {
       }
 
       return localizeSwipeItems([
-        ...existingRows.map(rowToSwipeItem),
+        ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
         ...newRecs.map((r: any) => ({
           id: r.id, title: r.title, title_original: r.title_original, title_en: r.title_en, title_it: r.title_it, type: r.type as SwipeItem['type'],
           coverImage: r.coverImage, year: r.year, genres: r.genres || [],
@@ -329,7 +379,7 @@ export default function SwipePage() {
         }))
       ], locale)
     } catch {
-      return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale)
+      return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale)
     }
   }, [supabase, locale])
 
@@ -354,6 +404,7 @@ export default function SwipePage() {
 
   return (
     <SwipeMode
+      key={`swipe-${locale}`}
       standalone
       items={initialItems}
       userId={userIdRef.current ?? undefined}

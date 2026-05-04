@@ -165,6 +165,40 @@
 /* DISCOVER — solo regole mirate, niente override generici sulle icone         */
 /* -------------------------------------------------------------------------- */
 
+/* Discover icon alignment: alcuni svg risultano otticamente troppo alti solo su questa pagina. */
+.gk-discover-page button svg,
+.gk-discover-page [role='button'] svg,
+.gk-discover-page .lucide {
+  display: block;
+  flex-shrink: 0;
+}
+
+.gk-discover-page button,
+.gk-discover-page [role='button'] {
+  line-height: 1;
+}
+
+.gk-discover-page .grid.place-items-center,
+.gk-discover-page .inline-grid.place-items-center {
+  line-height: 0;
+}
+
+.gk-discover-page .absolute.right-2.top-1\/2.flex.-translate-y-1\/2.items-center.gap-1 > button,
+.gk-discover-page .absolute.right-2.top-1\/2.flex.-translate-y-1\/2.items-center.gap-1 > div,
+.gk-discover-page section > .mb-3 .grid.h-8.w-8.place-items-center,
+.gk-discover-page .mt-2.flex.flex-nowrap.gap-2.overflow-x-auto.pb-0\.5.pr-1 button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.gk-discover-page .absolute.right-2.top-1\/2.flex.-translate-y-1\/2.items-center.gap-1 > button svg,
+.gk-discover-page section > .mb-3 .grid.h-8.w-8.place-items-center svg,
+.gk-discover-page .mt-2.flex.flex-nowrap.gap-2.overflow-x-auto.pb-0\.5.pr-1 button svg {
+  margin: 0 auto !important;
+}
+
+
 .gk-discover-page input[data-testid='search-input'] {
   border-radius: 22px !important;
   background: rgba(22,22,30,0.92) !important;

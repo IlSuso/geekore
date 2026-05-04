@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 
 interface MediaCoverProps {
@@ -52,11 +52,19 @@ export function MediaCover({
   const resolvedType = type || undefined
   const resolvedTypeLabel = typeLabel || (resolvedType ? TYPE_LABELS[resolvedType] || resolvedType : null)
   const typeColor = resolvedType ? TYPE_COLOR_VAR[resolvedType] : undefined
+  const [imageFailed, setImageFailed] = useState(false)
+  const showImage = Boolean(src && !imageFailed)
 
   return (
     <div className={`gk-cover ${className}`}>
-      {src ? (
-        <img src={src} alt={alt} loading="lazy" decoding="async" />
+      {showImage ? (
+        <img
+          src={src || undefined}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[var(--text-tertiary)]">
           {fallback}

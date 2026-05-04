@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   Search, X, Film, Tv, Gamepad2, Mic, MicOff, Loader2, Swords, Layers, Dices, Flame,
-  Compass,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
@@ -126,15 +125,6 @@ const TYPE_COLORS: Record<string, string> = {
   movie: 'var(--type-movie)',
   boardgame: 'var(--type-board)',
 }
-
-const BROWSE_PROMPTS = [
-  { label: 'Anime & Manga', subtitle: 'stagionali, cult, shonen', q: 'frieren', type: 'anime', icon: Swords, color: 'var(--type-anime)' },
-  { label: 'Videogiochi', subtitle: 'must-play e indie', q: 'zelda', type: 'game', icon: Gamepad2, color: 'var(--type-game)' },
-  { label: 'Serie TV', subtitle: 'prestige e binge', q: 'severance', type: 'tv', icon: Tv, color: 'var(--type-tv)' },
-  { label: 'Manga', subtitle: 'seinen, shonen, cult', q: 'berserk', type: 'manga', icon: Layers, color: 'var(--type-manga)' },
-  { label: 'Film', subtitle: 'sci-fi, horror, classici', q: 'dune', type: 'movie', icon: Film, color: 'var(--type-movie)' },
-  { label: 'Board Game', subtitle: 'serate e collezioni', q: 'catan', type: 'boardgame', icon: Dices, color: 'var(--type-board)' },
-]
 
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
   if (!item?.coverImage || typeof item.coverImage !== 'string') return false
@@ -278,27 +268,6 @@ function useVoiceSearch(onResult: (text: string) => void, locale: 'it' | 'en' = 
   return { isListening, isSupported, toggle }
 }
 
-function BrowseTile({ prompt, onClick }: { prompt: typeof BROWSE_PROMPTS[number]; onClick: () => void }) {
-  const Icon = prompt.icon
-  return (
-    <button
-      type="button"
-      data-no-swipe="true"
-      onClick={onClick}
-      className="group flex min-h-[96px] flex-col justify-between rounded-[18px] border p-3 text-left transition-transform hover:scale-[1.01] active:scale-[0.98]"
-      style={{ borderColor: `color-mix(in srgb, ${prompt.color} 18%, transparent)`, background: `color-mix(in srgb, ${prompt.color} 4%, transparent)` }}
-    >
-      <div className="flex h-9 w-9 items-center justify-center rounded-[14px]" style={{ background: `color-mix(in srgb, ${prompt.color} 12%, transparent)`, color: prompt.color }}>
-        <Icon size={18} />
-      </div>
-      <div>
-        <span className="block text-[14px] font-black leading-[1.1] text-[var(--text-primary)]">{prompt.label}</span>
-        <span className="mt-1 block gk-mono text-[var(--text-muted)]">{prompt.subtitle}</span>
-      </div>
-    </button>
-  )
-}
-
 export default function DiscoverPage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -349,22 +318,35 @@ export default function DiscoverPage() {
   }, [urlQuery, urlType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/trending?section=anime').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/trending?section=movie').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/trending?section=tv').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/trending?section=game').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/trending?section=boardgame').then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/trending?section=manga').then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([anime, movies, tv, games, boardgames, manga]) => {
-      setTrendingAnime(anime)
-      setTrendingMovies(movies)
-      setTrendingTV(tv)
-      setTrendingGames(games)
-      setTrendingBoardgames(boardgames)
-      setTrendingManga(manga)
-    })
-  }, [])
+    let cancelled = false
+    const controller = new AbortController()
+
+    fetch(`/api/trending?section=all&lang=${locale}`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled || !data) return
+        setTrendingAnime(Array.isArray(data.anime) ? data.anime : [])
+        setTrendingMovies(Array.isArray(data.movie) ? data.movie : [])
+        setTrendingTV(Array.isArray(data.tv) ? data.tv : [])
+        setTrendingGames(Array.isArray(data.game) ? data.game : [])
+        setTrendingBoardgames(Array.isArray(data.boardgame) ? data.boardgame : [])
+        setTrendingManga(Array.isArray(data.manga) ? data.manga : [])
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTrendingAnime([])
+        setTrendingMovies([])
+        setTrendingTV([])
+        setTrendingGames([])
+        setTrendingBoardgames([])
+        setTrendingManga([])
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [locale])
 
   useEffect(() => {
     if (!authUser) return
@@ -374,11 +356,6 @@ export default function DiscoverPage() {
       .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)) })
   }, [authUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const applyPrompt = useCallback((query: string, type: string) => {
-    setActiveType(type)
-    setSearchTerm(query)
-    searchInputRef.current?.focus()
-  }, [])
 
   const search = useCallback(async (term: string, type: string, lang: string) => {
     const trimmed = term.trim()
@@ -641,14 +618,6 @@ export default function DiscoverPage() {
 
         {!loading && !searchTerm.trim() && (
           <div className="space-y-5">
-            <DiscoverSection title={ui.discover.browseTitle} subtitle={ui.discover.browseSubtitle} icon={<Compass size={15} />} variant="panel" className="!mb-4">
-              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
-                {BROWSE_PROMPTS.map(prompt => (
-                  <BrowseTile key={prompt.type} prompt={prompt} onClick={() => applyPrompt(prompt.q, prompt.type)} />
-                ))}
-              </div>
-            </DiscoverSection>
-
             <DiscoverSection title={ui.discover.trendingTitle} subtitle={ui.discover.trendingSubtitle} icon={<Flame size={15} />} variant="panel">
               {trendingToday.length === 0 ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">

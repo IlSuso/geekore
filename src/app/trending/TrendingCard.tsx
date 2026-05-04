@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Film, Gamepad2, Tv, Medal, Star, Users, Layers, Dice5, TrendingUp } from 'lucide-react'
 import type { TrendingItem } from './page'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { useLocalizedMediaRow } from '@/lib/i18n/clientMediaLocalization'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Film,
@@ -33,20 +34,26 @@ function scoreLabel(item: TrendingItem) {
 }
 
 export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: number }) {
-  const type = normalizeType(item.type)
+  const localizedItem = useLocalizedMediaRow(item, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  }) || item
+  const type = normalizeType(localizedItem.type)
   const Icon = TYPE_ICON[type] || Film
   const rating = scoreLabel(item)
   const rankLabel = rank === 0 ? 'Trend leader' : rank === 1 ? 'In salita' : 'Caldo ora'
 
   return (
     <Link
-      href={discoverHref({ ...item, type })}
+      href={discoverHref({ ...localizedItem, type })}
       data-no-swipe="true"
       className={`group relative min-h-[250px] overflow-hidden rounded-[28px] border bg-[var(--bg-card)] p-4 transition-all hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${rank === 0 ? 'md:col-span-2 border-[rgba(230,255,61,0.28)]' : 'border-[var(--border-subtle)]'}`}
-      aria-label={`Apri ${item.title} in Discover`}
+      aria-label={`Apri ${localizedItem.title} in Discover`}
     >
-      {item.cover_image ? (
-        <img src={item.cover_image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-42 blur-[1px] transition-transform duration-500 group-hover:scale-105" loading={rank === 0 ? 'eager' : 'lazy'} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+      {localizedItem.cover_image ? (
+        <img src={localizedItem.cover_image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-42 blur-[1px] transition-transform duration-500 group-hover:scale-105" loading={rank === 0 ? 'eager' : 'lazy'} onError={(e) => { e.currentTarget.style.display = 'none' }} />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[var(--bg-secondary)] text-[var(--text-muted)]"><Icon size={44} /></div>
       )}
@@ -61,9 +68,9 @@ export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: num
         </div>
         <div>
           <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-[rgba(230,255,61,0.12)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--accent)]"><TrendingUp size={11} /> settimana</p>
-          <h3 className="line-clamp-2 font-display text-[28px] font-black leading-[0.95] tracking-[-0.045em] text-white md:text-[34px]">{item.title}</h3>
+          <h3 className="line-clamp-2 font-display text-[28px] font-black leading-[0.95] tracking-[-0.045em] text-white md:text-[34px]">{localizedItem.title}</h3>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2.5 py-1 text-[12px] font-black text-emerald-300"><Users size={12} /> {item.count} aggiunte</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2.5 py-1 text-[12px] font-black text-emerald-300"><Users size={12} /> {localizedItem.count} aggiunte</span>
             {rating && <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/12 px-2.5 py-1 text-[12px] font-black text-yellow-300"><Star size={12} fill="currentColor" /> {rating}</span>}
           </div>
         </div>
@@ -73,21 +80,27 @@ export function TrendingHeroCard({ item, rank }: { item: TrendingItem; rank: num
 }
 
 export function TrendingCard({ item, rank, compact = false }: { item: TrendingItem; rank: number; compact?: boolean }) {
-  const type = normalizeType(item.type)
+  const localizedItem = useLocalizedMediaRow(item, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  }) || item
+  const type = normalizeType(localizedItem.type)
   const Icon = TYPE_ICON[type] || Film
   const medalClass = rank === 0 ? 'text-yellow-300' : rank === 1 ? 'text-zinc-300' : rank === 2 ? 'text-amber-600' : 'text-[var(--text-muted)]'
   const isPodium = rank < 3
 
   return (
     <Link
-      href={discoverHref({ ...item, type })}
+      href={discoverHref({ ...localizedItem, type })}
       data-no-swipe="true"
       className={`group flex items-center gap-3 rounded-[20px] border bg-[var(--bg-card)] ${compact ? 'p-2' : 'p-2.5'} transition-all hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${
         rank === 0 && !compact
           ? 'border-[rgba(230,255,61,0.28)] shadow-[0_12px_42px_rgba(230,255,61,0.045)]'
           : 'border-[var(--border-subtle)] hover:border-[var(--border)]'
       }`}
-      aria-label={`Apri ${item.title} in Discover`}
+      aria-label={`Apri ${localizedItem.title} in Discover`}
     >
       <div className={`flex ${compact ? 'h-8 w-8' : 'h-9 w-9'} flex-shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/5 ${isPodium ? 'bg-black/24' : 'bg-[var(--bg-secondary)]'}`}>
         {isPodium
@@ -96,10 +109,10 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
       </div>
 
       <div className={`${compact ? 'h-[62px] w-11' : 'h-[88px] w-16'} flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5`}>
-        {item.cover_image ? (
+        {localizedItem.cover_image ? (
           <img
-            src={item.cover_image}
-            alt={item.title}
+            src={localizedItem.cover_image}
+            alt={localizedItem.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading={rank < 8 ? 'eager' : 'lazy'}
             fetchPriority={rank < 4 ? 'high' : 'auto'}
@@ -124,7 +137,7 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
           </div>
         )}
         <p className={`${compact ? 'text-[13px]' : 'text-[14px]'} line-clamp-1 font-bold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]`}>
-          {item.title}
+          {localizedItem.title}
         </p>
         <p className="gk-mono mt-1 text-[var(--text-muted)]">apri in Discover</p>
       </div>
@@ -132,12 +145,12 @@ export function TrendingCard({ item, rank, compact = false }: { item: TrendingIt
       <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
         <div className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
           <Users size={11} />
-          <span className="font-mono-data text-[11px] font-black">{item.count}</span>
+          <span className="font-mono-data text-[11px] font-black">{localizedItem.count}</span>
         </div>
-        {item.avg_rating != null && (
+        {localizedItem.avg_rating != null && (
           <div className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 text-yellow-300">
             <Star size={11} fill="currentColor" />
-            <span className="font-mono-data text-[11px] font-black">{item.avg_rating.toFixed(1)}</span>
+            <span className="font-mono-data text-[11px] font-black">{localizedItem.avg_rating.toFixed(1)}</span>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { Clock, Film, Gamepad2, Globe, Layers, Star, Trophy, Tv, Users } from 'lucide-react'
+import { Clock, Film, Gamepad2, Globe, Layers, Star, Trophy, Tv } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { LocalizedPopularTitleRow } from '@/components/stats/LocalizedPopularTitleRow'
 
 async function getGlobalStats() {
   const supabase = await createClient()
@@ -52,7 +52,7 @@ async function getGlobalStats() {
   const titleMap = new Map<string, { count: number; item: any }>()
   for (const row of topTitles || []) {
     if (!row.title) continue
-    const key = `${row.type}::${row.title}`
+    const key = `${row.type}::${row.external_id || row.title}`
     if (!titleMap.has(key)) titleMap.set(key, { count: 0, item: row })
     titleMap.get(key)!.count += 1
   }
@@ -215,34 +215,7 @@ export default async function GlobalStatsPage() {
             </div>
             <div className="space-y-2.5">
               {stats.popularTitles.map((title, index) => (
-                <div key={`${title.item.type}-${title.item.title}`} className="flex items-center gap-3 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/58 p-3 ring-1 ring-white/5">
-                  <div className="grid w-8 shrink-0 place-items-center">
-                    {index < 3 ? (
-                      <Trophy size={15} className={index === 0 ? 'text-yellow-400' : index === 1 ? 'text-zinc-300' : 'text-amber-600'} />
-                    ) : (
-                      <span className="font-mono-data text-[11px] font-black text-[var(--text-muted)]">#{index + 1}</span>
-                    )}
-                  </div>
-                  <div className="h-16 w-11 shrink-0 overflow-hidden rounded-[12px] bg-[var(--bg-secondary)]">
-                    {title.item.cover_image ? (
-                      <img src={title.item.cover_image} alt={title.item.title} className="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-[var(--text-muted)]">
-                        <Tv size={18} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-black text-[var(--text-primary)]">{title.item.title}</p>
-                    <div className="mt-1">
-                      <MediaTypeBadge type={title.item.type} size="xs" />
-                    </div>
-                  </div>
-                  <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
-                    <Users size={11} />
-                    <span className="font-mono-data text-[11px] font-black">{formatNumber(title.count)}</span>
-                  </div>
-                </div>
+                <LocalizedPopularTitleRow key={`${title.item.type}-${title.item.external_id || title.item.title}`} title={title} index={index} />
               ))}
             </div>
           </section>

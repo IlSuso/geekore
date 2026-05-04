@@ -97,7 +97,7 @@ export interface SwipeItem {
   description?: string;
   description_en?: string;
   description_it?: string;
-  localized?: Record<string, { title?: string; description?: string }>;
+  localized?: Record<string, { title?: string; description?: string; coverImage?: string }>;
   why?: string;
   matchScore: number;
   episodes?: number;
@@ -1138,6 +1138,11 @@ export function SwipeMode({
     {},
   );
   const categoryLoading = useRef<Partial<Record<CategoryFilter, boolean>>>({});
+  // Ogni cambio lingua / nuovo payload invalida le request async ancora in volo.
+  // Senza questo, preload vecchi di TV/Giochi possono rientrare dopo lo switch e
+  // riempire deck/cache con card della lingua precedente.
+  const localeRunRef = useRef(0);
+
 
   // Carica skipped in background
   useEffect(() => {
@@ -1188,9 +1193,11 @@ export function SwipeMode({
       if (categoryLoading.current[filter]) return;
       if ((categoryQueues.current[filter]?.length ?? 0) >= PRELOAD_TARGET)
         return;
+      const run = localeRunRef.current;
       categoryLoading.current[filter] = true;
       try {
         const items = await onRequestMore(filter);
+        if (run !== localeRunRef.current) return;
         const skipped = skippedIdsRef.current;
         const fresh = items.filter((i) => !skipped.has(i.id));
         const existing = categoryQueues.current[filter] || [];
@@ -1200,7 +1207,9 @@ export function SwipeMode({
           ...fresh.filter((i) => !existingIds.has(i.id)),
         ].slice(0, PRELOAD_TARGET);
       } catch { }
-      categoryLoading.current[filter] = false;
+      finally {
+        if (run === localeRunRef.current) categoryLoading.current[filter] = false;
+      }
     },
     [onRequestMore],
   );
@@ -1209,6 +1218,7 @@ export function SwipeMode({
     async (filter: CategoryFilter) => {
       if (loadingRef.current) return;
       loadingRef.current = true;
+      const run = localeRunRef.current;
 
       // ── Fast path: use preloaded cache — no loading screen, instant ──────────
       const cached = categoryQueues.current[filter] || [];
@@ -1238,6 +1248,7 @@ export function SwipeMode({
       setIsLoadingMore(true);
       try {
         const items = await onRequestMore(filter);
+        if (run !== localeRunRef.current) return;
         const fresh = items.filter(
           (i) => !seen.has(i.id) && !skipped.has(i.id),
         );
@@ -1251,6 +1262,7 @@ export function SwipeMode({
           // Tutti già visti: svuota seenIds e riprova
           seen.clear();
           const retryItems = await onRequestMore(filter);
+          if (run !== localeRunRef.current) return;
           const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
           if (retryFresh.length) {
             setQueue((prev) => [
@@ -1261,14 +1273,16 @@ export function SwipeMode({
           }
         }
       } catch { }
-      setIsLoadingMore(false);
-      loadingRef.current = false;
+      if (run === localeRunRef.current) {
+        setIsLoadingMore(false);
+        loadingRef.current = false;
+      }
     },
     [onRequestMore, preloadCategory],
   );
 
-  // Preload all categories (including 'all') 1.5 s after mount so the cache
-  // is ready before the user exhausts the initial deck.
+  // Preload all categories after mount and after locale changes.
+  // Se la lingua cambia, la cache categoria precedente non deve rientrare nel deck.
   useEffect(() => {
     const cats: CategoryFilter[] = [
       "all",
@@ -1279,10 +1293,11 @@ export function SwipeMode({
       "game",
       "boardgame",
     ];
-    cats.forEach((cat, i) =>
-      setTimeout(() => preloadCategory(cat), 1500 + i * 300),
+    const timers = cats.map((cat, i) =>
+      window.setTimeout(() => preloadCategory(cat), 1500 + i * 300),
     );
-  }, []); // eslint-disable-line
+    return () => timers.forEach(timer => window.clearTimeout(timer));
+  }, [preloadCategory, locale]);
 
   useEffect(() => {
     if (filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
@@ -1442,6 +1457,26 @@ export function SwipeMode({
     "left" | "right" | "down" | null
   >(null);
   const [undoEntering, setUndoEntering] = useState(false);
+
+  // Cambio lingua / nuovo payload: le card già montate non devono restare nella lingua vecchia.
+  // Reset completo di deck, storico e cache categoria; non tocca Supabase né il pool.
+  useEffect(() => {
+    localeRunRef.current += 1;
+    const freshQueue = interleaveByType(initialItems);
+    setQueue(freshQueue);
+    seenIdsRef.current = new Set(initialItems.map((i) => i.id));
+    categoryQueues.current = {};
+    categoryLoading.current = {};
+    loadingRef.current = false;
+    setHistory([]);
+    wishlistHistoryRef.current.clear();
+    setIsLoadingMore(false);
+    setRating(null);
+    setCardDragX(0);
+    setCardFlying(false);
+    setCardFlyDir(null);
+    setUndoEntering(false);
+  }, [initialItems, locale, setRating]);
   const topItem = filteredQueue[0];
   const topItemGenres = topItem ? cleanDisplayGenres(topItem.genres) : [];
 

@@ -1,140 +1,137 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useLocale, type Locale } from '@/lib/locale'
+import { useLocale } from '@/lib/locale'
+import type { Locale } from './serverLocale'
 
-type AnyRow = Record<string, any>
+type MediaRow = Record<string, any>
 
-type Options = {
+export type MediaLocalizationOptions = {
   titleKeys?: string[]
   coverKeys?: string[]
   idKeys?: string[]
   typeKeys?: string[]
-  enabled?: boolean
+  descriptionKeys?: string[]
 }
 
-const DEFAULT_TITLE_KEYS = ['title', 'media_title', 'mediaTitle']
-const DEFAULT_COVER_KEYS = ['coverImage', 'cover_image', 'media_cover', 'mediaCover']
-const DEFAULT_ID_KEYS = ['external_id', 'externalId', 'media_id', 'mediaId', 'tmdb_id', 'tmdbId', 'id', 'appid']
-const DEFAULT_TYPE_KEYS = ['type', 'media_type', 'mediaType']
+const DEFAULT_OPTIONS: Required<MediaLocalizationOptions> = {
+  titleKeys: ['title', 'media_title', 'name'],
+  coverKeys: ['coverImage', 'cover_image', 'media_cover'],
+  idKeys: ['external_id', 'media_id', 'id'],
+  typeKeys: ['type', 'media_type'],
+  descriptionKeys: ['description', 'media_description'],
+}
 
-function firstString(row: AnyRow, keys: string[]): string | undefined {
+function clean(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const text = value.trim()
+  if (!text) return undefined
+  const bad = text.toLowerCase()
+  if (bad === 'null' || bad === 'undefined' || bad === 'nan' || bad === 'n/a' || bad === 'none') return undefined
+  return text
+}
+
+function mergeOptions(options?: MediaLocalizationOptions): Required<MediaLocalizationOptions> {
+  return {
+    titleKeys: options?.titleKeys?.length ? options.titleKeys : DEFAULT_OPTIONS.titleKeys,
+    coverKeys: options?.coverKeys?.length ? options.coverKeys : DEFAULT_OPTIONS.coverKeys,
+    idKeys: options?.idKeys?.length ? options.idKeys : DEFAULT_OPTIONS.idKeys,
+    typeKeys: options?.typeKeys?.length ? options.typeKeys : DEFAULT_OPTIONS.typeKeys,
+    descriptionKeys: options?.descriptionKeys?.length ? options.descriptionKeys : DEFAULT_OPTIONS.descriptionKeys,
+  }
+}
+
+function firstValue(row: MediaRow | null | undefined, keys: string[]): any {
+  if (!row) return undefined
   for (const key of keys) {
-    const value = row?.[key]
-    if (typeof value === 'string' && value.trim()) return value.trim()
-    if (typeof value === 'number') return String(value)
+    const value = row[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
   }
   return undefined
 }
 
-function shouldTryLocaleAssets(row: AnyRow, options: Required<Pick<Options, 'titleKeys' | 'coverKeys' | 'idKeys' | 'typeKeys'>>) {
-  const type = firstString(row, options.typeKeys)
-  const id = firstString(row, options.idKeys)
-  const title = firstString(row, options.titleKeys)
-  return Boolean(type && (id || title))
+function setFirstExistingOrFirst(row: MediaRow, keys: string[], value: any): MediaRow {
+  if (value === undefined || value === null || String(value).trim() === '') return row
+  const key = keys.find(k => Object.prototype.hasOwnProperty.call(row, k)) || keys[0]
+  return { ...row, [key]: value }
 }
 
-function mergeLocalizedRow<T extends AnyRow>(row: T, localized: AnyRow, options: Required<Pick<Options, 'titleKeys' | 'coverKeys' | 'idKeys' | 'typeKeys'>>): T {
-  const next: AnyRow = { ...row }
-  const title = localized.title
-  const cover = localized.coverImage || localized.cover_image
+function toLocalizationPayload(row: MediaRow, options: Required<MediaLocalizationOptions>) {
+  const id = firstValue(row, options.idKeys)
+  const title = firstValue(row, options.titleKeys)
+  const type = firstValue(row, options.typeKeys)
+  const cover = firstValue(row, options.coverKeys)
+  const description = firstValue(row, options.descriptionKeys)
 
-  if (typeof title === 'string' && title.trim()) {
-    for (const key of options.titleKeys) {
-      if (key in next || key === options.titleKeys[0]) next[key] = title
-    }
+  return {
+    ...row,
+    id: id ?? row.id,
+    external_id: row.external_id ?? id,
+    title: row.title ?? title,
+    type: row.type ?? type,
+    coverImage: row.coverImage ?? cover,
+    cover_image: row.cover_image ?? cover,
+    description: row.description ?? description,
   }
-
-  if (typeof cover === 'string' && cover.trim()) {
-    for (const key of options.coverKeys) {
-      if (key in next || key === options.coverKeys[0]) next[key] = cover
-    }
-  }
-
-  // Se /api/media/localize corregge un external_id TMDb incoerente, propaghiamo la correzione
-  // almeno nello stato client così link, key e ulteriori localizzazioni usano l'ID giusto.
-  if (localized.external_id) next.external_id = localized.external_id
-  if (localized.externalId) next.externalId = localized.externalId
-  if (localized.tmdb_id) next.tmdb_id = localized.tmdb_id
-  if (localized.tmdbId) next.tmdbId = localized.tmdbId
-
-  if (localized.title_en) next.title_en = localized.title_en
-  if (localized.title_it) next.title_it = localized.title_it
-  if (localized.description_en) next.description_en = localized.description_en
-  if (localized.description_it) next.description_it = localized.description_it
-  if (localized.cover_image_en) next.cover_image_en = localized.cover_image_en
-  if (localized.cover_image_it) next.cover_image_it = localized.cover_image_it
-  if (localized.localized) next.localized = localized.localized
-
-  return next as T
 }
 
-export function useLocalizedMediaRows<T extends AnyRow>(rows: T[], opts?: Options): T[] {
-  const { locale } = useLocale()
-  const titleKeysSig = (opts?.titleKeys || DEFAULT_TITLE_KEYS).join('|')
-  const coverKeysSig = (opts?.coverKeys || DEFAULT_COVER_KEYS).join('|')
-  const idKeysSig = (opts?.idKeys || DEFAULT_ID_KEYS).join('|')
-  const typeKeysSig = (opts?.typeKeys || DEFAULT_TYPE_KEYS).join('|')
+function mergeLocalizedRow<T extends MediaRow>(
+  original: T,
+  localized: MediaRow | undefined,
+  options: Required<MediaLocalizationOptions>,
+): T {
+  if (!localized) return original
 
-  const options = useMemo(() => ({
-    titleKeys: titleKeysSig.split('|').filter(Boolean),
-    coverKeys: coverKeysSig.split('|').filter(Boolean),
-    idKeys: idKeysSig.split('|').filter(Boolean),
-    typeKeys: typeKeysSig.split('|').filter(Boolean),
-  }), [titleKeysSig, coverKeysSig, idKeysSig, typeKeysSig])
+  let next: MediaRow = { ...original }
 
-  const enabled = opts?.enabled !== false
-  const [localizedRows, setLocalizedRows] = useState<T[]>(rows)
+  const localizedTitle = clean(localized.title)
+  const localizedCover = clean(localized.cover_image) || clean(localized.coverImage)
+  const localizedDescription = clean(localized.description)
+  const localizedId = clean(localized.external_id) || clean(localized.id)
+  const localizedType = clean(localized.type)
 
-  const signature = useMemo(() => rows.map((row, index) => [
-    index,
-    firstString(row, options.idKeys),
-    firstString(row, options.typeKeys),
-    firstString(row, options.titleKeys),
-    firstString(row, options.coverKeys),
-  ].join(':')).join('|'), [rows, options])
+  next = setFirstExistingOrFirst(next, options.titleKeys, localizedTitle)
+  next = setFirstExistingOrFirst(next, options.coverKeys, localizedCover)
+  next = setFirstExistingOrFirst(next, options.descriptionKeys, localizedDescription)
 
-  useEffect(() => {
-    let cancelled = false
-    setLocalizedRows(rows)
+  if (localizedId) {
+    next = setFirstExistingOrFirst(next, options.idKeys, localizedId)
+  }
+  if (localizedType) {
+    next = setFirstExistingOrFirst(next, options.typeKeys, localizedType)
+  }
 
-    if (!enabled || rows.length === 0) return () => { cancelled = true }
+  return {
+    ...next,
+    title: localizedTitle ?? next.title,
+    coverImage: clean(localized.coverImage) || localizedCover || next.coverImage,
+    cover_image: localizedCover || next.cover_image,
+    description: localizedDescription ?? next.description,
+    external_id: localizedId ?? next.external_id,
+    type: localizedType ?? next.type,
+    title_en: localized.title_en ?? next.title_en,
+    title_it: localized.title_it ?? next.title_it,
+    description_en: localized.description_en ?? next.description_en,
+    description_it: localized.description_it ?? next.description_it,
+    cover_image_en: localized.cover_image_en ?? next.cover_image_en,
+    cover_image_it: localized.cover_image_it ?? next.cover_image_it,
+    localized: localized.localized ?? next.localized,
+  } as T
+}
 
-    const candidates = rows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => shouldTryLocaleAssets(row, options))
+export async function localizeMediaRows<T extends MediaRow>(
+  rows: T[],
+  locale: Locale,
+  options?: MediaLocalizationOptions,
+): Promise<T[]> {
+  if (!Array.isArray(rows) || rows.length === 0) return rows
 
-    if (candidates.length === 0) return () => { cancelled = true }
+  const opts = mergeOptions(options)
+  const payload = rows.map(row => toLocalizationPayload(row, opts))
 
-    const payload = candidates.map(({ row, index }) => ({
-      __localizeKey: String(index),
-      id: firstString(row, options.idKeys),
-      external_id: firstString(row, options.idKeys),
-      externalId: row.externalId,
-      title: firstString(row, options.titleKeys),
-      media_title: row.media_title,
-      mediaTitle: row.mediaTitle,
-      type: firstString(row, options.typeKeys),
-      coverImage: firstString(row, options.coverKeys),
-      cover_image: firstString(row, options.coverKeys),
-      title_en: row.title_en,
-      title_it: row.title_it,
-      title_original: row.title_original,
-      description: row.description,
-      description_en: row.description_en,
-      description_it: row.description_it,
-      cover_image_en: row.cover_image_en,
-      cover_image_it: row.cover_image_it,
-      localized: row.localized,
-      source: row.source,
-      appid: row.appid,
-      tmdb_id: row.tmdb_id,
-      tmdbId: row.tmdbId,
-    }))
-
-    fetch(`/api/media/localize?lang=${locale}`, {
+  try {
+    const res = await fetch(`/api/media/localize?lang=${encodeURIComponent(locale)}`, {
       method: 'POST',
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'x-lang': locale,
@@ -142,38 +139,90 @@ export function useLocalizedMediaRows<T extends AnyRow>(rows: T[], opts?: Option
       },
       body: JSON.stringify({ items: payload }),
     })
-      .then(res => res.ok ? res.json() : null)
-      .then(json => {
-        if (cancelled || !Array.isArray(json?.items)) return
-        const byIndex = new Map<number, AnyRow>()
-        json.items.forEach((item: AnyRow) => {
-          const key = Number(item.__localizeKey)
-          if (Number.isFinite(key)) byIndex.set(key, item)
-        })
 
-        setLocalizedRows(rows.map((row, index) => {
-          const localized = byIndex.get(index)
-          return localized ? mergeLocalizedRow(row, localized, options) : row
-        }))
-      })
-      .catch(() => {})
+    if (!res.ok) return rows
 
-    return () => { cancelled = true }
-  }, [signature, locale, enabled, options, rows])
+    const json = await res.json().catch(() => null)
+    const localizedItems = Array.isArray(json?.items) ? json.items : null
+    if (!localizedItems) return rows
+
+    // Mapping per indice: non rompe duplicati, titoli uguali o external_id corretti dal server.
+    return rows.map((row, index) => mergeLocalizedRow(row, localizedItems[index] || payload[index], opts))
+  } catch {
+    return rows
+  }
+}
+
+export async function localizePostMediaPreviews<T extends { media_preview?: MediaRow | null }>(
+  posts: T[],
+  locale: Locale,
+  options?: MediaLocalizationOptions,
+): Promise<T[]> {
+  if (!Array.isArray(posts) || posts.length === 0) return posts
+
+  const positions: number[] = []
+  const previews: MediaRow[] = []
+
+  posts.forEach((post, index) => {
+    if (post.media_preview) {
+      positions.push(index)
+      previews.push(post.media_preview)
+    }
+  })
+
+  if (previews.length === 0) return posts
+
+  const localizedPreviews = await localizeMediaRows(previews, locale, options || {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+    descriptionKeys: ['description'],
+  })
+
+  const byIndex = new Map<number, MediaRow>()
+  positions.forEach((postIndex, previewIndex) => {
+    byIndex.set(postIndex, localizedPreviews[previewIndex])
+  })
+
+  return posts.map((post, index) => {
+    const localizedPreview = byIndex.get(index)
+    if (!localizedPreview) return post
+    return { ...post, media_preview: localizedPreview } as T
+  })
+}
+
+export function useLocalizedMediaRows<T extends MediaRow>(
+  rows: T[],
+  options?: MediaLocalizationOptions,
+): T[] {
+  const { locale } = useLocale()
+  const [localizedRows, setLocalizedRows] = useState<T[]>(rows)
+  const optionsKey = useMemo(() => JSON.stringify(options || {}), [options])
+
+  useEffect(() => {
+    let cancelled = false
+    setLocalizedRows(rows)
+
+    localizeMediaRows(rows, locale, options).then(next => {
+      if (!cancelled) setLocalizedRows(next)
+    })
+
+    return () => {
+      cancelled = true
+    }
+    // optionsKey stabilizza le dipendenze quando l'oggetto opzioni è inline.
+  }, [rows, locale, optionsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return localizedRows
 }
 
-export function useLocalizedMediaRow<T extends AnyRow>(row: T | null | undefined, opts?: Options): T | null | undefined {
-  const rows = useMemo(() => row ? [row] : [], [row])
-  const localized = useLocalizedMediaRows(rows, opts)
-  return row ? (localized[0] || row) : row
-}
-
-export function getLocalizedMediaHref(row: AnyRow, typeKeys = DEFAULT_TYPE_KEYS, titleKeys = DEFAULT_TITLE_KEYS) {
-  const type = firstString(row, typeKeys) || 'all'
-  const id = firstString(row, DEFAULT_ID_KEYS)
-  const title = firstString(row, titleKeys) || ''
-  const query = id || title
-  return `/discover?type=${encodeURIComponent(type)}&q=${encodeURIComponent(query)}`
+export function useLocalizedMediaRow<T extends MediaRow>(
+  row: T | null | undefined,
+  options?: MediaLocalizationOptions,
+): T | null | undefined {
+  const rows = useMemo(() => (row ? [row] : []), [row])
+  const localized = useLocalizedMediaRows(rows, options)
+  if (!row) return row
+  return (localized[0] || row) as T
 }

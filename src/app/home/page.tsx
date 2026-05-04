@@ -39,6 +39,7 @@ import { BottomSheet, PostCard, PostModal, VirtualPostCard } from '@/components/
 import { buildFeedSheetActions, getFeedSheetTitle, type FeedSheetState } from '@/components/feed/feedSheet'
 import { cache, haptic, invalidateCache, isCacheValid, trackAffinity, type FeedFilter } from '@/components/feed/feedUtils'
 import { fetchFeedPostsPage, fetchPinnedPosts } from '@/components/feed/feedData'
+import { localizePostMediaPreviews } from '@/lib/i18n/clientMediaLocalization'
 
 
 // ── Pagina principale ────────────────────────────────────────────────────────
@@ -48,6 +49,8 @@ export default function FeedPage() {
   const { scrollToTop } = useScrollPanel()
   const [posts, setPosts] = useState<Post[]>([])
   const [pinnedPosts, setPinnedPosts] = useState<Post[]>([])
+  const [localizedPosts, setLocalizedPosts] = useState<Post[]>([])
+  const [localizedPinnedPosts, setLocalizedPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
   const [newPostCategory, setNewPostCategory] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -105,6 +108,20 @@ export default function FeedPage() {
   const { user: authUser, loading: authLoading } = useAuth()
   const { locale, t } = useLocale()
   const f = t.feed
+
+  useEffect(() => {
+    let cancelled = false
+    setLocalizedPosts(posts)
+    localizePostMediaPreviews(posts, locale).then(next => { if (!cancelled) setLocalizedPosts(next) })
+    return () => { cancelled = true }
+  }, [posts, locale])
+
+  useEffect(() => {
+    let cancelled = false
+    setLocalizedPinnedPosts(pinnedPosts)
+    localizePostMediaPreviews(pinnedPosts, locale).then(next => { if (!cancelled) setLocalizedPinnedPosts(next) })
+    return () => { cancelled = true }
+  }, [pinnedPosts, locale])
 
   const sentinelRef = useInfiniteScroll({
     onLoadMore: () => {
@@ -504,7 +521,7 @@ export default function FeedPage() {
 
   // Filtro client-side: supporta sia "Film" (solo macro) che "Film:Forrest Gump" (match esatto sottocategoria)
   const filteredPosts = categoryFilter
-    ? posts.filter(p => {
+    ? localizedPosts.filter(p => {
         if (!p.category) return false
         const filterParsed = parseCategoryString(categoryFilter)
         const postParsed = parseCategoryString(p.category)
@@ -516,7 +533,7 @@ export default function FeedPage() {
         }
         return true // solo macro, mostra tutto
       })
-    : posts
+    : localizedPosts
 
   // DOM cap: manteniamo al massimo DOM_CAP post renderizzati contemporaneamente.
   // Cresce di DOM_CAP_STEP ogni volta che posts si estende (nuova pagina Supabase).
@@ -561,7 +578,7 @@ export default function FeedPage() {
 
       {/* Post Modal — Facebook style */}
       {modalPostId && (() => {
-        const modalPost = [...posts, ...pinnedPosts].find(p => p.id === modalPostId)
+        const modalPost = [...localizedPosts, ...localizedPinnedPosts].find(p => p.id === modalPostId)
         if (!modalPost) return null
         return (
           <PostModal
@@ -641,7 +658,7 @@ export default function FeedPage() {
             {feedFilter === 'all' && !categoryFilter && pinnedPosts.length > 0 && (
               <div className="mb-5">
                 <div className="flex flex-col gap-3 pt-5">
-                  {pinnedPosts.map(post => (
+                  {localizedPinnedPosts.map(post => (
                     <PostCard key={`pinned-${post.id}`} post={post} currentUser={currentUser}
                       isLiking={likingIds.has(post.id)} locale={locale}
                       onLike={toggleLikePinned} onOpenModal={setModalPostId}

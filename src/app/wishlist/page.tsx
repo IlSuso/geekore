@@ -20,6 +20,7 @@ import {
 import { getMediaTypeColor, getMediaTypeLabel } from '@/lib/mediaTypes'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Swords,
@@ -133,6 +134,13 @@ export default function WishlistPage() {
   const [removing, setRemoving] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const localizedWishlist = useLocalizedMediaRows(wishlist, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+    descriptionKeys: ['description'],
+  })
 
   const loadWishlist = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -161,16 +169,16 @@ export default function WishlistPage() {
     setRemoving(null)
   }
 
-  const types = useMemo(() => ['all', ...Array.from(new Set(wishlist.map(i => i.type).filter(Boolean)))], [wishlist])
-  const availableCount = useMemo(() => wishlist.filter(i => i.release_date && new Date(i.release_date).getTime() <= Date.now()).length, [wishlist])
-  const upcomingCount = useMemo(() => wishlist.filter(i => i.release_date && new Date(i.release_date).getTime() > Date.now()).length, [wishlist])
+  const types = useMemo(() => ['all', ...Array.from(new Set(localizedWishlist.map(i => i.type).filter(Boolean)))], [localizedWishlist])
+  const availableCount = useMemo(() => localizedWishlist.filter(i => i.release_date && new Date(i.release_date).getTime() <= Date.now()).length, [localizedWishlist])
+  const upcomingCount = useMemo(() => localizedWishlist.filter(i => i.release_date && new Date(i.release_date).getTime() > Date.now()).length, [localizedWishlist])
 
   const filtered = useMemo(() => {
     const q = normalize(query)
-    let result = activeFilter === 'all' ? wishlist : wishlist.filter(i => i.type === activeFilter)
+    let result = activeFilter === 'all' ? localizedWishlist : localizedWishlist.filter(i => i.type === activeFilter)
     if (q) result = result.filter(item => normalize([item.title || '', item.type || '', item.description || ''].join(' ')).includes(q))
     return result
-  }, [wishlist, activeFilter, query])
+  }, [localizedWishlist, activeFilter, query])
 
   if (loading) {
     return (
@@ -227,7 +235,7 @@ export default function WishlistPage() {
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:max-w-[470px] lg:pb-0">
               {types.map(type => {
                 const typeColor = type !== 'all' ? getMediaTypeColor(type) : 'var(--accent)'
-                const count = type === 'all' ? wishlist.length : wishlist.filter(i => i.type === type).length
+                const count = type === 'all' ? localizedWishlist.length : localizedWishlist.filter(i => i.type === type).length
                 const isActive = activeFilter === type
                 return (
                   <button
@@ -254,11 +262,11 @@ export default function WishlistPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <Bookmark size={28} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">{wishlist.length === 0 ? 'Wishlist vuota' : 'Nessun titolo trovato'}</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{localizedWishlist.length === 0 ? 'Wishlist vuota' : 'Nessun titolo trovato'}</p>
           <p className="gk-body mx-auto mb-5 max-w-sm">
-            {wishlist.length === 0 ? 'Salva titoli da Discover o Swipe e li ritrovi qui.' : 'Prova a cambiare ricerca o filtro.'}
+            {localizedWishlist.length === 0 ? 'Salva titoli da Discover o Swipe e li ritrovi qui.' : 'Prova a cambiare ricerca o filtro.'}
           </p>
-          {wishlist.length === 0 ? (
+          {localizedWishlist.length === 0 ? (
             <Link href="/discover" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
               Apri Discover
             </Link>

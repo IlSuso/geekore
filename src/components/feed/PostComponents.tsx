@@ -15,6 +15,7 @@ import { FeedEngagementSummary } from '@/components/feed/FeedEngagementSummary'
 import { androidBack } from '@/hooks/androidBack'
 import { CategoryBadge, CategoryIcon, parseCategoryString } from '@/components/feed/CategoryBasics'
 import type { FeedMediaPreview, Post } from '@/components/feed/feedTypes'
+import { useLocalizedMediaRow } from '@/lib/i18n/clientMediaLocalization'
 
 const VIRTUAL_MARGIN = '600px'
 
@@ -119,13 +120,19 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
   onCategoryClick?: (category: string) => void
 }) {
   const parsed = parseCategoryString(category)
+  const localizedMedia = useLocalizedMediaRow(media, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  })
   if (!parsed) return null
 
-  const mediaTitle = media?.title || parsed.subcategory?.trim() || parsed.category
-  const progressLabel = media?.current_episode != null && media?.episodes
-    ? `${media.current_episode}/${media.episodes}`
-    : media?.current_episode != null
-      ? `${media.current_episode}`
+  const mediaTitle = localizedMedia?.title || parsed.subcategory?.trim() || parsed.category
+  const progressLabel = localizedMedia?.current_episode != null && localizedMedia?.episodes
+    ? `${localizedMedia.current_episode}/${localizedMedia.episodes}`
+    : localizedMedia?.current_episode != null
+      ? `${localizedMedia.current_episode}`
       : null
 
   return (
@@ -136,8 +143,8 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
       className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-[16px] border border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-elevated)]"
     >
       <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-secondary)]">
-        {media?.cover_image ? (
-          <img src={media.cover_image} alt={`Copertina di ${mediaTitle}`} className="h-full w-full object-cover" loading="lazy" />
+        {localizedMedia?.cover_image ? (
+          <img src={localizedMedia.cover_image} alt={mediaTitle} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
             <ImageIcon size={18} />
@@ -151,12 +158,12 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
         </div>
         <p className="line-clamp-1 text-[15px] font-black leading-tight text-[var(--text-primary)]">{mediaTitle}</p>
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-          {media?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{media.status}</span>}
+          {localizedMedia?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{localizedMedia.status}</span>}
           {progressLabel && <span className="gk-mono text-[var(--text-muted)]">{progressLabel}</span>}
-          {media?.rating != null && (
+          {localizedMedia?.rating != null && (
             <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/20 bg-yellow-500/8 px-1.5 py-0.5 gk-mono text-yellow-300">
               <Star size={10} fill="currentColor" />
-              {media.rating}
+              {localizedMedia.rating}
             </span>
           )}
         </div>

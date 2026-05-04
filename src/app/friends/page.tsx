@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { PageScaffold } from '@/components/ui/PageScaffold'
+import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
 
 type FriendsTab = 'activity' | 'common' | 'suggested'
 
@@ -22,6 +23,7 @@ type ProfileRow = {
 type FriendActivity = {
   id: string
   user_id: string
+  external_id?: string | null
   title: string
   type: string
   cover_image?: string | null
@@ -156,6 +158,12 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<FriendsTab>('activity')
+  const localizedActivities = useLocalizedMediaRows(activities, {
+    titleKeys: ['title'],
+    coverKeys: ['cover_image'],
+    idKeys: ['external_id'],
+    typeKeys: ['type'],
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -169,7 +177,7 @@ export default function FriendsPage() {
       const nextFollowing = new Set((followsData || []).map((row: any) => row.following_id))
       let nextActivities: FriendActivity[] = []
       if (authUser && nextFollowing.size > 0) {
-        const { data: activityData } = await supabase.from('user_media_entries').select('id, user_id, title, type, cover_image, status, rating, updated_at, profiles:user_id(username, display_name, avatar_url)').in('user_id', Array.from(nextFollowing)).order('updated_at', { ascending: false }).limit(40)
+        const { data: activityData } = await supabase.from('user_media_entries').select('id, user_id, external_id, title, type, cover_image, status, rating, updated_at, profiles:user_id(username, display_name, avatar_url)').in('user_id', Array.from(nextFollowing)).order('updated_at', { ascending: false }).limit(40)
         nextActivities = (activityData || []) as unknown as FriendActivity[]
       }
       if (cancelled) return
@@ -193,9 +201,9 @@ export default function FriendsPage() {
 
   const filteredActivities = useMemo(() => {
     const q = normalize(query)
-    if (!q) return activities
-    return activities.filter(activity => normalize([activity.title, activity.type, activity.status || '', activity.profiles?.username || '', activity.profiles?.display_name || ''].join(' ')).includes(q))
-  }, [activities, query])
+    if (!q) return localizedActivities
+    return localizedActivities.filter(activity => normalize([activity.title, activity.type, activity.status || '', activity.profiles?.username || '', activity.profiles?.display_name || ''].join(' ')).includes(q))
+  }, [localizedActivities, query])
 
   const followingProfiles = filteredProfiles.filter(profile => followingIds.has(profile.id))
   const suggestedProfiles = filteredProfiles.filter(profile => !followingIds.has(profile.id))
