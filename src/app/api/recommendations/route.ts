@@ -28,6 +28,8 @@ import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import {
   buildLocalizedRecommendationPayload,
 } from '@/lib/i18n/recommendationLocale'
+import { isLocaleWarningZoneActive, persistLocaleAssetsForUserMasterPool } from '@/lib/i18n/masterPoolLocaleAssets'
+import { after } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +38,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams, supabase, userId, isServiceCall } = context
     const locale = await getRequestLocale(request, supabase, userId)
+    const includeAlternateLocaleAssets = isLocaleWarningZoneActive(request.headers, searchParams)
 
     const requestedType = searchParams.get('type') || 'all'
     const forceRefresh = searchParams.get('refresh') === '1'
@@ -52,6 +55,9 @@ export async function GET(request: NextRequest) {
     if (!forceRefresh && !similarToId && !isServiceCall) {
       const memHit = memCacheGet(userId, locale)
       if (memHit) {
+        if (includeAlternateLocaleAssets) {
+          after(() => persistLocaleAssetsForUserMasterPool({ supabase, userId, locale, includeAlternateLocale: true }).catch(() => undefined))
+        }
         const canonicalRecs = requestedType === 'all'
           ? memHit.data
           : { [requestedType]: memHit.data[requestedType] || [] }
@@ -152,6 +158,8 @@ export async function GET(request: NextRequest) {
       recruitmentDiagnostics,
       collectionHash,
       totalCollectionSize,
+      locale,
+      includeAlternateLocaleAssets,
     })
 
     const backgroundRegenTypes = await queueBackgroundMasterRegen({
@@ -168,6 +176,8 @@ export async function GET(request: NextRequest) {
       recruitmentDiagnostics,
       collectionHash,
       totalCollectionSize,
+      locale,
+      includeAlternateLocaleAssets,
     })
 
     const {

@@ -1,8 +1,7 @@
 'use client'
 // src/context/AuthContext.tsx
-// PERF FIX: un solo getUser() + onAuthStateChange per tutta l'app.
-// Tutti i componenti che prima chiamavano supabase.auth.getUser() individualmente
-// leggono ora questo context → zero round-trip duplicati.
+// PERF: sblocca la UI con getSession() locale, poi verifica getUser() in background.
+// getUser() fa round-trip a Supabase: non deve tenere fermo il primo render delle tab.
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -10,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 
 interface AuthCtx {
   user: User | null
-  /** true finché il primo getUser() non ha risposto */
+  /** true solo mentre leggiamo la sessione locale iniziale */
   loading: boolean
 }
 
@@ -21,32 +20,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
     let cancelled = false
+    const supabase = createClient()
 
-    // PERF CRITICO: getUser() fa round-trip verso Supabase e bloccava il primo caricamento
-    // di tutte le tab protette. Usiamo subito la sessione locale per sbloccare la UI,
-    // poi verifichiamo l'utente in background. Le API/server restano comunque protette.
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function init() {
+      // 1) Fast path: sessione da storage/cookie locale. È ciò che serve alla UI.
+      const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any))
       if (cancelled) return
-      setUser(session?.user ?? null)
+      setUser(sessionData.session?.user ?? null)
       setLoading(false)
 
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (cancelled) return
-        setUser(user)
-      }).catch(() => {
-        if (cancelled) return
-        setUser(null)
-      })
-    }).catch(() => {
-      if (cancelled) return
-      setUser(null)
-      setLoading(false)
-    })
+      // 2) Verifica remota non bloccante: se la sessione non è più valida, corregge dopo.
+      supabase.auth.getUser()
+        .then(({ data }) => {
+          if (!cancelled) setUser(data.user ?? null)
+        })
+        .catch(() => {
+          if (!cancelled) setUser(null)
+        })
+    }
 
-    // Listener singolo per cambi di sessione (login/logout)
+    init()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return
       setUser(session?.user ?? null)
       setLoading(false)
     })
@@ -68,7 +65,6 @@ export function useAuth(): AuthCtx {
   return useContext(AuthContext)
 }
 
-/** Shorthand — restituisce solo lo user (il caso più comune) */
 export function useUser(): User | null {
   return useContext(AuthContext).user
 }

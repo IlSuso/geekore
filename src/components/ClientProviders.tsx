@@ -1,18 +1,22 @@
 'use client'
 // src/components/ClientProviders.tsx
 
+import dynamic from 'next/dynamic'
 import { LocaleProvider } from '@/lib/locale'
 import { ThemeProvider } from '@/lib/theme'
 import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar'
 import { SyncStatusListener } from '@/components/ui/SyncToast'
 import { useEffect, useRef } from 'react'
-import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
-import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
-import { UserPresenceTracker } from '@/components/UserPresenceTracker'
+
+// PERF: componenti globali non critici fuori dal bundle iniziale.
+// Si caricano dopo l'idratazione, senza competere con il primo render della tab.
+const PWAInstallBanner = dynamic(() => import('@/components/PWAInstallBanner').then(m => m.PWAInstallBanner), { ssr: false })
+const PushNotificationsBanner = dynamic(() => import('@/components/notifications/PushNotificationsBanner').then(m => m.PushNotificationsBanner), { ssr: false })
+const UserPresenceTracker = dynamic(() => import('@/components/UserPresenceTracker').then(m => m.UserPresenceTracker), { ssr: false })
 
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
 

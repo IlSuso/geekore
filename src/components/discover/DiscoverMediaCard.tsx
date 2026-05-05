@@ -74,6 +74,7 @@ export function DiscoverMediaCard({
           completed={added}
           fallback={placeholderIcon || <Film size={28} />}
           className="transition-transform duration-300 group-hover:scale-[1.015]"
+          loading="eager"
         />
 
         {(added || wishlisted) && (

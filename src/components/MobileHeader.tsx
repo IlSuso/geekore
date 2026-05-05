@@ -7,6 +7,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import {
   Bell, Settings, Edit3, ChevronLeft,
   Search, Sparkles, TrendingUp, Users, Shuffle,
@@ -17,9 +18,11 @@ import { appCopy } from '@/lib/i18n/appCopy'
 import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
-import { MobileNotificationsDrawer } from '@/components/feed/MobileNotificationsDrawer'
 import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
+
+// PERF: il drawer notifiche non deve stare nel bundle dell'header iniziale.
+const MobileNotificationsDrawer = dynamic(() => import('@/components/feed/MobileNotificationsDrawer').then(m => m.MobileNotificationsDrawer), { ssr: false })
 
 const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
 
@@ -58,6 +61,63 @@ interface MobileHeaderProps {
 
 const KEEP_ALIVE_MOBILE_HEADER_ROUTES = new Set(['/home', '/for-you', '/swipe', '/discover', '/friends'])
 
+
+type HeaderProfileCache = {
+  userId: string
+  username: string | null
+  displayName: string | null
+  avatarUrl: string | null
+  unread: boolean
+  ts: number
+}
+
+let mobileHeaderProfileCache: HeaderProfileCache | null = null
+let mobileHeaderProfilePromise: Promise<HeaderProfileCache | null> | null = null
+
+async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache | null> {
+  if (mobileHeaderProfileCache?.userId === userId) return mobileHeaderProfileCache
+  if (mobileHeaderProfilePromise) return mobileHeaderProfilePromise
+
+  mobileHeaderProfilePromise = (async () => {
+    const supabase = createClient()
+    // Profilo subito; notifiche leggermente dopo. Così avatar/header non aspettano il count.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username, display_name, avatar_url')
+      .eq('id', userId)
+      .single()
+      .catch(() => ({ data: null } as any))
+
+    const base: HeaderProfileCache = {
+      userId,
+      username: profile?.username || null,
+      displayName: profile?.display_name || null,
+      avatarUrl: profile?.avatar_url || null,
+      unread: false,
+      ts: Date.now(),
+    }
+    mobileHeaderProfileCache = base
+
+    window.setTimeout(() => {
+      supabase.from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', userId)
+        .eq('is_read', false)
+        .then(({ count }) => {
+          if (mobileHeaderProfileCache?.userId === userId) {
+            mobileHeaderProfileCache = { ...mobileHeaderProfileCache, unread: !!count && count > 0, ts: Date.now() }
+            window.dispatchEvent(new CustomEvent('geekore:mobile-header-cache', { detail: mobileHeaderProfileCache }))
+          }
+        })
+        .catch(() => null)
+    }, 900)
+
+    return base
+  })().finally(() => { mobileHeaderProfilePromise = null })
+
+  return mobileHeaderProfilePromise
+}
+
 export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: MobileHeaderProps = {}) {
   const realPathname = usePathname()
   const pathname = pathnameOverride ?? realPathname
@@ -75,20 +135,26 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
   useEffect(() => {
     setMounted(true)
     if (!authUser) return
-    const supabase = createClient()
-    supabase.from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('receiver_id', authUser.id).eq('is_read', false)
-      .then(({ count }) => { if (count && count > 0) setUnread(true) })
 
-    supabase.from('profiles').select('username, display_name, avatar_url').eq('id', authUser.id).single()
-      .then(({ data }) => {
-        if (!data) return
-        setUsername(data.username || null)
-        setDisplayName(data.display_name || null)
-        setAvatarUrl(data.avatar_url || null)
-      })
-  }, [authUser, pathname]) // eslint-disable-line
+    let cancelled = false
+    const apply = (data: HeaderProfileCache | null) => {
+      if (cancelled || !data || data.userId !== authUser.id) return
+      setUsername(data.username)
+      setDisplayName(data.displayName)
+      setAvatarUrl(data.avatarUrl)
+      setUnread(data.unread)
+    }
+
+    apply(mobileHeaderProfileCache?.userId === authUser.id ? mobileHeaderProfileCache : null)
+    loadMobileHeaderData(authUser.id).then(apply).catch(() => null)
+
+    const onCache = (event: Event) => apply((event as CustomEvent).detail as HeaderProfileCache | null)
+    window.addEventListener('geekore:mobile-header-cache', onCache)
+    return () => {
+      cancelled = true
+      window.removeEventListener('geekore:mobile-header-cache', onCache)
+    }
+  }, [authUser?.id]) // eslint-disable-line
 
   if (pathname === '/' || AUTH_PATHS.some(p => pathname.startsWith(p))) return null
 

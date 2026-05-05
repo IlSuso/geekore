@@ -111,6 +111,21 @@ export function mediaLocaleKeyFor(item: MediaLike): string | null {
   return slug ? `${type}:title:${slug}` : null
 }
 
+
+function hasUsefulBoardgameDetails(item: MediaLike): boolean {
+  const details = item.details && typeof item.details === 'object' ? item.details : {}
+  const bgg = item.bgg || details.bgg || item.achievement_data?.bgg || {}
+  const arrays = [item.mechanics, details.mechanics, bgg.mechanics, item.designers, details.designers, bgg.designers]
+  const hasArray = arrays.some(value => Array.isArray(value) && value.length > 0)
+  const hasNumber = [
+    item.min_players, details.min_players, bgg.min_players,
+    item.max_players, details.max_players, bgg.max_players,
+    item.playing_time, details.playing_time, bgg.playing_time,
+    item.complexity, details.complexity, bgg.complexity,
+  ].some(value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)))
+  return hasArray || hasNumber
+}
+
 export function mediaLocaleItemIsComplete(item: MediaLike, locale: Locale, mode: 'basic' | 'full' = 'basic'): boolean {
   const cached = item.__locale_cache_hit === true
   const title = cached ? fallbackTitle(item, locale) : strictTitle(item, locale)
@@ -119,6 +134,14 @@ export function mediaLocaleItemIsComplete(item: MediaLike, locale: Locale, mode:
   if (mode === 'full') {
     const description = cached ? fallbackDescription(item, locale) : strictDescription(item, locale)
     if (!description && !item.__locale_description_missing) return false
+
+    // Il drawer non ha bisogno solo di descrizione: per i boardgame deve
+    // ricevere anche i dettagli BGG. Vecchie righe di media_locale_assets
+    // potevano avere title/cover/description ma details vuoto; in quel caso
+    // NON sono complete e il backend deve rifare fetch BGG.
+    if (normalizeType(item.type || item.media_type || item.source) === 'boardgame' && !hasUsefulBoardgameDetails(item)) {
+      return false
+    }
   }
   return true
 }

@@ -24,7 +24,12 @@ export async function handlePoolOnlyFastPath({
 
   const served = await serveFromSavedPool(supabase, userId)
   if (served) {
-    return NextResponse.json(await localizeRecommendationPayload(served.payload, locale), {
+    return NextResponse.json(await localizeRecommendationPayload(served.payload, locale, {
+      // source=pool deve essere un fast path puro: legge il pool già preparato
+      // e NON deve riaprire TMDB/AniList/BGG per ufficializzare titoli/cover.
+      maxSyncTitles: 0,
+      maxSyncTranslations: 0,
+    }), {
       headers: { 'X-Cache': served.cacheHeader || 'POOL_HIT' },
     })
   }
@@ -83,5 +88,8 @@ export async function handleRefreshPoolFastPath({
     }
   }
 
-  return NextResponse.json(await localizeRecommendationPayload(payload, locale))
+  return NextResponse.json(await localizeRecommendationPayload(payload, locale, {
+    maxSyncTitles: 0,
+    maxSyncTranslations: 0,
+  }))
 }

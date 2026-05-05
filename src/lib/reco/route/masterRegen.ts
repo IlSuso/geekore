@@ -8,6 +8,8 @@ import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
 import { mergeStableMasterPool } from '@/lib/reco/recruitment/merge'
 import { generateMasterPoolForType, type MasterGeneratorContext } from '@/lib/reco/recruitment/master-generator'
 import type { SupabaseClient } from './context'
+import type { Locale } from '@/lib/i18n/serverLocale'
+import { persistLocaleAssetsForRecommendationItems } from '@/lib/i18n/masterPoolLocaleAssets'
 
 type RegenBaseArgs = {
   supabase: SupabaseClient
@@ -22,6 +24,8 @@ type RegenBaseArgs = {
   recruitmentDiagnostics: Record<string, any>
   collectionHash: string
   totalCollectionSize: number
+  locale: Locale
+  includeAlternateLocaleAssets?: boolean
 }
 
 function groupContinuityByType(continuityRecs: Recommendation[]) {
@@ -32,46 +36,6 @@ function groupContinuityByType(continuityRecs: Recommendation[]) {
     continuityByType.set(contRec.type, arr)
   }
   return continuityByType
-}
-
-async function translateMasterUpsertsInBackground({
-  supabase,
-  userId,
-  masterUpserts,
-}: {
-  supabase: SupabaseClient
-  userId: string
-  masterUpserts: any[]
-}) {
-  after(async () => {
-    try {
-      const { translateWithCache } = await import('@/lib/deepl')
-      for (const upsert of masterUpserts) {
-        const items = (upsert.data as Recommendation[])
-          .filter((r: Recommendation) => r.description)
-          .map((r: Recommendation) => ({ id: r.id, text: r.description! }))
-        if (items.length === 0) continue
-
-        const translated = await translateWithCache(items, 'IT')
-        let changed = false
-        for (const r of upsert.data as Recommendation[]) {
-          if (r.description && translated[r.id]) {
-            r.description = translated[r.id]
-            changed = true
-          }
-        }
-
-        if (changed) {
-          await supabase.from('master_recommendations_pool').update({
-            data: upsert.data,
-            generated_at: upsert.generated_at,
-          }).eq('user_id', userId).eq('media_type', upsert.media_type)
-        }
-      }
-    } catch {
-      // traduzione fallita — descrizioni restano in inglese
-    }
-  })
 }
 
 export async function regenerateMasterPoolSync({
@@ -88,6 +52,8 @@ export async function regenerateMasterPoolSync({
   recruitmentDiagnostics,
   collectionHash,
   totalCollectionSize,
+  locale,
+  includeAlternateLocaleAssets = false,
 }: RegenBaseArgs & {
   typesNeedingMasterRegen: MediaType[]
 }) {
@@ -191,8 +157,22 @@ export async function regenerateMasterPoolSync({
     rows: upsertData?.map(r => `${r.media_type}:${r.collection_size}`),
   })
 
-  await translateMasterUpsertsInBackground({ supabase, userId, masterUpserts })
+
+  const generatedItems = masterUpserts.flatMap(upsert => Array.isArray(upsert.data) ? upsert.data : [])
+  await persistLocaleAssetsForRecommendationItems(generatedItems, locale, {
+    maxSyncTranslations: generatedItems.length,
+    maxSyncTitles: Math.min(generatedItems.length, 240),
+  }).catch(error => logger.warn('RECO', 'active locale asset import failed', { locale, error: String(error) }))
+
+  if (includeAlternateLocaleAssets) {
+    const alternate = locale === 'it' ? 'en' : 'it'
+    await persistLocaleAssetsForRecommendationItems(generatedItems, alternate, {
+      maxSyncTranslations: generatedItems.length,
+      maxSyncTitles: Math.min(generatedItems.length, 240),
+    }).catch(error => logger.warn('RECO', 'alternate locale asset import failed', { locale: alternate, error: String(error) }))
+  }
 }
+
 
 export async function queueBackgroundMasterRegen({
   supabase,
@@ -207,6 +187,8 @@ export async function queueBackgroundMasterRegen({
   rowByType,
   collectionHash,
   totalCollectionSize,
+  locale,
+  includeAlternateLocaleAssets = false,
 }: RegenBaseArgs & {
   typesToRegenBackground: MediaType[]
 }) {
@@ -249,6 +231,18 @@ export async function queueBackgroundMasterRegen({
           collection_size: totalCollectionSize,
           generated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,media_type' })
+
+        await persistLocaleAssetsForRecommendationItems(generated.items, locale, {
+          maxSyncTranslations: generated.items.length,
+          maxSyncTitles: Math.min(generated.items.length, 120),
+        })
+        if (includeAlternateLocaleAssets) {
+          const alternate = locale === 'it' ? 'en' : 'it'
+          await persistLocaleAssetsForRecommendationItems(generated.items, alternate, {
+            maxSyncTranslations: generated.items.length,
+            maxSyncTitles: Math.min(generated.items.length, 120),
+          })
+        }
       } catch {
         // ignora errori singoli tipi: non blocca gli altri
       } finally {

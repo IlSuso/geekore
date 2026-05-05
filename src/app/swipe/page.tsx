@@ -202,41 +202,6 @@ async function localizeSwipeItems(
   }));
 }
 
-const SWIPE_SESSION_CACHE_TTL = 5 * 60_000;
-
-const swipeSessionCache: {
-  userId: string | null;
-  locale: "it" | "en" | null;
-  ts: number;
-  items: SwipeItem[];
-  addedIds: Set<string>;
-  addedTitles: Set<string>;
-} = {
-  userId: null,
-  locale: null,
-  ts: 0,
-  items: [],
-  addedIds: new Set(),
-  addedTitles: new Set(),
-};
-
-function isSwipeCacheFresh(userId: string | undefined | null, locale: "it" | "en") {
-  return !!userId
-    && swipeSessionCache.userId === userId
-    && swipeSessionCache.locale === locale
-    && swipeSessionCache.items.length > 0
-    && Date.now() - swipeSessionCache.ts < SWIPE_SESSION_CACHE_TTL;
-}
-
-function writeSwipeSessionCache(userId: string, locale: "it" | "en", items: SwipeItem[], addedIds: Set<string>, addedTitles: Set<string>) {
-  swipeSessionCache.userId = userId;
-  swipeSessionCache.locale = locale;
-  swipeSessionCache.ts = Date.now();
-  swipeSessionCache.items = items;
-  swipeSessionCache.addedIds = new Set(addedIds);
-  swipeSessionCache.addedTitles = new Set(addedTitles);
-}
-
 export default function SwipePage() {
   const supabase = createClient();
   const router = useRouter();
@@ -244,13 +209,12 @@ export default function SwipePage() {
   const isTabActive = useTabActive();
   const { user: authUser, loading: authLoading } = useAuth();
   const copy = SWIPE_PAGE_COPY[locale];
-  const hasFreshSwipeCache = isSwipeCacheFresh(authUser?.id, locale);
-  const addedTitlesRef = useRef<Set<string>>(hasFreshSwipeCache ? new Set(swipeSessionCache.addedTitles) : new Set());
-  const addedIdsRef = useRef<Set<string>>(hasFreshSwipeCache ? new Set(swipeSessionCache.addedIds) : new Set());
+  const addedTitlesRef = useRef<Set<string>>(new Set());
+  const addedIdsRef = useRef<Set<string>>(new Set());
   const requestSeqRef = useRef(0);
-  const userIdRef = useRef<string | null>(hasFreshSwipeCache ? authUser?.id || null : null);
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>(hasFreshSwipeCache ? swipeSessionCache.items : []);
-  const [loading, setLoading] = useState(!hasFreshSwipeCache);
+  const userIdRef = useRef<string | null>(null);
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.body.classList.toggle("gk-swipe-route-active", isTabActive);
@@ -273,15 +237,6 @@ export default function SwipePage() {
       }
       const user = authUser;
       userIdRef.current = user.id;
-
-      // Rientro nella Swipe: usa l'ordine già deciso e non rifare queue/recommendations.
-      if (isSwipeCacheFresh(user.id, locale)) {
-        addedTitlesRef.current = new Set(swipeSessionCache.addedTitles);
-        addedIdsRef.current = new Set(swipeSessionCache.addedIds);
-        setInitialItems(swipeSessionCache.items);
-        setLoading(false);
-        return;
-      }
 
       addedTitlesRef.current = new Set();
       addedIdsRef.current = new Set();
@@ -322,37 +277,18 @@ export default function SwipePage() {
 
       const existingItems = existingRows.map((row: any) => rowToSwipeItem(row, locale));
 
-      // Fast path vero: mostra subito quello che è già in Supabase.
-      // Non aspettare recommendations, queue POST o localizzazione full.
+      // Fast path vero: se la queue esiste, Swipe deve solo leggerla e basta.
+      // Niente /api/recommendations, niente /api/media/localize, niente refill al mount.
+      // Il master pool/queue generation è il punto corretto in cui preparare mixing e asset lingua.
       if (existingItems.length > 0) {
         if (requestSeq !== requestSeqRef.current) return;
         setInitialItems(existingItems);
-        writeSwipeSessionCache(user.id, locale, existingItems, addedIdsRef.current, addedTitlesRef.current);
         setLoading(false);
-
-        // Localizzazione basic opportunistica in background, senza bloccare apertura Swipe.
-        localizeSwipeItems(existingItems.slice(0, 40), locale)
-          .then((localized) => {
-            if (requestSeq !== requestSeqRef.current || localized.length === 0) return;
-            setInitialItems((prev) => {
-              const byId = new Map(localized.map((item) => [item.id, item]));
-              const next = prev.map((item) => byId.get(item.id) || item);
-              writeSwipeSessionCache(user.id, locale, next, addedIdsRef.current, addedTitlesRef.current);
-              return next;
-            });
-          })
-          .catch(() => {});
-      }
-
-      const existingDiversity = typeDiversity(existingRows);
-      const allQueueIsDiverseEnough = existingDiversity >= 4;
-
-      // Refill solo in background se la queue è scarsa o poco mista.
-      if (existingRows.length >= 18 && allQueueIsDiverseEnough) {
-        if (requestSeq === requestSeqRef.current) setLoading(false);
         return;
       }
 
+      // Solo se la queue è davvero vuota facciamo bootstrap. Questo è un caso raro
+      // e non deve partire quando esiste già un ordine deciso in Supabase.
       try {
         const res = await fetch(`/api/recommendations?type=all&lang=${locale}`);
         if (res.ok) {
@@ -382,7 +318,7 @@ export default function SwipePage() {
           const newRecs = prioritizeFreshForAll(
             candidateRecs,
             existingRows,
-            allQueueIsDiverseEnough ? Math.max(0, 50 - existingRows.length) : 50,
+            50,
           );
 
           if (newRecs.length > 0) {
@@ -390,7 +326,7 @@ export default function SwipePage() {
             fetch("/api/swipe/queue", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ queue: "all", rows, mirrorByType: true }),
+              body: JSON.stringify({ queue: "all", rows }),
             }).catch(() => null);
           }
 
@@ -430,7 +366,6 @@ export default function SwipePage() {
                 merged.push(item);
               }
             }
-            writeSwipeSessionCache(user.id, locale, merged, addedIdsRef.current, addedTitlesRef.current);
             return merged;
           });
         }
@@ -606,7 +541,7 @@ export default function SwipePage() {
       const allQueueIsDiverseEnough = filter !== "all" || existingDiversity >= 4;
 
       if (existingRows.length >= REFILL_TRIGGER && allQueueIsDiverseEnough) {
-        return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
+        return existingRows.map((row: any) => rowToSwipeItem(row, locale));
       }
 
       try {
@@ -615,7 +550,7 @@ export default function SwipePage() {
           `/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`,
         );
         if (!res.ok)
-          return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
+          return existingRows.map((row: any) => rowToSwipeItem(row, locale));
         const json = await res.json();
 
         let freshRecs: any[] = [];
@@ -670,39 +605,36 @@ export default function SwipePage() {
           }).catch(() => null);
         }
 
-        return localizeSwipeItems(
-          [
-            ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-            ...newRecs.map((r: any) => ({
-              id: r.id,
-              title: r.title,
-              title_original: r.title_original,
-              title_en: r.title_en,
-              title_it: r.title_it,
-              type: r.type as SwipeItem["type"],
-              coverImage: r.coverImage,
-              year: r.year,
-              genres: r.genres || [],
-              score: r.score,
-              description: r.description,
-              description_en: r.description_en,
-              description_it: r.description_it,
-              localized: r.localized,
-              why: r.why,
-              matchScore: r.matchScore || 0,
-              episodes: r.episodes,
-              authors: r.authors,
-              developers: r.developers,
-              platforms: r.platforms,
-              isAwardWinner: r.isAwardWinner,
-              isDiscovery: r.isDiscovery,
-              source: r.source,
-            })),
-          ],
-          locale,
-        );
+        return [
+          ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
+          ...newRecs.map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            title_original: r.title_original,
+            title_en: r.title_en,
+            title_it: r.title_it,
+            type: r.type as SwipeItem["type"],
+            coverImage: r.coverImage,
+            year: r.year,
+            genres: r.genres || [],
+            score: r.score,
+            description: r.description,
+            description_en: r.description_en,
+            description_it: r.description_it,
+            localized: r.localized,
+            why: r.why,
+            matchScore: r.matchScore || 0,
+            episodes: r.episodes,
+            authors: r.authors,
+            developers: r.developers,
+            platforms: r.platforms,
+            isAwardWinner: r.isAwardWinner,
+            isDiscovery: r.isDiscovery,
+            source: r.source,
+          })),
+        ];
       } catch {
-        return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
+        return existingRows.map((row: any) => rowToSwipeItem(row, locale));
       }
     },
     [supabase, locale],

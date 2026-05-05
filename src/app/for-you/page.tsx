@@ -939,6 +939,26 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
 })
 
 // Module-level cache — sopravvive alle navigazioni nella stessa sessione
+const forYouJsonInflight = new Map<string, Promise<any>>()
+
+async function fetchForYouJson(url: string, init?: RequestInit): Promise<any | null> {
+  const key = `${init?.method || 'GET'} ${url} ${init?.cache || ''}`
+  const existing = forYouJsonInflight.get(key)
+  if (existing) return existing
+
+  const promise = fetch(url, { credentials: 'include', ...init })
+    .then(res => res.ok ? res.json() : null)
+    .catch(() => null)
+    .finally(() => {
+      // lascia una micro-finestra anti StrictMode/doppio mount: il secondo effetto
+      // riceve la stessa risposta invece di rifare la rete.
+      setTimeout(() => forYouJsonInflight.delete(key), 1500)
+    })
+
+  forYouJsonInflight.set(key, promise)
+  return promise
+}
+
 const forYouCache: {
   recommendations: Record<string, Recommendation[]> | null
   rails: RecommendationRail[] | null
@@ -1011,24 +1031,38 @@ async function localizeRails(
 
 async function localizeForYouPayload(
   payload: any,
-  _locale: 'it' | 'en',
+  locale: 'it' | 'en',
 ): Promise<{
   recommendations: Record<string, Recommendation[]>
   rails: RecommendationRail[]
 }> {
+  // IMPORTANTISSIMO PER PERFORMANCE:
+  // /api/recommendations?lang=... deve già restituire item nella lingua richiesta.
+  // La pagina Per Te NON deve richiamare /api/media/localize al primo render,
+  // altrimenti ricominciano fetch TMDB/BGG/AniList e si vede il caricamento lungo.
   const incoming = (payload?.recommendations || {}) as Record<string, Recommendation[]>
   const merged: Record<string, Recommendation[]> = {}
 
   for (const [type, items] of Object.entries(incoming)) {
     if (!Array.isArray(items) || items.length === 0) continue
-    merged[type] = items as Recommendation[]
+    merged[type] = items.map((item: any) => ({
+      ...item,
+      coverImage: item.coverImage || item.cover_image,
+      description: item.description,
+    })) as Recommendation[]
   }
 
-  // PERF CRITICO: il backend /api/recommendations riceve già lang=it/en.
-  // Non bloccare il primo render con un secondo POST client-side a /api/media/localize
-  // per decine/centinaia di card. La localizzazione full resta nel drawer, on-demand.
   const rawRails = Array.isArray(payload?.rails) ? payload.rails as RecommendationRail[] : []
-  return { recommendations: merged, rails: rawRails }
+  const rails = rawRails.map(rail => ({
+    ...rail,
+    items: (rail.items || []).map((item: any) => ({
+      ...item,
+      coverImage: item.coverImage || item.cover_image,
+      description: item.description,
+    })),
+  }))
+
+  return { recommendations: merged, rails }
 }
 
 function resetForYouCacheForLocale(locale: 'it' | 'en') {
@@ -1068,7 +1102,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
           matchScore: r.match_score || 0, episodes: r.episodes,
           source: r.source,
         }))
-        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { mode: 'basic' }).catch(() => rawItems)
+        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
         setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         setLoading(false)
         return
@@ -1086,7 +1120,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
             matchScore: r.matchScore || 0, episodes: r.episodes,
             source: r.source,
           }))
-          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { mode: 'basic' }).catch(() => rawItems)
+          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
           setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         }
       } catch { }
@@ -1217,9 +1251,8 @@ export default function ForYouPage() {
   const fetchRecommendations = useCallback(async (force = false) => {
     if (authLoading) return
     if (!authUser) { router.push('/login'); return }
-    const res = await fetch(`/api/recommendations?type=all&lang=${locale}${force ? '&refresh=1' : ''}`)
-    if (!res.ok) return
-    const json = await res.json()
+    const json = await fetchForYouJson(`/api/recommendations?type=all&lang=${locale}${force ? '&refresh=1' : ''}`)
+    if (!json) return
     const { recommendations: incoming, rails: nextRails } = await localizeForYouPayload(json, locale)
     if (nextRails.length > 0) {
       setRails(nextRails)
@@ -1251,10 +1284,8 @@ export default function ForYouPage() {
     try {
       // Fast path: il backend conosce già il pool salvato e può rimandarlo localizzato
       // senza rigenerare consigli né chiamare refresh_pool.
-      const poolRes = await fetch(`/api/recommendations?source=pool&type=all&lang=${nextLocale}`, { cache: 'no-store' })
-      if (poolRes.ok) {
-        const poolJson = await poolRes.json().catch(() => null)
-        if (poolJson?.recommendations && Object.keys(poolJson.recommendations).length > 0) {
+      const poolJson = await fetchForYouJson(`/api/recommendations?source=pool&type=all&lang=${nextLocale}`, { cache: 'no-store' })
+      if (poolJson?.recommendations && Object.keys(poolJson.recommendations).length > 0) {
           const localized = await localizeForYouPayload(poolJson, nextLocale)
           const nextRecs = localized.recommendations
           const nextRails = localized.rails.length > 0 ? localized.rails : await localizeRails(currentRails || [], nextLocale)
@@ -1269,7 +1300,6 @@ export default function ForYouPage() {
           window.dispatchEvent(new CustomEvent('geekore:media-localized', { detail: { locale: nextLocale, target: 'for-you' } }))
           return
         }
-      }
     } catch {}
 
     // Fallback: rilocalizza client-side gli oggetti già in memoria.
@@ -1401,10 +1431,8 @@ export default function ForYouPage() {
       fetchFriends(userId)
 
       // 1. Pool persistente (fast path ~50ms)
-      const poolRes = await fetch(`/api/recommendations?source=pool&type=all&lang=${locale}`, { cache: 'no-store' })
-      if (poolRes.ok) {
-        const poolJson = await poolRes.json()
-        if ((poolJson.source === 'pool' || poolJson.source === 'pool_master_sample') && poolJson.recommendations) {
+      const poolJson = await fetchForYouJson(`/api/recommendations?source=pool&type=all&lang=${locale}`, { cache: 'no-store' })
+      if ((poolJson?.source === 'pool' || poolJson?.source === 'pool_master_sample') && poolJson.recommendations) {
           const { recommendations: recs, rails: nextRails } = await localizeForYouPayload(poolJson, locale)
           setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
           setRails(nextRails)
@@ -1416,13 +1444,11 @@ export default function ForYouPage() {
           if (lastVisit && now - parseInt(lastVisit || '') > 4 * 3600000) setShowNewRecsBadge(true)
           localStorage.setItem('for_you_last_visit', String(now))
           return
-        }
       }
 
       // 2. Pool vuota → calcola tutto
-      const recsRes = await fetch(`/api/recommendations?type=all&lang=${locale}`)
-      if (recsRes.ok) {
-        const json = await recsRes.json()
+      const json = await fetchForYouJson(`/api/recommendations?type=all&lang=${locale}`)
+      if (json) {
         const { recommendations: merged, rails: nextRails } = await localizeForYouPayload(json, locale)
         setRecommendations(merged); setTasteProfile(json.tasteProfile || null); setIsCached(!!json.cached)
         setRails(nextRails)
@@ -1468,9 +1494,7 @@ export default function ForYouPage() {
     setShowNewRecsBadge(false)
     const user = authUser
     const [lightJson] = await Promise.all([
-      fetch(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
+      fetchForYouJson(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' }),
       user ? fetchFriends(user.id) : Promise.resolve(),
     ])
 

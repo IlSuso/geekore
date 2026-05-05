@@ -452,11 +452,15 @@ export async function buildLocalizedRecommendationPayload(params: {
   }
 }
 
-export async function localizeRecommendationPayload<T extends PayloadLike>(payload: T, locale: Locale): Promise<T> {
+export async function localizeRecommendationPayload<T extends PayloadLike>(
+  payload: T,
+  locale: Locale,
+  options?: { maxSyncTranslations?: number; maxSyncTitles?: number },
+): Promise<T> {
   const recommendations = payload.recommendations
     ? await localizeRecommendationsRecord(payload.recommendations, locale, {
-      maxSyncTranslations: 0,
-      maxSyncTitles: 18,
+      maxSyncTranslations: options?.maxSyncTranslations ?? 0,
+      maxSyncTitles: options?.maxSyncTitles ?? 18,
     })
     : undefined
 
@@ -464,9 +468,9 @@ export async function localizeRecommendationPayload<T extends PayloadLike>(paylo
     ? flattenRecommendations(recommendations)
     : Array.isArray(payload.items)
       ? (await ensureRecommendationDescriptionsLocale(
-        await ensureOfficialTitlesLocale(payload.items, locale, { maxSync: 18 }),
+        await ensureOfficialTitlesLocale(payload.items, locale, { maxSync: options?.maxSyncTitles ?? 18 }),
         locale,
-        { maxSync: 0 },
+        { maxSync: options?.maxSyncTranslations ?? 0 },
       )).map(item => localizeRecommendationItem(item, locale))
       : payload.items
 

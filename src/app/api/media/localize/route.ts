@@ -811,6 +811,8 @@ export async function POST(request: NextRequest) {
 
   const locale = await getRequestLocale(request)
   const mode: 'basic' | 'full' = body?.mode === 'full' ? 'full' : 'basic'
+  const dualLocaleWindow = request.headers.get('x-geekore-locale-dual') === '1'
+    || request.nextUrl.searchParams.get('dualLocale') === '1'
   const items = Array.isArray(body?.items) ? body.items.slice(0, 100) : []
   if (items.length === 0) return NextResponse.json({ items: [] })
 
@@ -1088,7 +1090,7 @@ export async function POST(request: NextRequest) {
     const genericDescription = clean(item.description)
     const genericLocale = genericDescription ? languageGuess(genericDescription) : null
     const description = descriptionFor(item, locale)
-      || (genericDescription && (!genericLocale || genericLocale === locale) ? genericDescription : undefined)
+      || (genericDescription && genericLocale === locale ? genericDescription : undefined)
 
     return {
       ...item,
@@ -1102,6 +1104,14 @@ export async function POST(request: NextRequest) {
   })
 
   await writeMediaLocaleAssets(localized, locale, mode)
+
+  // Warning zone 24h dopo cambio lingua: non blocchiamo la UI, ma quando nel payload
+  // esistono già asset strict anche della lingua opposta li salviamo in modo sicuro.
+  // Non cancelliamo mai asset globali dell'altra lingua: la cache è condivisa fra utenti.
+  if (dualLocaleWindow) {
+    const siblingLocale: Locale = locale === 'en' ? 'it' : 'en'
+    await writeMediaLocaleAssets(localized, siblingLocale, mode)
+  }
 
   return NextResponse.json({ items: localized })
 }

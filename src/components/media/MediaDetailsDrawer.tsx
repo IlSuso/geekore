@@ -127,9 +127,45 @@ const IOS_DISMISS_THRESHOLD = 80; // px di dx per confermare chiusura
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 
+function decodeHtmlEntities(value: string): string {
+  const named: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+    hellip: "…",
+    rsquo: "’",
+    lsquo: "‘",
+    rdquo: "”",
+    ldquo: "“",
+    ndash: "–",
+    mdash: "—",
+  };
+
+  // Alcune sorgenti, soprattutto BGG, arrivano doppio-encodate:
+  // "&amp;hellip;" deve diventare "…", non restare "&hellip;".
+  let decoded = value;
+  for (let i = 0; i < 3; i += 1) {
+    const next = decoded.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity: string) => {
+      const key = entity.toLowerCase();
+      if (key[0] === "#") {
+        const isHex = key[1] === "x";
+        const code = Number.parseInt(key.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      }
+      return named[key] ?? match;
+    });
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
 function cleanText(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
+  const trimmed = decodeHtmlEntities(value).replace(/\u00a0/g, " ").trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
@@ -157,6 +193,94 @@ function safeGenericDescription(media: MediaDetails, locale: "it" | "en"): strin
   return undefined;
 }
 
+
+
+function asStringArray(value: unknown): string[] {
+  if (!value) return [];
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[;,|]/g)
+      : [];
+
+  const out: string[] = [];
+  for (const item of raw) {
+    const text = typeof item === "string" ? item.trim() : String(item ?? "").trim();
+    if (!text || text === "null" || text === "undefined" || text === "(Uncredited)") continue;
+    if (!out.some(existing => existing.toLowerCase() === text.toLowerCase())) out.push(text);
+  }
+  return out;
+}
+
+function firstArray(...values: unknown[]): string[] {
+  for (const value of values) {
+    const arr = asStringArray(value);
+    if (arr.length > 0) return arr;
+  }
+  return [];
+}
+
+function firstNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const n = typeof value === "number" ? value : Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+
+function normalizeDrawerDetailMedia(base: MediaDetails, original: MediaDetails): MediaDetails {
+  const b: any = base || {};
+  const o: any = original || {};
+  const details = b.details || o.details || {};
+  const bgg = b.bgg || o.bgg || details.bgg || o.achievement_data?.bgg || b.achievement_data?.bgg || {};
+
+  const mechanics = firstArray(
+    b.mechanics,
+    details.mechanics,
+    bgg.mechanics,
+    b.tags,
+    details.tags,
+    o.mechanics,
+    o.tags,
+    o.achievement_data?.mechanics,
+  );
+
+  const designers = firstArray(
+    b.designers,
+    details.designers,
+    bgg.designers,
+    b.authors,
+    details.authors,
+    o.designers,
+    o.authors,
+    o.achievement_data?.designers,
+  );
+
+  const genres = firstArray(b.genres, details.genres, bgg.genres, o.genres);
+
+  return {
+    ...o,
+    ...b,
+    genres: genres.length ? genres : b.genres,
+    mechanics: mechanics.length ? mechanics : b.mechanics,
+    designers: designers.length ? designers : b.designers,
+    authors: firstArray(b.authors, details.authors, o.authors),
+    developers: firstArray(b.developers, details.developers, o.developers),
+    platforms: firstArray(b.platforms, details.platforms, o.platforms),
+    cast: firstArray(b.cast, details.cast, o.cast),
+    watchProviders: firstArray(b.watchProviders, details.watchProviders, o.watchProviders),
+    italianSupportTypes: firstArray(b.italianSupportTypes, details.italianSupportTypes, o.italianSupportTypes),
+    year: firstNumber(b.year, b.release_year, details.year, details.release_year, o.year) as any,
+    score: firstNumber(b.score, b.rating, b.avg_rating, details.score, details.rating, details.avg_rating, bgg.score, o.score) as any,
+    min_players: firstNumber(b.min_players, details.min_players, bgg.min_players, o.min_players),
+    max_players: firstNumber(b.max_players, details.max_players, bgg.max_players, o.max_players),
+    playing_time: firstNumber(b.playing_time, details.playing_time, bgg.playing_time, o.playing_time),
+    complexity: firstNumber(b.complexity, details.complexity, bgg.complexity, o.complexity),
+    pages: firstNumber(b.pages, details.pages, o.pages),
+  } as MediaDetails;
+}
 
 function pickLocalizedField(media: MediaDetails, locale: "it" | "en", field: "title" | "description" | "coverImage"): string | undefined {
   const anyMedia = media as any;
@@ -798,7 +922,7 @@ export function MediaDetailsDrawer({
     coverImage: displayCoverImage,
   } as MediaDetails;
 
-  const detailMedia = displayMedia;
+  const detailMedia = normalizeDrawerDetailMedia(displayMedia, media);
   const Icon = TYPE_ICON[detailMedia.type] || Film;
   const externalUrl = buildExternalUrl(detailMedia);
   const sourceLabel = buildSourceLabel(detailMedia);
@@ -854,7 +978,7 @@ export function MediaDetailsDrawer({
       {/* Backdrop — below MobileHeader (z-99) and Navbar (z-100) */}
       <div
         data-no-swipe="true"
-        className="fixed inset-0 z-[80] bg-black/34 backdrop-blur-[1px]"
+        className="fixed inset-0 z-[119] bg-black/34 backdrop-blur-[1px]"
         onMouseDown={handleClose}
         aria-hidden
       />
@@ -862,8 +986,9 @@ export function MediaDetailsDrawer({
       {/* Drawer — sits behind MobileHeader/Navbar; top/bottom account for their heights */}
       <div
         data-no-swipe="true"
-        className="fixed right-0 z-[80] flex flex-col shadow-[0_0_56px_rgba(0,0,0,0.50)]"
+        className="fixed right-0 z-[120] flex flex-col shadow-[0_0_56px_rgba(0,0,0,0.50)]"
         role="dialog"
+        data-drawer="media-details"
         aria-modal
         aria-label={displayTitle}
         onMouseDown={(event) => event.stopPropagation()}
@@ -941,9 +1066,12 @@ export function MediaDetailsDrawer({
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div
           className="gk-media-details-body flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]"
+          data-scroll-root="media-details"
           data-no-swipe="true"
+          onWheel={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
         >
-          <div className="grid gap-2.5 p-3 md:grid-cols-1">
+          <div className="gk-media-details-content grid gap-2.5 p-3 md:grid-cols-1">
             {/* Generi */}
             {detailMedia.genres && detailMedia.genres.length > 0 && (
               <MediaDetailsSection title={ui.genres} icon={<Hash size={13} />}>
@@ -1167,11 +1295,11 @@ export function MediaDetailsDrawer({
             )}
 
             {/* ── BOARDGAME: Designer ───────────────────────────────── */}
-            {isBoardgame && media.designers && media.designers.length > 0 && (
+            {isBoardgame && detailMedia.designers && detailMedia.designers.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5">Designer</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.designers.map((d) => (
+                  {detailMedia.designers.map((d) => (
                     <span
                       key={d}
                       className="inline-flex rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs font-bold text-[var(--text-secondary)]"
@@ -1184,11 +1312,11 @@ export function MediaDetailsDrawer({
             )}
 
             {/* {ui.developers} (games) */}
-            {media.developers && media.developers.length > 0 && !isManga && (
+            {detailMedia.developers && detailMedia.developers.length > 0 && !isManga && (
               <div>
                 <h3 className="gk-label mb-2.5">{ui.developers}</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.developers.slice(0, 4).map((name) => (
+                  {detailMedia.developers.slice(0, 4).map((name) => (
                     <span
                       key={name}
                       className="inline-flex rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-300"
@@ -1201,11 +1329,11 @@ export function MediaDetailsDrawer({
             )}
 
             {/* Cast */}
-            {media.cast && media.cast.length > 0 && (
+            {detailMedia.cast && detailMedia.cast.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5">Cast</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.cast.map((name) => (
+                  {detailMedia.cast.map((name) => (
                     <span
                       key={name}
                       className="inline-flex rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs font-bold text-[var(--text-secondary)]"
@@ -1218,14 +1346,14 @@ export function MediaDetailsDrawer({
             )}
 
             {/* {ui.platforms} (gaming) */}
-            {media.platforms && media.platforms.length > 0 && (
+            {detailMedia.platforms && detailMedia.platforms.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5 flex items-center gap-1">
                   <Monitor size={10} />
                   {ui.platforms}
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.platforms.slice(0, 8).map((p) => (
+                  {detailMedia.platforms.slice(0, 8).map((p) => (
                     <span
                       key={p}
                       className="inline-flex rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs font-bold text-[var(--text-secondary)]"
@@ -1238,11 +1366,11 @@ export function MediaDetailsDrawer({
             )}
 
             {/* {ui.availableOn} */}
-            {media.watchProviders && media.watchProviders.length > 0 && (
+            {detailMedia.watchProviders && detailMedia.watchProviders.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5">{ui.availableOn}</h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.watchProviders.map((p) => (
+                  {detailMedia.watchProviders.map((p) => (
                     <span
                       key={p}
                       className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-300"
@@ -1258,12 +1386,12 @@ export function MediaDetailsDrawer({
             )}
 
             {/* Supporto italiano */}
-            {media.italianSupportTypes &&
-              media.italianSupportTypes.length > 0 && (
+            {detailMedia.italianSupportTypes &&
+              detailMedia.italianSupportTypes.length > 0 && (
                 <div>
                   <h3 className="gk-label mb-2.5">{ui.italianLanguage}</h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {media.italianSupportTypes.map((t) => (
+                    {detailMedia.italianSupportTypes.map((t) => (
                       <span
                         key={t}
                         className="inline-flex rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-300"
@@ -1338,12 +1466,12 @@ export function MediaDetailsDrawer({
                   </div>
                 </div>
 
-                {(media.type === "tv" || media.type === "anime") &&
+                {(detailMedia.type === "tv" || detailMedia.type === "anime") &&
                   (() => {
                     const maxSeasons =
-                      media.totalSeasons ??
-                      (media.seasons
-                        ? Object.keys(media.seasons).length
+                      detailMedia.totalSeasons ??
+                      (detailMedia.seasons
+                        ? Object.keys(detailMedia.seasons).length
                         : null);
                     return (
                       <div>
@@ -1381,16 +1509,16 @@ export function MediaDetailsDrawer({
                     );
                   })()}
 
-                {media.type !== "movie" &&
+                {detailMedia.type !== "movie" &&
                   !isBoardgame &&
                   (() => {
                     const seasonNum = parseInt(formSeason) || 1;
                     const maxEp =
-                      media.seasons?.[seasonNum]?.episode_count ??
-                      media.episodes ??
+                      detailMedia.seasons?.[seasonNum]?.episode_count ??
+                      detailMedia.episodes ??
                       null;
                     const label =
-                      media.type === "manga" || media.type === "novel"
+                      detailMedia.type === "manga" || detailMedia.type === "novel"
                         ? "Capitolo corrente"
                         : "Episodio corrente";
                     return (
@@ -1434,7 +1562,7 @@ export function MediaDetailsDrawer({
 
         {/* ── FOOTER STICKY ────────────────────────────────────────── */}
         <div
-          className="flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.94)] p-3 backdrop-blur-xl"
+          className="gk-media-details-footer relative z-10 flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.94)] p-3 backdrop-blur-xl"
           data-no-swipe="true"
         >
           {!checkDone ? (

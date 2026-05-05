@@ -53,7 +53,9 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
       <div className="relative z-10 flex items-start gap-3 pr-10">
         <div
           className="gk-poster-first relative h-[112px] w-[75px] flex-shrink-0 overflow-hidden rounded-[14px] bg-[var(--bg-card)] shadow-[0_12px_34px_rgba(0,0,0,0.40)] ring-1 ring-white/12"
-          style={{ boxShadow: `0 12px 34px rgba(0,0,0,0.42), inset 0 -3px 0 ${typeColor}` }}
+          style={{
+            boxShadow: '0 12px 34px rgba(0,0,0,0.42)',
+          }}
         >
           {media.coverImage ? (
             <img
@@ -72,7 +74,17 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
               <span className="sr-only">{fallbackIcon || <Sparkles size={26} />}</span>
             </div>
           )}
-          <span className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: typeColor }} aria-hidden="true" />
+          <svg
+            className="pointer-events-none absolute bottom-0 left-0 right-0 z-30 h-[8px] w-full"
+            viewBox="0 0 100 8"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M0 0 C0 2.4 3.2 4 9 4 H91 C96.8 4 100 2.4 100 0 V8 H0 Z"
+              fill={typeColor}
+            />
+          </svg>
         </div>
 
         <div className="min-w-0 flex-1 pt-0.5">

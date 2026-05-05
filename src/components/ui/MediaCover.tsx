@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 
 interface MediaCoverProps {
@@ -13,7 +13,15 @@ interface MediaCoverProps {
   fallback?: ReactNode
   fallbackSrcs?: string[]
   className?: string
+  loading?: 'lazy' | 'eager'
 }
+
+
+// Cache client-side degli URL già caricati: evita che, tornando su una tab keep-alive
+// o rimontando le card Discover, le cover già presenti tornino grigie aspettando
+// un nuovo evento onLoad. Il modulo resta vivo nella sessione browser.
+const LOADED_COVER_SRCS = new Set<string>()
+const FAILED_COVER_SRCS = new Set<string>()
 
 const TYPE_LABELS: Record<string, string> = {
   anime: 'Anime',
@@ -74,6 +82,7 @@ export function MediaCover({
   fallback,
   fallbackSrcs = [],
   className = '',
+  loading = 'lazy',
 }: MediaCoverProps) {
   const safeProgress = typeof progress === 'number'
     ? Math.max(0, Math.min(100, progress))
@@ -90,17 +99,39 @@ export function MediaCover({
     return uniqueStrings([...direct, ...proxied])
   }, [normalizedSrc, fallbackSrcs.join('|')])
 
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const [candidateIndex, setCandidateIndex] = useState(0)
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
 
+  const candidateSignature = imageCandidates.join('|')
+
   useEffect(() => {
-    setCandidateIndex(0)
-    setLoadedSrc(null)
-  }, [imageCandidates.join('|')])
+    const firstUsable = imageCandidates.find(src => !FAILED_COVER_SRCS.has(src)) || imageCandidates[0] || null
+    const nextIndex = firstUsable ? Math.max(0, imageCandidates.indexOf(firstUsable)) : 0
+    setCandidateIndex(nextIndex)
+    setLoadedSrc(firstUsable && LOADED_COVER_SRCS.has(firstUsable) ? firstUsable : null)
+  }, [candidateSignature])
 
   const activeSrc = imageCandidates[candidateIndex] || null
   const canTryImage = Boolean(activeSrc)
-  const imageReady = Boolean(activeSrc && loadedSrc === activeSrc)
+  const imageReady = Boolean(activeSrc && (loadedSrc === activeSrc || LOADED_COVER_SRCS.has(activeSrc)))
+
+  useEffect(() => {
+    if (!activeSrc) return
+    if (LOADED_COVER_SRCS.has(activeSrc)) {
+      setLoadedSrc(activeSrc)
+      return
+    }
+
+    // In Chromium può capitare che, tornando in una tab keep-alive, l'immagine
+    // sia già completa nella cache browser ma React non riceva un nuovo onLoad.
+    // Senza questo controllo la card resta con placeholder grigio.
+    const img = imgRef.current
+    if (img?.complete && img.naturalWidth > 0) {
+      LOADED_COVER_SRCS.add(activeSrc)
+      setLoadedSrc(activeSrc)
+    }
+  }, [activeSrc])
 
   return (
     <div className={`gk-cover ${className}`}>
@@ -110,15 +141,25 @@ export function MediaCover({
 
       {canTryImage && (
         <img
+          ref={imgRef}
           src={activeSrc || undefined}
           alt={alt}
-          loading="lazy"
+          loading={loading}
           decoding="async"
           className={`absolute inset-0 block h-full w-full object-cover transition-opacity duration-200 ${imageReady ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoadedSrc(activeSrc)}
+          onLoad={() => {
+            if (!activeSrc) return
+            LOADED_COVER_SRCS.add(activeSrc)
+            FAILED_COVER_SRCS.delete(activeSrc)
+            setLoadedSrc(activeSrc)
+          }}
           onError={() => {
+            if (activeSrc) FAILED_COVER_SRCS.add(activeSrc)
             setLoadedSrc(null)
-            setCandidateIndex(index => index + 1)
+            setCandidateIndex(index => {
+              const next = imageCandidates.findIndex((candidate, candidateIdx) => candidateIdx > index && !FAILED_COVER_SRCS.has(candidate))
+              return next >= 0 ? next : index + 1
+            })
           }}
         />
       )}

@@ -168,3 +168,164 @@ div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-descriptio
 .gk-description-scroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(230,255,61,0.86), rgba(230,255,61,0.44));
 }
+
+/* Drawer layout hard fix — hero e footer restano in flow, solo il body scrolla.
+   Questo evita che una descrizione lunga finisca sotto il bottone del footer
+   o che le sezioni sotto la descrizione sembrino sparire. */
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  isolation: isolate !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-hero {
+  flex: 0 0 auto !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-body {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-content {
+  min-height: max-content !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 124px) !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-footer {
+  position: relative !important;
+  inset: auto !important;
+  flex: 0 0 auto !important;
+  z-index: 5 !important;
+  transform: none !important;
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.34) !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-description-full {
+  display: block !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+  touch-action: pan-y !important;
+}
+
+@media (max-width: 767px) {
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] {
+    height: min(90dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px)) !important;
+  }
+
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-footer {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   MEDIA DRAWER — fix reale mobile/scroll
+   Problema verificato: la bottom nav restava sopra/sotto al drawer e rubava
+   spazio al body scrollabile; con descrizioni lunghe sembrava che il drawer
+   finisse dentro il box descrizione. Il drawer deve essere un modal sopra la
+   navbar: hero fisso, body unico scroller, footer in flow, nav nascosta.
+---------------------------------------------------------------------------- */
+body:has(div[role='dialog'][aria-modal='true'][data-drawer='media-details']) .gk-bottom-nav-raised,
+body:has(div[role='dialog'][aria-modal='true'][data-drawer='media-details']) .gk-bottom-nav-bypass,
+body:has(div[role='dialog'][aria-modal='true'][data-drawer='media-details']) nav.mobile-nav,
+body:has(div[role='dialog'][aria-modal='true'][data-drawer='media-details']) .mobile-nav {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body:has(div[role='dialog'][aria-modal='true'][data-drawer='media-details']) {
+  overflow: hidden !important;
+  padding-bottom: 0 !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  z-index: 120 !important;
+  contain: layout paint !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-hero {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  scrollbar-gutter: stable !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-content {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  align-content: start !important;
+  min-height: max-content !important;
+  padding-bottom: 24px !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-footer {
+  position: static !important;
+  flex: 0 0 auto !important;
+  inset: auto !important;
+  transform: none !important;
+  z-index: 2 !important;
+}
+
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-description-full,
+div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-description-full > p {
+  display: block !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+  white-space: pre-line !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+@media (max-width: 767px) {
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] {
+    top: calc(env(safe-area-inset-top, 0px) + 78px) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: auto !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 78px) !important;
+    border-radius: 26px 26px 0 0 !important;
+  }
+
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-body {
+    padding-bottom: 0 !important;
+  }
+
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-content {
+    padding: 12px 10px 22px !important;
+    gap: 10px !important;
+  }
+
+  div[role='dialog'][aria-modal='true'][data-drawer='media-details'] .gk-media-details-footer {
+    padding: 12px 10px calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  }
+}

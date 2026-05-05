@@ -17,12 +17,11 @@ import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 import { useLocale } from '@/lib/locale'
 import { MobileHeader } from '@/components/MobileHeader'
-
-
-// PERF CRITICO: non importare staticamente tutte le tab.
-// Con import statici, entrare in UNA tab costringeva il browser a scaricare/valutare
-// anche Home + For You + Swipe + Discover + Friends. Il keep-alive protegge il remount,
-// ma non il peso del bundle iniziale. Dynamic import = carica solo la pagina montata.
+// PERF: split reale dei bundle delle tab. Prima questi import statici facevano
+// scaricare/valutare Home + For You + Swipe + Discover + Friends già al primo ingresso.
+// Il keep-alive evita remount successivi, ma NON alleggerisce il bundle iniziale se
+// le pagine sono importate staticamente qui. Dynamic import = ogni tab scarica il suo
+// codice solo quando viene montata/visitata o quando parte davvero lo swipe verso di lei.
 const FeedPage = dynamic(() => import('@/app/home/page'), { ssr: false, loading: () => null })
 const DiscoverPage = dynamic(() => import('@/app/discover/page'), { ssr: false, loading: () => null })
 const ForYouPage = dynamic(() => import('@/app/for-you/page'), { ssr: false, loading: () => null })

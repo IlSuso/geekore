@@ -209,6 +209,22 @@ function hasLocaleChecked(row: MediaRow | undefined, locale: Locale): boolean {
   return Boolean(row?.[localeCheckKey(locale)])
 }
 
+
+function hasUsefulBoardgameDetails(row: MediaRow | undefined): boolean {
+  if (!row) return false
+  const details = row.details && typeof row.details === 'object' ? row.details : {}
+  const bgg = row.bgg || details.bgg || row.achievement_data?.bgg || {}
+  const arrays = [row.mechanics, details.mechanics, bgg.mechanics, row.designers, details.designers, bgg.designers]
+  const hasArray = arrays.some(value => Array.isArray(value) && value.length > 0)
+  const hasNumber = [
+    row.min_players, details.min_players, bgg.min_players,
+    row.max_players, details.max_players, bgg.max_players,
+    row.playing_time, details.playing_time, bgg.playing_time,
+    row.complexity, details.complexity, bgg.complexity,
+  ].some(value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)))
+  return hasArray || hasNumber
+}
+
 function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale, mode: 'basic' | 'full'): boolean {
   if (!row) return true
   if (!hasLocaleChecked(row, locale)) return true
@@ -218,6 +234,7 @@ function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale, mode: 
   if (!strictLocalizedTitleFor(row, locale)) return true
   if (!strictLocalizedCoverFor(row, locale)) return true
   if (mode === 'full' && !strictLocalizedDescriptionFor(row, locale)) return true
+  if (mode === 'full' && normalizeType(row.type || row.media_type || row.source) === 'boardgame' && !hasUsefulBoardgameDetails(row)) return true
 
   return false
 }

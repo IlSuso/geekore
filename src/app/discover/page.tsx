@@ -79,58 +79,103 @@ type TrendingItem = {
   source: string
 }
 
-const DISCOVER_TRENDING_CACHE_TTL = 10 * 60_000
-const DISCOVER_USER_CACHE_TTL = 2 * 60_000
 
-type DiscoverTrendingCache = {
-  locale: 'it' | 'en' | null
+
+type DiscoverTrendingSection = 'anime' | 'game' | 'tv' | 'manga' | 'movie' | 'boardgame'
+
+type DiscoverTrendingCacheEntry = {
+  items: TrendingItem[]
   ts: number
-  anime: TrendingItem[]
-  movies: TrendingItem[]
-  tv: TrendingItem[]
-  games: TrendingItem[]
-  boardgames: TrendingItem[]
-  manga: TrendingItem[]
 }
 
-type DiscoverUserCache = {
-  userId: string | null
-  ts: number
-  wishlistIds: string[]
-  alreadyAdded: string[]
+const DISCOVER_TRENDING_SECTIONS: DiscoverTrendingSection[] = ['anime', 'game', 'tv', 'manga', 'movie', 'boardgame']
+const discoverTrendingCache = new Map<string, DiscoverTrendingCacheEntry>()
+const discoverTrendingPromises = new Map<string, Promise<TrendingItem[]>>()
+const DISCOVER_TRENDING_TTL = 10 * 60 * 1000
+
+function normalizeImageValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const url = value.trim()
+  if (!url || url.length < 10) return undefined
+  if (url.includes('N/A') || url.includes('placeholder') || url.includes('no-image')) return undefined
+  if (url.startsWith('//')) return `https:${url}`
+  if (url.startsWith('http://')) return `https://${url.slice('http://'.length)}`
+  return url
 }
 
-const discoverTrendingCache: DiscoverTrendingCache = {
-  locale: null,
-  ts: 0,
-  anime: [],
-  movies: [],
-  tv: [],
-  games: [],
-  boardgames: [],
-  manga: [],
+function normalizeTrendingItem(item: any): TrendingItem | null {
+  if (!item || typeof item !== 'object') return null
+
+  const id = typeof item.id === 'string' && item.id.trim()
+    ? item.id.trim()
+    : typeof item.external_id === 'string' && item.external_id.trim()
+      ? item.external_id.trim()
+      : ''
+
+  const type = typeof item.type === 'string' && item.type.trim() ? item.type.trim() : ''
+  const title =
+    typeof item.title === 'string' && item.title.trim()
+      ? item.title.trim()
+      : typeof item.title_en === 'string' && item.title_en.trim()
+        ? item.title_en.trim()
+        : typeof item.title_it === 'string' && item.title_it.trim()
+          ? item.title_it.trim()
+          : ''
+
+  const cover = bestCover(item)
+    || normalizeImageValue(item.coverImage)
+    || normalizeImageValue(item.cover_image)
+    || normalizeImageValue(item.poster_path)
+    || normalizeImageValue(item.image)
+    || normalizeImageValue(item.thumbnail)
+
+  if (!id || !type || !title) return null
+
+  return {
+    ...item,
+    id,
+    external_id: item.external_id || id,
+    title,
+    type,
+    coverImage: cover,
+    cover_image: cover || item.cover_image,
+  } as TrendingItem
 }
 
-const discoverUserCache: DiscoverUserCache = {
-  userId: null,
-  ts: 0,
-  wishlistIds: [],
-  alreadyAdded: [],
+function normalizeTrendingList(value: any): TrendingItem[] {
+  const raw = Array.isArray(value)
+    ? value
+    : Array.isArray(value?.items)
+      ? value.items
+      : Array.isArray(value?.results)
+        ? value.results
+        : []
+
+  const seen = new Set<string>()
+  const out: TrendingItem[] = []
+  for (const entry of raw) {
+    const item = normalizeTrendingItem(entry)
+    if (!item || seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(item)
+  }
+  return out
 }
 
-function isFresh(ts: number, ttl: number) {
-  return ts > 0 && Date.now() - ts < ttl
-}
-
-function hydrateDiscoverTrendingCache(data: any, locale: 'it' | 'en') {
-  discoverTrendingCache.locale = locale
-  discoverTrendingCache.ts = Date.now()
-  discoverTrendingCache.anime = Array.isArray(data?.anime) ? data.anime : []
-  discoverTrendingCache.movies = Array.isArray(data?.movie) ? data.movie : []
-  discoverTrendingCache.tv = Array.isArray(data?.tv) ? data.tv : []
-  discoverTrendingCache.games = Array.isArray(data?.game) ? data.game : []
-  discoverTrendingCache.boardgames = Array.isArray(data?.boardgame) ? data.boardgame : []
-  discoverTrendingCache.manga = Array.isArray(data?.manga) ? data.manga : []
+function applyTrendingSection(section: DiscoverTrendingSection, items: TrendingItem[], setters: {
+  setTrendingAnime: (items: TrendingItem[]) => void
+  setTrendingMovies: (items: TrendingItem[]) => void
+  setTrendingTV: (items: TrendingItem[]) => void
+  setTrendingGames: (items: TrendingItem[]) => void
+  setTrendingBoardgames: (items: TrendingItem[]) => void
+  setTrendingManga: (items: TrendingItem[]) => void
+}) {
+  if (section === 'anime') setters.setTrendingAnime(items)
+  else if (section === 'movie') setters.setTrendingMovies(items)
+  else if (section === 'tv') setters.setTrendingTV(items)
+  else if (section === 'game') setters.setTrendingGames(items)
+  else if (section === 'boardgame') setters.setTrendingBoardgames(items)
+  else if (section === 'manga') setters.setTrendingManga(items)
 }
 
 const DEBOUNCE_MS = 350
@@ -304,8 +349,8 @@ function toDrawerMediaFromTrending(item: TrendingItem): MediaDetails {
     external_id: item.external_id || item.id,
     title: item.title,
     type: item.type,
-    coverImage: item.coverImage || item.cover_image,
-    cover_image: item.cover_image || item.coverImage,
+    coverImage: bestCover(item) || item.coverImage || item.cover_image,
+    cover_image: bestCover(item) || item.cover_image || item.coverImage,
     year: item.year,
     genres: item.genres,
     source: item.source as any,
@@ -394,18 +439,15 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const hasFreshUserCache = !!authUser?.id && discoverUserCache.userId === authUser.id && isFresh(discoverUserCache.ts, DISCOVER_USER_CACHE_TTL)
-  const hasFreshTrendingCache = discoverTrendingCache.locale === locale && isFresh(discoverTrendingCache.ts, DISCOVER_TRENDING_CACHE_TTL)
-
-  const [alreadyAdded, setAlreadyAdded] = useState<string[]>(hasFreshUserCache ? discoverUserCache.alreadyAdded : [])
-  const [wishlistIds, setWishlistIds] = useState<string[]>(hasFreshUserCache ? discoverUserCache.wishlistIds : [])
+  const [alreadyAdded, setAlreadyAdded] = useState<string[]>([])
+  const [wishlistIds, setWishlistIds] = useState<string[]>([])
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
-  const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.anime : [])
-  const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.movies : [])
-  const [trendingTV, setTrendingTV] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.tv : [])
-  const [trendingGames, setTrendingGames] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.games : [])
-  const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.boardgames : [])
-  const [trendingManga, setTrendingManga] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.manga : [])
+  const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>([])
+  const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>([])
+  const [trendingTV, setTrendingTV] = useState<TrendingItem[]>([])
+  const [trendingGames, setTrendingGames] = useState<TrendingItem[]>([])
+  const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>([])
+  const [trendingManga, setTrendingManga] = useState<TrendingItem[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -432,78 +474,55 @@ export default function DiscoverPage() {
   }, [urlQuery, urlType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    // PERF: Discover è una delle API più costose perché chiama tutte le sezioni trending.
-    // Se rientri nella tab e abbiamo già i dati freschi, non rifacciamo la fetch.
-    if (!isActive) return
-
-    if (discoverTrendingCache.locale === locale && isFresh(discoverTrendingCache.ts, DISCOVER_TRENDING_CACHE_TTL)) {
-      setTrendingAnime(discoverTrendingCache.anime)
-      setTrendingMovies(discoverTrendingCache.movies)
-      setTrendingTV(discoverTrendingCache.tv)
-      setTrendingGames(discoverTrendingCache.games)
-      setTrendingBoardgames(discoverTrendingCache.boardgames)
-      setTrendingManga(discoverTrendingCache.manga)
-      return
-    }
+    // Non usare /api/trending?section=all nel primo render: se una sorgente lenta
+    // resta appesa, blocca anche sezioni già pronte. Ogni sezione viene caricata e
+    // renderizzata appena risponde, con cache per lingua+sezione.
+    const shouldLoadTrending = isActive || pathname === '/discover'
+    if (!shouldLoadTrending) return
 
     let cancelled = false
-    const controller = new AbortController()
+    const setters = { setTrendingAnime, setTrendingMovies, setTrendingTV, setTrendingGames, setTrendingBoardgames, setTrendingManga }
 
-    fetch(`/api/trending?section=all&lang=${locale}`, { signal: controller.signal })
-      .then(r => r.ok ? r.json() : null)
-      .then((data) => {
-        if (cancelled || !data) return
-        hydrateDiscoverTrendingCache(data, locale)
-        setTrendingAnime(discoverTrendingCache.anime)
-        setTrendingMovies(discoverTrendingCache.movies)
-        setTrendingTV(discoverTrendingCache.tv)
-        setTrendingGames(discoverTrendingCache.games)
-        setTrendingBoardgames(discoverTrendingCache.boardgames)
-        setTrendingManga(discoverTrendingCache.manga)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setTrendingAnime([])
-        setTrendingMovies([])
-        setTrendingTV([])
-        setTrendingGames([])
-        setTrendingBoardgames([])
-        setTrendingManga([])
-      })
+    for (const section of DISCOVER_TRENDING_SECTIONS) {
+      const cacheKey = `${locale}:${section}`
+      const cached = discoverTrendingCache.get(cacheKey)
+      if (cached && Date.now() - cached.ts < DISCOVER_TRENDING_TTL) {
+        applyTrendingSection(section, cached.items, setters)
+        continue
+      }
+
+      const existing = discoverTrendingPromises.get(cacheKey)
+      const promise = existing || fetch(`/api/trending?section=${section}&lang=${locale}`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => normalizeTrendingList(data))
+        .finally(() => { discoverTrendingPromises.delete(cacheKey) })
+
+      if (!existing) discoverTrendingPromises.set(cacheKey, promise)
+
+      promise
+        .then((items) => {
+          if (cancelled) return
+          discoverTrendingCache.set(cacheKey, { items, ts: Date.now() })
+          applyTrendingSection(section, items, setters)
+        })
+        .catch(() => {
+          if (cancelled) return
+          applyTrendingSection(section, [], setters)
+        })
+    }
 
     return () => {
       cancelled = true
-      controller.abort()
     }
-  }, [locale, isActive])
+  }, [locale, isActive, pathname])
 
   useEffect(() => {
     if (!isActive || !authUser) return
-
-    if (discoverUserCache.userId === authUser.id && isFresh(discoverUserCache.ts, DISCOVER_USER_CACHE_TTL)) {
-      setWishlistIds(discoverUserCache.wishlistIds)
-      setAlreadyAdded(discoverUserCache.alreadyAdded)
-      return
-    }
-
-    let cancelled = false
-    Promise.all([
-      supabase.from('wishlist').select('external_id').eq('user_id', authUser.id),
-      supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id),
-    ]).then(([{ data: wish }, { data: entries }]) => {
-      if (cancelled) return
-      const nextWish = (wish || []).map((w: any) => w.external_id).filter(Boolean)
-      const nextAdded = (entries || []).map((e: any) => e.external_id).filter(Boolean)
-      discoverUserCache.userId = authUser.id
-      discoverUserCache.ts = Date.now()
-      discoverUserCache.wishlistIds = nextWish
-      discoverUserCache.alreadyAdded = nextAdded
-      setWishlistIds(nextWish)
-      setAlreadyAdded(nextAdded)
-    }).catch(() => {})
-
-    return () => { cancelled = true }
-  }, [authUser?.id, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
+    supabase.from('wishlist').select('external_id').eq('user_id', authUser.id)
+      .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)) })
+    supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id)
+      .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)) })
+  }, [authUser, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const search = useCallback(async (term: string, type: string, lang: string) => {
@@ -792,7 +811,7 @@ export default function DiscoverPage() {
                     }}
                     className="group relative min-h-[310px] overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.22)] bg-[var(--bg-card)] text-left shadow-[0_20px_70px_rgba(0,0,0,0.26)] ring-1 ring-white/5"
                   >
-                    {trendingToday[0]?.coverImage ? <img src={trendingToday[0].coverImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50 transition-transform duration-500 group-hover:scale-105" /> : null}
+                    {bestCover(trendingToday[0]) ? <img src={optimizeCover(bestCover(trendingToday[0]), 'discover-card')} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50 transition-transform duration-500 group-hover:scale-105" /> : null}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/62 to-black/5" />
                     <div className="relative z-10 flex min-h-[310px] flex-col justify-end p-5">
                       <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.12)] px-3 py-1 text-[11px] font-black uppercase tracking-[0.1em] text-[var(--accent)]"><Flame size={12} /> {d.trendLeader}</span>
@@ -807,7 +826,7 @@ export default function DiscoverPage() {
                         key={item.id}
                         title={item.title}
                         type={item.type}
-                        coverImage={item.coverImage}
+                        coverImage={optimizeCover(bestCover(item), 'discover-card') || undefined}
                         year={item.year}
                         score={item.score}
                         placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}
@@ -837,7 +856,7 @@ export default function DiscoverPage() {
                           key={item.id}
                           title={item.title}
                           type={item.type}
-                          coverImage={item.coverImage}
+                          coverImage={optimizeCover(bestCover(item), 'discover-card') || undefined}
                           year={item.year}
                           score={item.score}
                           placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}

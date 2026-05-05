@@ -163,6 +163,31 @@ function writeLocaleEverywhere(locale: Locale) {
   }
 }
 
+const LOCALE_WARNING_ZONE_MS = 24 * 60 * 60 * 1000
+
+function markLocaleWarningZone(previousLocale: Locale, nextLocale: Locale) {
+  if (typeof window === 'undefined') return
+  const until = Date.now() + LOCALE_WARNING_ZONE_MS
+  try {
+    window.localStorage.setItem('geekore_locale_warning_until', String(until))
+    window.localStorage.setItem('geekore_locale_previous', previousLocale)
+  } catch {}
+  if (typeof document !== 'undefined') {
+    document.cookie = `geekore_locale_warning_until=${until}; path=/; max-age=86400; samesite=lax`
+    document.cookie = `geekore_locale_previous=${previousLocale}; path=/; max-age=86400; samesite=lax`
+  }
+}
+
+function localeWarningZoneActive(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const until = Number(window.localStorage.getItem('geekore_locale_warning_until') || '0')
+    return Number.isFinite(until) && until > Date.now()
+  } catch {
+    return false
+  }
+}
+
 function isLocaleSensitiveUrl(url: URL): boolean {
   const path = url.pathname
   return path.startsWith('/api/tmdb') || path.startsWith('/api/anilist') || path.startsWith('/api/igdb') || path.startsWith('/api/bgg') || path.startsWith('/api/recommendations') || path.startsWith('/api/swipe/queue') || path.startsWith('/api/media/localize') || path.startsWith('/api/trending') || path.startsWith('/api/news') || path.startsWith('/api/translate/description')
@@ -186,6 +211,10 @@ function installLocaleFetchBridge(getLocale: () => Locale) {
         const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined))
         headers.set('x-lang', locale)
         headers.set('x-geekore-locale', locale)
+        if (localeWarningZoneActive()) {
+          headers.set('x-geekore-locale-dual', '1')
+          headers.set('x-geekore-warning-zone', '1')
+        }
         const nextInit = { ...(init || {}), headers }
         if (typeof input === 'string') {
           const nextUrl = rawUrl.startsWith('http') ? url.toString() : `${url.pathname}${url.search}${url.hash}`
@@ -201,29 +230,22 @@ function installLocaleFetchBridge(getLocale: () => Locale) {
   return () => {}
 }
 
-async function safeWarmFetch(url: string, locale: Locale) {
-  try {
-    await fetch(url, {
-      method: 'GET', credentials: 'include', cache: 'no-store', keepalive: true,
-      headers: { 'x-lang': locale, 'x-geekore-locale': locale, 'x-geekore-prewarm': 'locale-switch' },
-    }).catch(() => null)
-  } catch {}
-}
 
-function prewarmForYouAndSwipeForLocale(locale: Locale) {
-  if (typeof window === 'undefined') return
-  const run = async () => {
-    try {
-      await safeWarmFetch(`/api/recommendations?source=pool&type=all&prewarm=1&lang=${locale}`, locale)
-      for (const queue of ['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
-        await safeWarmFetch(`/api/swipe/queue?queue=${queue}&type=${queue}&limit=40&prewarm=1&lang=${locale}`, locale)
-      }
-      window.dispatchEvent(new CustomEvent('geekore:locale-prewarm-complete', { detail: { locale, targets: ['for-you', 'swipe'] } }))
-    } catch {}
-  }
-  const w = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 1500 })
-  else globalThis.setTimeout(run, 250)
+function triggerLocaleAssetBackfill(locale: Locale) {
+  // Il cambio lingua non deve più lanciare recommendations + tutte le swipe queue.
+  // La rotta /api/user/locale aggiorna il profilo e fa backfill degli asset del master pool
+  // in warning zone, senza montare/caricare pagine inutili.
+  fetch('/api/user/locale', {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-lang': locale,
+      'x-geekore-locale': locale,
+      ...(localeWarningZoneActive() ? { 'x-geekore-locale-dual': '1', 'x-geekore-warning-zone': '1' } : {}),
+    },
+    body: JSON.stringify({ locale }),
+  }).catch(() => null)
 }
 
 export function LocaleProvider({ children, initialLocale }: { children: React.ReactNode; initialLocale?: Locale }) {
@@ -237,15 +259,16 @@ export function LocaleProvider({ children, initialLocale }: { children: React.Re
   const setLocale = (next: Locale) => {
     const normalized = normalizeLocale(next) || 'it'
     if (normalized === localeRef.current) { writeLocaleEverywhere(normalized); return }
+    const previous = localeRef.current
     localeRef.current = normalized
+    markLocaleWarningZone(previous, normalized)
     setLocaleState(normalized)
     writeLocaleEverywhere(normalized)
-    fetch('/api/user/locale', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-lang': normalized, 'x-geekore-locale': normalized }, body: JSON.stringify({ locale: normalized }) }).catch(() => null)
+    triggerLocaleAssetBackfill(normalized)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('geekore:locale-changed', { detail: { locale: normalized } }))
       window.dispatchEvent(new CustomEvent('geekore:media-locale-switch', { detail: { locale: normalized } }))
     }
-    prewarmForYouAndSwipeForLocale(normalized)
   }
 
   const value = useMemo<LocaleContextValue>(() => ({ locale: localeState, setLocale, t: dictionaries[localeState] }), [localeState])

@@ -1119,6 +1119,9 @@ export function SwipeMode({
   // userId risolto una sola volta al mount — evita getUser() ad ogni swipe/skip
   const userIdRef = useRef<string | null>(userIdProp ?? null);
   useEffect(() => {
+    if (userIdProp) userIdRef.current = userIdProp;
+  }, [userIdProp]);
+  useEffect(() => {
     if (userIdRef.current) return;
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) userIdRef.current = user.id;
@@ -1286,26 +1289,20 @@ export function SwipeMode({
     [onRequestMore, preloadCategory],
   );
 
-  // Preload all categories after mount and after locale changes.
-  // Se la lingua cambia, la cache categoria precedente non deve rientrare nel deck.
+  // Non precaricare tutte le categorie al mount: aprire Swipe deve leggere solo la queue.
+  // Il refill parte solo quando il deck diventa quasi vuoto mentre l'utente sta usando Swipe.
+  const didArmAutoRefillRef = useRef(false);
   useEffect(() => {
-    const cats: CategoryFilter[] = [
-      "all",
-      "anime",
-      "manga",
-      "movie",
-      "tv",
-      "game",
-      "boardgame",
-    ];
-    const timers = cats.map((cat, i) =>
-      window.setTimeout(() => preloadCategory(cat), 1500 + i * 300),
-    );
-    return () => timers.forEach(timer => window.clearTimeout(timer));
-  }, [preloadCategory, locale]);
+    didArmAutoRefillRef.current = false;
+    const timer = window.setTimeout(() => {
+      didArmAutoRefillRef.current = true;
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [locale]);
 
   useEffect(() => {
-    if (filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
+    if (!didArmAutoRefillRef.current) return;
+    if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
       loadMore(activeFilter);
   }, [filteredQueue.length, activeFilter]); // eslint-disable-line
 
@@ -1330,7 +1327,7 @@ export function SwipeMode({
       const avail = (
         filter === "all" ? queue : queue.filter((i) => i.type === filter)
       ).filter((i) => !skippedIdsRef.current.has(i.id));
-      if (avail.length <= REFILL_THRESHOLD) loadMore(filter);
+      if (avail.length === 0) loadMore(filter);
     },
     [queue, loadMore, preloadCategory],
   );
