@@ -129,7 +129,7 @@ function WishlistCard({ item, onRemove, onOpen, isRemoving, locale, copy }: { it
 
       <div className="min-w-0 py-0.5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <MediaTypeBadge type={item.type} size="xs" />
+          <MediaTypeBadge type={item.type} label={typeLabel(item.type, locale)} size="xs" />
           {countdown.available && (
             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-300">
               <CheckCircle2 size={10} /> {copy.now}

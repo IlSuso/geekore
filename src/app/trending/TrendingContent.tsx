@@ -19,6 +19,7 @@ const TRENDING_LOCALIZATION_OPTIONS: MediaLocalizationOptions = {
   idKeys: ['external_id'],
   typeKeys: ['type'],
   descriptionKeys: ['description'],
+  mode: 'basic',
 }
 
 function normalizeType(type: string | null | undefined): string {

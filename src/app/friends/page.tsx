@@ -13,12 +13,17 @@ import {
   LogIn,
   MessageCircle,
   Flame,
+  Clock3,
+  Star,
+  Circle,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/context/AuthContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { PageScaffold } from "@/components/ui/PageScaffold";
 import { useLocalizedMediaRows } from "@/lib/i18n/clientMediaLocalization";
+import { typeLabel } from "@/lib/i18n/uiCopy";
 import { useLocale } from "@/lib/locale";
 
 type FriendsTab = "activity" | "common" | "suggested";
@@ -49,9 +54,25 @@ type FriendActivity = {
   } | null;
 };
 
+type OnlinePayload = {
+  userIds: string[];
+  onlineUsers?: Array<{
+    user_id?: string;
+    username?: string | null;
+    display_name?: string | null;
+    avatar_url?: string | null;
+    online_at?: string;
+  }>;
+};
+
+const ONLINE_EVENT = "geekore:presence-users";
+
 const FRIENDS_COPY = {
   it: {
-    activeNow: "Attivi ora",
+    activeNow: "Stato amici",
+    onlineNow: "online ora",
+    offline: "Offline",
+    online: "Online",
     userFallback: "utente",
     geekoreUser: "Utente Geekore",
     verbs: {
@@ -92,7 +113,10 @@ const FRIENDS_COPY = {
     clear: "Cancella ricerca",
   },
   en: {
-    activeNow: "Active now",
+    activeNow: "Friends status",
+    onlineNow: "online now",
+    offline: "Offline",
+    online: "Online",
     userFallback: "user",
     geekoreUser: "Geekore user",
     verbs: {
@@ -149,7 +173,9 @@ function compactTimeAgo(
   copy: FriendsCopy,
 ): string {
   if (!dateStr) return "—";
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const time = new Date(dateStr).getTime();
+  if (!Number.isFinite(time)) return "—";
+  const diff = Date.now() - time;
   const m = Math.floor(diff / 60000);
   if (m < 1) return copy.now;
   if (m < 60) return `${m}m`;
@@ -168,112 +194,222 @@ function actionVerb(activity: FriendActivity, copy: FriendsCopy): string {
   );
 }
 
-function StoriesRail({
+function scoreLabel(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(Number(value))) return null;
+  const rounded = Math.round(Number(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(Math.trunc(rounded)) : rounded.toFixed(1);
+}
+
+function profileDisplayName(profile: ProfileRow, copy: FriendsCopy): string {
+  return profile.display_name || profile.username || copy.geekoreUser;
+}
+
+function StatusAvatar({
+  profile,
+  online,
+  copy,
+}: {
+  profile: ProfileRow;
+  online: boolean;
+  copy: FriendsCopy;
+}) {
+  const username = profile.username || profile.id;
+  const label = profileDisplayName(profile, copy);
+
+  return (
+    <Link
+      href={`/profile/${username}`}
+      data-no-swipe="true"
+      className={`group relative flex w-[86px] shrink-0 flex-col items-center rounded-[24px] border p-2.5 transition-all ${
+        online
+          ? "border-emerald-300/35 bg-emerald-400/[0.075] shadow-[0_0_32px_rgba(16,185,129,0.18)]"
+          : "border-white/[0.06] bg-white/[0.025] opacity-75 hover:opacity-100"
+      }`}
+    >
+      <div
+        className={`relative grid h-[64px] w-[64px] place-items-center rounded-[24px] transition-all ${
+          online
+            ? "bg-emerald-300/15 ring-2 ring-emerald-300/70 ring-offset-2 ring-offset-[#0b0b10]"
+            : "bg-white/[0.035] grayscale ring-1 ring-white/10"
+        }`}
+      >
+        {online && (
+          <span className="pointer-events-none absolute inset-[-7px] rounded-[28px] bg-emerald-300/15 blur-md" />
+        )}
+        <Avatar
+          src={profile.avatar_url}
+          username={username}
+          displayName={label}
+          size={54}
+          className="relative rounded-[20px]"
+        />
+        <span
+          className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-[3px] border-[#0b0b10] ${
+            online
+              ? "bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.95)]"
+              : "bg-zinc-600"
+          }`}
+          aria-hidden="true"
+        />
+      </div>
+      <p className="mt-2 w-full truncate text-center text-[11px] font-black text-[var(--text-primary)]">
+        {username}
+      </p>
+      <p
+        className={`mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] ${
+          online ? "text-emerald-200" : "text-[var(--text-muted)]"
+        }`}
+      >
+        {online ? copy.online : copy.offline}
+      </p>
+    </Link>
+  );
+}
+
+function FriendsStatusRail({
   profiles,
+  onlineIds,
   copy,
 }: {
   profiles: ProfileRow[];
+  onlineIds: Set<string>;
   copy: FriendsCopy;
 }) {
   if (profiles.length === 0) return null;
+
+  const sorted = [...profiles].sort((a, b) => {
+    const ao = onlineIds.has(a.id) ? 1 : 0;
+    const bo = onlineIds.has(b.id) ? 1 : 0;
+    if (bo !== ao) return bo - ao;
+    return (a.username || a.id).localeCompare(b.username || b.id);
+  });
+  const onlineCount = sorted.filter((profile) => onlineIds.has(profile.id)).length;
+
   return (
-    <div className="mb-5" data-no-swipe="true">
-      <div className="mb-3 flex items-center gap-2 text-[var(--accent)]">
-        <Flame size={14} />
-        <p className="gk-label text-[var(--accent)]">{copy.activeNow}</p>
-      </div>
-      <div
-        className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-hide"
-        data-horizontal-scroll="true"
-      >
-        <div className="flex gap-3">
-          {profiles.slice(0, 18).map((profile) => {
-            const username = profile.username || profile.id;
-            const label =
-              profile.display_name || profile.username || copy.userFallback;
-            return (
-              <Link
-                key={profile.id}
-                href={`/profile/${username}`}
-                className="w-[64px] shrink-0 text-center"
-              >
-                <div className="mx-auto mb-1 rounded-[19px] p-[2px] gk-story-ring">
-                  <Avatar
-                    src={profile.avatar_url}
-                    username={username}
-                    displayName={label}
-                    size={50}
-                    className="rounded-[17px]"
-                  />
-                </div>
-                <p className="truncate text-[10px] font-bold text-[var(--text-secondary)]">
-                  {username}
-                </p>
-              </Link>
-            );
-          })}
+    <section className="mb-6" data-no-swipe="true">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[var(--accent)]">
+          <Flame size={14} />
+          <p className="gk-label text-[var(--accent)]">{copy.activeNow}</p>
+        </div>
+        <div
+          className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${
+            onlineCount > 0
+              ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
+              : "border-white/10 bg-white/[0.035] text-[var(--text-muted)]"
+          }`}
+        >
+          {onlineCount} {copy.onlineNow}
         </div>
       </div>
-    </div>
+
+      <div className="-mx-1 overflow-x-auto px-1 pb-2 scrollbar-hide" data-horizontal-scroll="true">
+        <div className="flex gap-3">
+          {sorted.slice(0, 24).map((profile) => (
+            <StatusAvatar
+              key={profile.id}
+              profile={profile}
+              online={onlineIds.has(profile.id)}
+              copy={copy}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
 function ActivityCard({
   activity,
   copy,
+  locale,
 }: {
   activity: FriendActivity;
   copy: FriendsCopy;
+  locale: "it" | "en";
 }) {
   const profile = activity.profiles;
   const username = profile?.username || activity.user_id;
   const name = profile?.display_name || profile?.username || copy.userFallback;
   const verb = actionVerb(activity, copy);
+  const rating = scoreLabel(activity.rating);
+  const kind = typeLabel(activity.type, locale);
+
   return (
-    <div
+    <article
       data-no-swipe="true"
-      className="group flex w-full items-center gap-3 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3.5 text-left transition-colors hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)]"
+      className="group relative isolate overflow-hidden rounded-[28px] border border-white/[0.075] bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-3.5 shadow-[0_18px_42px_rgba(0,0,0,0.22)] transition-all hover:-translate-y-0.5 hover:border-[rgba(230,255,61,0.24)] hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.075),rgba(255,255,255,0.025))]"
     >
-      <Link href={`/profile/${username}`} className="shrink-0">
-        <Avatar
-          src={profile?.avatar_url}
-          username={username}
-          displayName={name}
-          size={40}
-          className="rounded-[15px]"
-        />
-      </Link>
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[14px] leading-snug text-[var(--text-secondary)]">
-          <Link
-            href={`/profile/${username}`}
-            className="font-black text-[var(--text-primary)] hover:text-[var(--accent)]"
-          >
-            @{username}
-          </Link>{" "}
-          <span>{verb}</span>{" "}
-          <span className="font-bold italic text-[var(--text-primary)]">
-            {activity.title}
-          </span>
-        </p>
-        <p className="mt-1 font-mono-data text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-          {compactTimeAgo(activity.updated_at, copy)} · {activity.type}
-        </p>
-      </div>
-      <div className="h-[72px] w-[52px] shrink-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-sm">
-        {activity.cover_image ? (
+      {activity.cover_image && (
+        <>
           <img
             src={activity.cover_image}
             alt=""
-            className="h-full w-full object-cover"
+            className="pointer-events-none absolute right-0 top-1/2 z-[-2] h-[150%] w-[34%] -translate-y-1/2 object-cover opacity-[0.16] blur-xl"
+            aria-hidden="true"
           />
-        ) : (
-          <div className="grid h-full w-full place-items-center text-[var(--text-muted)]">
-            <Activity size={16} />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-[-1] w-1/2 bg-gradient-to-l from-black/45 via-black/20 to-transparent" />
+        </>
+      )}
+
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_72px] items-center gap-3 md:grid-cols-[auto_minmax(0,1fr)_82px]">
+        <Link href={`/profile/${username}`} className="shrink-0">
+          <Avatar
+            src={profile?.avatar_url}
+            username={username}
+            displayName={name}
+            size={46}
+            className="rounded-[18px] ring-1 ring-white/10"
+          />
+        </Link>
+
+        <div className="min-w-0 py-1">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <Clock3 size={10} />
+              {compactTimeAgo(activity.updated_at, copy)}
+            </span>
+            <span className="inline-flex rounded-full border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.09)] px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[var(--accent)]">
+              {kind}
+            </span>
+            {rating && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-1 text-[9px] font-black text-yellow-200">
+                <Star size={10} className="fill-current" />
+                {rating}
+              </span>
+            )}
           </div>
-        )}
+
+          <p className="line-clamp-2 text-[15px] leading-snug text-[var(--text-secondary)] md:text-[16px]">
+            <Link
+              href={`/profile/${username}`}
+              className="font-black text-[var(--text-primary)] hover:text-[var(--accent)]"
+            >
+              @{username}
+            </Link>{" "}
+            <span>{verb}</span>{" "}
+            <span className="font-black italic text-[var(--text-primary)]">
+              {activity.title}
+            </span>
+          </p>
+        </div>
+
+        <div className="relative h-[92px] w-[64px] justify-self-end overflow-hidden rounded-[20px] border border-white/10 bg-[var(--bg-secondary)] shadow-[0_16px_28px_rgba(0,0,0,0.32)] md:h-[104px] md:w-[72px]">
+          {activity.cover_image ? (
+            <img
+              src={activity.cover_image}
+              alt=""
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              loading="lazy"
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-[var(--text-muted)]">
+              <Activity size={18} />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -374,6 +510,7 @@ export default function FriendsPage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [activities, setActivities] = useState<FriendActivity[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [pendingFollowId, setPendingFollowId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -384,6 +521,20 @@ export default function FriendsPage() {
     idKeys: ["external_id"],
     typeKeys: ["type"],
   });
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<OnlinePayload>).detail;
+      const ids = Array.isArray(detail?.userIds) ? detail.userIds.filter(Boolean) : [];
+      setOnlineIds(new Set(ids));
+    };
+
+    window.addEventListener(ONLINE_EVENT, handler);
+    const latest = (window as any).__geekoreOnlinePresence as OnlinePayload | undefined;
+    if (latest?.userIds) setOnlineIds(new Set(latest.userIds.filter(Boolean)));
+
+    return () => window.removeEventListener(ONLINE_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -438,6 +589,9 @@ export default function FriendsPage() {
   const filteredProfiles = useMemo(() => {
     const q = normalize(query);
     const sorted = [...profiles].sort((a, b) => {
+      const aOnline = onlineIds.has(a.id) ? 1 : 0;
+      const bOnline = onlineIds.has(b.id) ? 1 : 0;
+      if (bOnline !== aOnline) return bOnline - aOnline;
       const aFollowing = followingIds.has(a.id) ? 1 : 0;
       const bFollowing = followingIds.has(b.id) ? 1 : 0;
       if (bFollowing !== aFollowing) return bFollowing - aFollowing;
@@ -456,7 +610,7 @@ export default function FriendsPage() {
         ].join(" "),
       ).includes(q),
     );
-  }, [profiles, query, followingIds]);
+  }, [profiles, query, followingIds, onlineIds]);
 
   const filteredActivities = useMemo(() => {
     const q = normalize(query);
@@ -480,11 +634,7 @@ export default function FriendsPage() {
   const suggestedProfiles = filteredProfiles.filter(
     (profile) => !followingIds.has(profile.id),
   );
-  const stories = followingProfiles.filter(
-    (profile) =>
-      !profile.updated_at ||
-      Date.now() - new Date(profile.updated_at).getTime() < 24 * 60 * 60 * 1000,
-  );
+  const statusProfiles = followingProfiles.length ? followingProfiles : filteredProfiles.slice(0, 12);
   const followingCount = followingIds.size;
 
   async function toggleFollow(profileId: string) {
@@ -635,25 +785,22 @@ export default function FriendsPage() {
         </div>
       )}
 
-      <StoriesRail
-        profiles={stories.length ? stories : followingProfiles}
-        copy={copy}
-      />
+      <FriendsStatusRail profiles={statusProfiles} onlineIds={onlineIds} copy={copy} />
 
       {loading ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
-              className="h-[92px] rounded-2xl bg-[var(--bg-card)] skeleton"
+              className="h-[124px] rounded-[28px] bg-[var(--bg-card)] skeleton"
             />
           ))}
         </div>
       ) : activeTab === "activity" ? (
         filteredActivities.length > 0 ? (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {filteredActivities.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} copy={copy} />
+              <ActivityCard key={activity.id} activity={activity} copy={copy} locale={locale} />
             ))}
           </div>
         ) : (

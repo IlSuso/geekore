@@ -332,7 +332,7 @@ export function MediaDetailsDrawer({
     setLocalizedMedia(cached ? ({ ...media, ...cached } as MediaDetails) : null);
     setLocalizingMedia(!hasStrictDescription);
 
-    localizeMediaRows([payload], locale, DRAWER_LOCALIZATION_OPTIONS, { force: !hasStrictDescription })
+    localizeMediaRows([payload], locale, { ...DRAWER_LOCALIZATION_OPTIONS, mode: 'full', requireDescription: true }, { force: !hasStrictDescription, mode: 'full' })
       .then((items) => {
         if (cancelled) return;
         const next = items?.[0];

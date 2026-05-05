@@ -151,7 +151,6 @@
   .gk-friends-page .gk-page-density > div.relative + div { position: static !important; top: auto !important; z-index: auto !important; background: transparent !important; backdrop-filter: none !important; margin-top: 0 !important; padding-top: 0 !important; }
   .gk-friends-page .gk-page-density > div.relative + div { margin-bottom: 20px; }
 }
-.gk-friends-page [data-horizontal-scroll='true']::before { content: 'Attivi ora'; display: block; margin-bottom: 8px; padding-left: 2px; font-family: var(--font-mono-data, var(--font-mono)); font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
 .gk-friends-page [data-horizontal-scroll='true'] { margin-bottom: 18px; }
 .gk-friends-page [data-horizontal-scroll='true'] .gk-story-ring,
 .gk-friends-page [data-horizontal-scroll='true'] img,

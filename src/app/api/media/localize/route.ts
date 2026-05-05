@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestLocale, type Locale } from '@/lib/i18n/serverLocale'
 import { translateWithCache } from '@/lib/deepl'
+import { readMediaLocaleAssets, mergeCachedLocaleAsset, writeMediaLocaleAssets, mediaLocaleKeyFor, mediaLocaleItemIsComplete } from '@/lib/i18n/mediaLocalePersistentCache'
 
 type MediaLike = Record<string, any>
 
@@ -15,7 +16,15 @@ function clean(value: unknown): string | undefined {
 
 function stripHtml(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
-  return clean(value.replace(/<br\s*\/?>(\s*)/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').replace(/[ \t]{2,}/g, ' '))
+  const text = value
+    .replace(/<br\s*\/?>(\s*)/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n\s+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s*\((?:source|fonte|fonti)\s*:[^)]+\)\s*$/gi, '')
+    .replace(/\s*(?:source|fonte|fonti)\s*:[^\n]+$/gi, '')
+  return clean(text)
 }
 
 function languageGuess(text: string): Locale | null {
@@ -65,6 +74,50 @@ function anilistId(item: MediaLike): number | null {
     if ((item.source === 'anilist' || item.provider === 'anilist' || type === 'anime' || type === 'manga') && /^\d+$/.test(raw)) return Number(raw)
   }
   return null
+}
+
+
+function normalizeAniListSearchTitle(value: unknown): string | undefined {
+  const raw = clean(value)
+  if (!raw) return undefined
+
+  const withoutSource = raw
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const parts = withoutSource
+    .split(/\s[-–—:]\s|[:：]/)
+    .map(part => part.trim())
+    .filter(Boolean)
+
+  const first = parts[0] || withoutSource
+  return clean(first.length >= 3 ? first : withoutSource)
+}
+
+function aniListSearchCandidates(item: MediaLike): string[] {
+  const values = [
+    item.title_en,
+    item.title_original,
+    item.title,
+    item.media_title,
+    item.name,
+    item.title_it,
+    item.localized?.en?.title,
+    item.localized?.it?.title,
+  ]
+
+  const out: string[] = []
+  for (const value of values) {
+    const full = clean(value)
+    const short = normalizeAniListSearchTitle(value)
+    for (const candidate of [full, short]) {
+      if (candidate && candidate.length >= 3 && !out.some(existing => existing.toLowerCase() === candidate.toLowerCase())) {
+        out.push(candidate)
+      }
+    }
+  }
+  return out.slice(0, 4)
 }
 
 function tmdbEndpoint(item: MediaLike): 'movie' | 'tv' | null {
@@ -597,64 +650,109 @@ async function fetchOfficialAniListAssetsBatch(
   items: MediaLike[],
 ): Promise<Map<MediaLike, MediaLike>> {
   const out = new Map<MediaLike, MediaLike>()
-  const pairs = items
+  const pairsWithId = items
     .map(item => ({ item, id: anilistId(item) }))
     .filter((entry): entry is { item: MediaLike; id: number } => typeof entry.id === 'number' && Number.isFinite(entry.id) && entry.id > 0)
     .slice(0, 80)
 
-  if (pairs.length === 0) return out
+  const mediaFields = `
+    id
+    type
+    title { romaji english native }
+    coverImage { extraLarge large }
+    description(asHtml: false)
+    genres
+    averageScore
+    episodes
+    chapters
+    startDate { year }
+    studios(isMain: true) { nodes { name } }
+  `
 
-  const query = `
-    query ($ids: [Int]) {
-      Page(page: 1, perPage: 80) {
-        media(id_in: $ids) {
-          id
-          type
-          title { romaji english native }
-          coverImage { extraLarge large }
-          description(asHtml: false)
-          genres
-          averageScore
-          episodes
-          chapters
-          startDate { year }
-          studios(isMain: true) { nodes { name } }
+  const applyRow = (item: MediaLike, row: any) => {
+    if (!row) return
+    const normalizedType = normalizeType(item.type || item.media_type)
+    const apiType = String(row.type || '').toLowerCase()
+    const type = normalizedType === 'manga' || apiType === 'manga' ? 'manga' : 'anime'
+    out.set(item, {
+      title: clean(row.title?.english) || clean(row.title?.romaji) || clean(row.title?.native),
+      titleOriginal: clean(row.title?.romaji) || clean(row.title?.native),
+      descriptionEn: stripHtml(row.description),
+      coverImage: clean(row.coverImage?.extraLarge) || clean(row.coverImage?.large),
+      externalId: `anilist-${type}-${Number(row.id)}`,
+      year: typeof row.startDate?.year === 'number' ? row.startDate.year : undefined,
+      score: typeof row.averageScore === 'number' ? Math.round((row.averageScore / 20) * 10) / 10 : undefined,
+      genres: Array.isArray(row.genres) ? row.genres.filter(Boolean) : undefined,
+      episodes: type === 'manga' ? (Number(row.chapters) || undefined) : (Number(row.episodes) || undefined),
+      studios: Array.isArray(row.studios?.nodes) ? row.studios.nodes.map((n: any) => clean(n?.name)).filter(Boolean) : undefined,
+    })
+  }
+
+  if (pairsWithId.length > 0) {
+    const query = `
+      query ($ids: [Int]) {
+        Page(page: 1, perPage: 80) {
+          media(id_in: $ids) { ${mediaFields} }
+        }
+      }
+    `
+
+    try {
+      const res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ query, variables: { ids: [...new Set(pairsWithId.map(entry => entry.id))] } }),
+        signal: AbortSignal.timeout(4500),
+        next: { revalidate: 60 * 60 * 24 },
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const rows = Array.isArray(json?.data?.Page?.media) ? json.data.Page.media : []
+        const byId = new Map<number, any>(rows.map((row: any) => [Number(row.id), row]))
+        for (const { item, id } of pairsWithId) applyRow(item, byId.get(id))
+      }
+    } catch {}
+  }
+
+  const unresolved = items
+    .filter(item => !out.has(item))
+    .filter(item => isAnilistTitleType(item))
+    .slice(0, 24)
+
+  if (unresolved.length > 0) {
+    const searchQuery = `
+      query ($search: String, $type: MediaType) {
+        Page(page: 1, perPage: 5) {
+          media(search: $search, type: $type, sort: SEARCH_MATCH, isAdult: false) { ${mediaFields} }
+        }
+      }
+    `
+
+    for (const item of unresolved) {
+      const type = normalizeType(item.type || item.media_type)
+      const apiType = type === 'manga' || type === 'novel' ? 'MANGA' : 'ANIME'
+      for (const search of aniListSearchCandidates(item)) {
+        try {
+          const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ query: searchQuery, variables: { search, type: apiType } }),
+            signal: AbortSignal.timeout(4500),
+            next: { revalidate: 60 * 60 * 24 },
+          })
+          if (!res.ok) continue
+          const json = await res.json()
+          const rows = Array.isArray(json?.data?.Page?.media) ? json.data.Page.media : []
+          const row = rows.find((entry: any) => entry?.id) || null
+          if (!row) continue
+          applyRow(item, row)
+          break
+        } catch {
+          // prova il prossimo candidato
         }
       }
     }
-  `
-
-  try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ query, variables: { ids: [...new Set(pairs.map(entry => entry.id))] } }),
-      signal: AbortSignal.timeout(4500),
-      next: { revalidate: 60 * 60 * 24 },
-    })
-    if (!res.ok) return out
-    const json = await res.json()
-    const rows = Array.isArray(json?.data?.Page?.media) ? json.data.Page.media : []
-    const byId = new Map<number, any>(rows.map((row: any) => [Number(row.id), row]))
-
-    for (const { item, id } of pairs) {
-      const row = byId.get(id)
-      if (!row) continue
-      const type = normalizeType(item.type || item.media_type)
-      out.set(item, {
-        title: clean(row.title?.english) || clean(row.title?.romaji) || clean(row.title?.native),
-        titleOriginal: clean(row.title?.romaji) || clean(row.title?.native),
-        descriptionEn: stripHtml(row.description),
-        coverImage: clean(row.coverImage?.extraLarge) || clean(row.coverImage?.large),
-        externalId: `anilist-${type === 'anime' ? 'anime' : 'manga'}-${id}`,
-        year: typeof row.startDate?.year === 'number' ? row.startDate.year : undefined,
-        score: typeof row.averageScore === 'number' ? Math.round((row.averageScore / 20) * 10) / 10 : undefined,
-        genres: Array.isArray(row.genres) ? row.genres.filter(Boolean) : undefined,
-        episodes: type === 'manga' ? (Number(row.chapters) || undefined) : (Number(row.episodes) || undefined),
-        studios: Array.isArray(row.studios?.nodes) ? row.studios.nodes.map((n: any) => clean(n?.name)).filter(Boolean) : undefined,
-      })
-    }
-  } catch {}
+  }
 
   return out
 }
@@ -712,13 +810,25 @@ export async function POST(request: NextRequest) {
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
 
   const locale = await getRequestLocale(request)
+  const mode: 'basic' | 'full' = body?.mode === 'full' ? 'full' : 'basic'
   const items = Array.isArray(body?.items) ? body.items.slice(0, 100) : []
   if (items.length === 0) return NextResponse.json({ items: [] })
 
   const out = items.map((item: MediaLike) => ({ ...item }))
 
+  // Fast path globale: prima di chiamare TMDB/AniList/BGG/Steam/IGDB/DeepL
+  // leggiamo la cache persistente Supabase per (media, lingua).
+  // Se un utente usa sempre EN, dopo il primo popolamento le page leggono asset EN
+  // già pronti e non fanno più provider calls inutili.
+  const cachedAssets = await readMediaLocaleAssets(out, locale)
+  out.forEach((item: MediaLike, index: number) => {
+    const key = mediaLocaleKeyFor(item)
+    const cached = key ? cachedAssets.get(key) : null
+    if (cached) out[index] = mergeCachedLocaleAsset(item, cached, locale)
+  })
+
   const tmdbTitleItems = out
-    .filter((item: MediaLike) => isTmdbTitleType(item))
+    .filter((item: MediaLike) => !mediaLocaleItemIsComplete(item, locale, mode) && isTmdbTitleType(item))
     .slice(0, 80)
 
   if (tmdbTitleItems.length > 0) {
@@ -768,7 +878,7 @@ export async function POST(request: NextRequest) {
   }
 
   const anilistItems = out
-    .filter((item: MediaLike) => isAnilistTitleType(item))
+    .filter((item: MediaLike) => !mediaLocaleItemIsComplete(item, locale, mode) && isAnilistTitleType(item))
     .slice(0, 80)
 
   if (anilistItems.length > 0) {
@@ -826,7 +936,7 @@ export async function POST(request: NextRequest) {
   }
 
   const gameItems = out
-    .filter((item: MediaLike) => isGameType(item))
+    .filter((item: MediaLike) => !mediaLocaleItemIsComplete(item, locale, mode) && isGameType(item))
     .slice(0, 80)
 
   if (gameItems.length > 0) {
@@ -881,7 +991,7 @@ export async function POST(request: NextRequest) {
   }
 
   const boardgameItems = out
-    .filter((item: MediaLike) => isBoardgameType(item))
+    .filter((item: MediaLike) => !mediaLocaleItemIsComplete(item, locale, mode) && isBoardgameType(item))
     .slice(0, 60)
 
   if (boardgameItems.length > 0) {
@@ -936,14 +1046,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const missingDescriptions = out
-    .filter((item: MediaLike) => !descriptionFor(item, locale))
-    .map((item: MediaLike) => ({ item, ...candidateDescription(item) }))
-    .filter((entry: any) => Boolean(entry.text))
-    .filter((entry: any) => entry.sourceLocale !== locale)
-    .slice(0, 60)
+  const missingDescriptions = mode === 'full'
+    ? out
+      .filter((item: MediaLike) => !descriptionFor(item, locale))
+      .map((item: MediaLike) => ({ item, ...candidateDescription(item) }))
+      .filter((entry: any) => Boolean(entry.text))
+      .filter((entry: any) => entry.sourceLocale !== locale)
+      .slice(0, 60)
+    : []
 
-  if (missingDescriptions.length > 0) {
+  if (mode === 'full' && missingDescriptions.length > 0) {
     const targetLang = locale === 'it' ? 'IT' : 'EN-US'
     const sourceLang = locale === 'it' ? 'EN' : 'IT'
     const translated = await translateWithCache(
@@ -989,6 +1101,8 @@ export async function POST(request: NextRequest) {
       description,
     }
   })
+
+  await writeMediaLocaleAssets(localized, locale, mode)
 
   return NextResponse.json({ items: localized })
 }

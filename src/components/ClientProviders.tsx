@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
 import { AuthProvider } from '@/context/AuthContext'
+import { UserPresenceTracker } from '@/components/UserPresenceTracker'
 
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
 
@@ -170,6 +171,7 @@ export function ClientProviders({ children, initialLocale = 'it' }: { children: 
           <OnboardingGuard />
           <PWAInstallBanner />
           <PushNotificationsBanner />
+          <UserPresenceTracker />
           {children}
         </AuthProvider>
       </LocaleProvider>

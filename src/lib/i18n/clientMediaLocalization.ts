@@ -12,6 +12,12 @@ export type MediaLocalizationOptions = {
   idKeys?: string[]
   typeKeys?: string[]
   descriptionKeys?: string[]
+  /**
+   * basic = title + cover only, fast for cards/lists.
+   * full = title + cover + description/details, use for drawer or pages that render descriptions.
+   */
+  mode?: 'basic' | 'full'
+  requireDescription?: boolean
 }
 
 const DEFAULT_OPTIONS: Required<MediaLocalizationOptions> = {
@@ -20,9 +26,11 @@ const DEFAULT_OPTIONS: Required<MediaLocalizationOptions> = {
   idKeys: ['external_id', 'media_id', 'id'],
   typeKeys: ['type', 'media_type'],
   descriptionKeys: ['description', 'media_description'],
+  mode: 'basic',
+  requireDescription: false,
 }
 
-const CACHE_VERSION = 'v6-cover-title-refresh'
+const CACHE_VERSION = 'v7-anilist-search-description-refresh'
 const memoryCache = new Map<string, MediaRow>()
 const inflight = new Map<string, Promise<MediaRow[]>>()
 
@@ -42,6 +50,8 @@ function mergeOptions(options?: MediaLocalizationOptions): Required<MediaLocaliz
     idKeys: options?.idKeys?.length ? options.idKeys : DEFAULT_OPTIONS.idKeys,
     typeKeys: options?.typeKeys?.length ? options.typeKeys : DEFAULT_OPTIONS.typeKeys,
     descriptionKeys: options?.descriptionKeys?.length ? options.descriptionKeys : DEFAULT_OPTIONS.descriptionKeys,
+    mode: options?.mode || DEFAULT_OPTIONS.mode,
+    requireDescription: options?.requireDescription ?? DEFAULT_OPTIONS.requireDescription,
   }
 }
 
@@ -199,17 +209,17 @@ function hasLocaleChecked(row: MediaRow | undefined, locale: Locale): boolean {
   return Boolean(row?.[localeCheckKey(locale)])
 }
 
-function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale): boolean {
+function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale, mode: 'basic' | 'full'): boolean {
   if (!row) return true
   if (!hasLocaleChecked(row, locale)) return true
 
-  // La card/drawer devono arrivare già pronti. Prima questo check ignorava la
-  // descrizione: risultato = card localizzata a metà e drawer costretto a fare
-  // fetch al click. Ora una riga è considerata completa solo se titolo, cover
-  // e descrizione sono già disponibili nella lingua corrente.
+  // Performance: le card/liste hanno bisogno subito di titolo + cover.
+  // La descrizione completa serve solo nel drawer o nelle UI che la renderizzano davvero.
+  // Prima veniva richiesta sempre: questo faceva partire /api/media/localize in modalità full
+  // su For You/Trending/Discover anche quando la descrizione non era visibile.
   if (!strictLocalizedTitleFor(row, locale)) return true
   if (!strictLocalizedCoverFor(row, locale)) return true
-  if (!strictLocalizedDescriptionFor(row, locale)) return true
+  if (mode === 'full' && !strictLocalizedDescriptionFor(row, locale)) return true
 
   return false
 }
@@ -306,11 +316,12 @@ export async function localizeMediaRows<T extends MediaRow>(
   rows: T[],
   locale: Locale,
   options?: MediaLocalizationOptions,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; mode?: 'basic' | 'full' },
 ): Promise<T[]> {
   if (!Array.isArray(rows) || rows.length === 0) return rows
 
   const mergedOptions = mergeOptions(options)
+  const mode: 'basic' | 'full' = opts?.mode || options?.mode || (options?.requireDescription ? 'full' : 'basic')
   const payload = rows.map(row => toLocalizationPayload(row, mergedOptions))
   const keys = payload.map(row => cacheKeyFor(row, locale, mergedOptions))
   const cachedRows = rows.map((row, index) => {
@@ -323,13 +334,29 @@ export async function localizeMediaRows<T extends MediaRow>(
     .filter(index => {
       const key = keys[index]
       const cached = key ? readCache(key as string) : undefined
-      return opts?.force || !key || cachedRowNeedsRefresh(cached, locale)
+      return opts?.force || !key || cachedRowNeedsRefresh(cached, locale, mode)
     })
 
   if (missingIndexes.length === 0) return cachedRows
 
-  const requestPayload = missingIndexes.map(index => payload[index])
-  const requestKey = `${locale}:${JSON.stringify(requestPayload.map(item => [item.external_id || item.id, item.type, item.title]).slice(0, 100))}`
+  const uniqueIndexes: number[] = []
+  const duplicateIndexesByRequestIndex = new Map<number, number[]>()
+  const seenRequestKeys = new Map<string, number>()
+
+  for (const index of missingIndexes) {
+    const key = keys[index] || `${index}:${payload[index]?.external_id || payload[index]?.id || payload[index]?.title || ''}`
+    const existingRequestIndex = seenRequestKeys.get(key)
+    if (existingRequestIndex != null) {
+      duplicateIndexesByRequestIndex.set(existingRequestIndex, [...(duplicateIndexesByRequestIndex.get(existingRequestIndex) || []), index])
+      continue
+    }
+    seenRequestKeys.set(key, uniqueIndexes.length)
+    duplicateIndexesByRequestIndex.set(uniqueIndexes.length, [index])
+    uniqueIndexes.push(index)
+  }
+
+  const requestPayload = uniqueIndexes.map(index => payload[index])
+  const requestKey = `${CACHE_VERSION}:${locale}:${mode}:${JSON.stringify(requestPayload.map(item => [item.external_id || item.id, item.type, item.title]).slice(0, 100))}`
 
   try {
     const promise = inflight.get(requestKey) || fetch(`/api/media/localize?lang=${encodeURIComponent(locale)}`, {
@@ -339,7 +366,7 @@ export async function localizeMediaRows<T extends MediaRow>(
         'x-lang': locale,
         'x-geekore-locale': locale,
       },
-      body: JSON.stringify({ items: requestPayload, mode: 'full' }),
+      body: JSON.stringify({ items: requestPayload, mode }),
     }).then(async res => {
       if (!res.ok) return []
       const json = await res.json().catch(() => null)
@@ -352,15 +379,17 @@ export async function localizeMediaRows<T extends MediaRow>(
 
     const nextRows = [...cachedRows]
     localizedItems.forEach((localized, localizedIndex) => {
-      const originalIndex = missingIndexes[localizedIndex]
-      if (originalIndex == null) return
-      const sourceRow = rows[originalIndex]
-      const merged = markLocaleChecked(mergeLocalizedRow(sourceRow, localized || payload[originalIndex], mergedOptions), locale)
-      nextRows[originalIndex] = merged as unknown as T
-      const primaryKey = keys[originalIndex]
-      if (primaryKey) writeCache(primaryKey, merged)
-      const localizedKey = cacheKeyFor(toLocalizationPayload(merged, mergedOptions), locale, mergedOptions)
-      if (localizedKey) writeCache(localizedKey, merged)
+      const originalIndexes = duplicateIndexesByRequestIndex.get(localizedIndex) || []
+      for (const originalIndex of originalIndexes) {
+        if (originalIndex == null) continue
+        const sourceRow = rows[originalIndex]
+        const merged = markLocaleChecked(mergeLocalizedRow(sourceRow, localized || payload[uniqueIndexes[localizedIndex]], mergedOptions), locale)
+        nextRows[originalIndex] = merged as unknown as T
+        const primaryKey = keys[originalIndex]
+        if (primaryKey) writeCache(primaryKey, merged)
+        const localizedKey = cacheKeyFor(toLocalizationPayload(merged, mergedOptions), locale, mergedOptions)
+        if (localizedKey) writeCache(localizedKey, merged)
+      }
     })
 
     if (typeof window !== 'undefined') {
