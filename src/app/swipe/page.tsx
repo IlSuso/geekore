@@ -8,6 +8,7 @@ import { SwipeMode } from "@/components/for-you/SwipeMode";
 import type { SwipeItem } from "@/components/for-you/SwipeMode";
 import { profileInvalidateBridge } from "@/hooks/profileInvalidateBridge";
 import { useLocale } from "@/lib/locale";
+import { useTabActive } from "@/context/TabActiveContext";
 import { cleanDescriptionForDisplay } from "@/lib/text/descriptionCleanup";
 
 const SWIPE_PAGE_COPY = {
@@ -20,6 +21,60 @@ const SWIPE_PAGE_COPY = {
     loadingBest: "Finding the best titles for you…",
   },
 } as const;
+
+type SwipePageCache = {
+  locale: "it" | "en" | null;
+  userId: string | null;
+  items: SwipeItem[];
+  ts: number;
+};
+
+const SWIPE_CACHE_TTL_MS = 1000 * 60 * 20;
+
+const swipePageCache: SwipePageCache = {
+  locale: null,
+  userId: null,
+  items: [],
+  ts: 0,
+};
+
+function isSwipeCacheFresh(locale: "it" | "en", userId?: string | null): boolean {
+  if (swipePageCache.locale !== locale) return false;
+  if (userId && swipePageCache.userId && swipePageCache.userId !== userId) return false;
+  if (!Array.isArray(swipePageCache.items) || swipePageCache.items.length === 0) return false;
+  return Date.now() - swipePageCache.ts < SWIPE_CACHE_TTL_MS;
+}
+
+function writeSwipeCache(locale: "it" | "en", userId: string | null, items: SwipeItem[]) {
+  if (!Array.isArray(items)) return;
+  swipePageCache.locale = locale;
+  swipePageCache.userId = userId;
+  swipePageCache.items = items;
+  swipePageCache.ts = Date.now();
+}
+
+function removeSwipeCacheItem(id: string) {
+  if (!id) return;
+  swipePageCache.items = swipePageCache.items.filter((item) => item.id !== id);
+  swipePageCache.ts = Date.now();
+}
+
+function appendSwipeCacheItems(locale: "it" | "en", userId: string | null, items: SwipeItem[]) {
+  if (!Array.isArray(items) || items.length === 0) return;
+  if (swipePageCache.locale !== locale || (userId && swipePageCache.userId && swipePageCache.userId !== userId)) {
+    writeSwipeCache(locale, userId, items);
+    return;
+  }
+
+  const seen = new Set(swipePageCache.items.map((item) => item.id));
+  const next = [...swipePageCache.items];
+  for (const item of items) {
+    if (!item?.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    next.push(item);
+  }
+  writeSwipeCache(locale, userId, next);
+}
 
 function triggerTasteDelta(options: {
   action: "rating" | "status_change" | "wishlist_add" | "rewatch" | "progress";
@@ -205,18 +260,30 @@ export default function SwipePage() {
   const supabase = createClient();
   const router = useRouter();
   const { locale } = useLocale();
+  const isTabActive = useTabActive();
   const copy = SWIPE_PAGE_COPY[locale];
   const addedTitlesRef = useRef<Set<string>>(new Set());
   const addedIdsRef = useRef<Set<string>>(new Set());
   const requestSeqRef = useRef(0);
   const userIdRef = useRef<string | null>(null);
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCachedItems = isSwipeCacheFresh(locale) ? swipePageCache.items : [];
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>(initialCachedItems);
+  const [loading, setLoading] = useState(initialCachedItems.length === 0);
 
   useEffect(() => {
+    if (!isTabActive && initialItems.length > 0) return;
+
     async function init() {
       const requestSeq = ++requestSeqRef.current;
-      setLoading(true);
+      const hasFreshCacheBeforeAuth = isSwipeCacheFresh(locale);
+
+      if (hasFreshCacheBeforeAuth) {
+        setInitialItems(swipePageCache.items);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -226,6 +293,12 @@ export default function SwipePage() {
         return;
       }
       userIdRef.current = user.id;
+
+      if (isSwipeCacheFresh(locale, user.id)) {
+        setInitialItems(swipePageCache.items);
+        setLoading(false);
+        return;
+      }
 
       addedTitlesRef.current = new Set();
       addedIdsRef.current = new Set();
@@ -268,6 +341,7 @@ export default function SwipePage() {
         );
         if (requestSeq !== requestSeqRef.current) return;
         setInitialItems(localized);
+        writeSwipeCache(locale, user.id, localized);
         setLoading(false);
         return;
       }
@@ -346,13 +420,14 @@ export default function SwipePage() {
           );
           if (requestSeq !== requestSeqRef.current) return;
           setInitialItems(localized);
+          writeSwipeCache(locale, user.id, localized);
         }
       } catch {}
 
       if (requestSeq === requestSeqRef.current) setLoading(false);
     }
     init();
-  }, [locale]); // eslint-disable-line
+  }, [locale, isTabActive]); // eslint-disable-line
 
   const removeFromPool = useCallback(
     async (_userId: string, _externalId: string) => {
@@ -372,7 +447,20 @@ export default function SwipePage() {
       const uid = userIdRef.current;
       if (!uid) return;
 
+      removeSwipeCacheItem(item.id);
+      setInitialItems((prev) => {
+        const next = prev.filter((cached) => cached.id !== item.id);
+        writeSwipeCache(locale, uid, next);
+        return next;
+      });
+
       if (skipPersist) {
+        removeSwipeCacheItem(item.id);
+        setInitialItems((prev) => {
+          const next = prev.filter((cached) => cached.id !== item.id);
+          writeSwipeCache(locale, uid, next);
+          return next;
+        });
         removeFromPool(uid, item.id);
         fetch("/api/recommendations/feedback", {
           method: "POST",
@@ -427,6 +515,7 @@ export default function SwipePage() {
           if (res.ok) {
             addedTitlesRef.current.add(item.title.toLowerCase());
             addedIdsRef.current.add(String(item.id));
+            removeSwipeCacheItem(item.id);
           }
           fetch("/api/recommendations/feedback", {
             method: "POST",
@@ -468,7 +557,15 @@ export default function SwipePage() {
     [removeFromPool],
   );
 
-  const handleSwipeSkip = useCallback((_item: SwipeItem) => {}, []);
+  const handleSwipeSkip = useCallback((item: SwipeItem) => {
+    const uid = userIdRef.current;
+    removeSwipeCacheItem(item.id);
+    setInitialItems((prev) => {
+      const next = prev.filter((cached) => cached.id !== item.id);
+      writeSwipeCache(locale, uid, next);
+      return next;
+    });
+  }, [locale]);
 
   const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
     if (!addedTitlesRef.current.has(item.title.toLowerCase())) return;
@@ -583,7 +680,7 @@ export default function SwipePage() {
           }).catch(() => null);
         }
 
-        return localizeSwipeItems(
+        const moreItems = await localizeSwipeItems(
           [
             ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
             ...newRecs.map((r: any) => ({
@@ -614,6 +711,8 @@ export default function SwipePage() {
           ],
           locale,
         );
+        appendSwipeCacheItems(locale, user.id, moreItems);
+        return moreItems;
       } catch {
         return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
       }

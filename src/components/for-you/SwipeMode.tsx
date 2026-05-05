@@ -305,6 +305,34 @@ function maximallyMixAllTypes(
   return out;
 }
 
+function appendMixedQueue(
+  current: SwipeItem[],
+  incoming: SwipeItem[],
+  filter: CategoryFilter,
+): SwipeItem[] {
+  if (incoming.length === 0) return current;
+
+  const existingIds = new Set(current.map((item) => item.id));
+  const uniqueIncoming = incoming.filter((item) => !existingIds.has(item.id));
+  if (uniqueIncoming.length === 0) return current;
+
+  const candidate = [
+    ...current,
+    ...(filter === "all"
+      ? maximallyMixAllTypes(uniqueIncoming, current[current.length - 1]?.type)
+      : uniqueIncoming),
+  ];
+
+  // Per "Tutti" rimescoliamo tutta la coda rimanente ogni volta che entra nuovo materiale.
+  // Così non resta un blocco anime/manga davanti e film/tv/game dietro.
+  if (filter !== "all") return candidate;
+  return maximallyMixAllTypes(candidate);
+}
+
+function removeFromQueueById(queue: SwipeItem[], id: string): SwipeItem[] {
+  return queue.filter((item) => item.id !== id);
+}
+
 // ─── LoadingScreen ─────────────────────────────────────────────────────────────
 
 function LoadingScreen({
@@ -1184,6 +1212,11 @@ export function SwipeMode({
   }, []);
 
   // La queue parte già interleaved — l'ordine non cambia mai a runtime, solo in append.
+  const initialPayloadKeyRef = useRef<string>(
+    `${locale}:${initialItems.map((item) => item.id).join("|")}`,
+  );
+  const lastAppliedPayloadKeyRef = useRef(initialPayloadKeyRef.current);
+
   const [queue, setQueue] = useState<SwipeItem[]>(() =>
     maximallyMixAllTypes(initialItems),
   );
@@ -1191,6 +1224,10 @@ export function SwipeMode({
     () => new Set(initialItems.map((i) => i.id)),
   );
   const seenIdsRef = useRef(seenIds);
+  const queueRef = useRef<SwipeItem[]>(queue);
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
 
   const [detailItem, setDetailItem] = useState<MediaDetails | null>(null);
   const [history, setHistory] = useState<SwipeItem[]>([]);
@@ -1288,10 +1325,7 @@ export function SwipeMode({
         setQueue((prev) => {
           const existingIds = new Set(prev.map((i) => i.id));
           const newItems = cachedFresh.filter((i) => !existingIds.has(i.id));
-          return [
-            ...prev,
-            ...(filter === "all" ? maximallyMixAllTypes(newItems, prev[prev.length - 1]?.type) : newItems),
-          ];
+          return appendMixedQueue(prev, newItems, filter);
         });
         cachedFresh.forEach((i) => seen.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1309,10 +1343,7 @@ export function SwipeMode({
           (i) => !seen.has(i.id) && !skipped.has(i.id),
         );
         if (fresh.length) {
-          setQueue((prev) => [
-            ...prev,
-            ...(filter === "all" ? maximallyMixAllTypes(fresh, prev[prev.length - 1]?.type) : fresh),
-          ]);
+          setQueue((prev) => appendMixedQueue(prev, fresh, filter));
           fresh.forEach((i) => seen.add(i.id));
         } else {
           // Tutti già visti: svuota seenIds e riprova
@@ -1320,10 +1351,7 @@ export function SwipeMode({
           const retryItems = await onRequestMore(filter);
           const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
           if (retryFresh.length) {
-            setQueue((prev) => [
-              ...prev,
-              ...(filter === "all" ? maximallyMixAllTypes(retryFresh, prev[prev.length - 1]?.type) : retryFresh),
-            ]);
+            setQueue((prev) => appendMixedQueue(prev, retryFresh, filter));
             retryFresh.forEach((i) => seen.add(i.id));
           }
         }
@@ -1369,10 +1397,7 @@ export function SwipeMode({
           const newItems = preloaded.filter(
             (i) => !existingIds.has(i.id) && !skipped.has(i.id),
           );
-          return [
-            ...prev,
-            ...(filter === "all" ? maximallyMixAllTypes(newItems, prev[prev.length - 1]?.type) : newItems),
-          ];
+          return appendMixedQueue(prev, newItems, filter);
         });
         preloaded.forEach((i) => seenIdsRef.current.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1413,7 +1438,7 @@ export function SwipeMode({
       const ratingAtSwipeTime = currentRatingRef.current;
 
       setHistory((prev) => [item, ...prev].slice(0, 10));
-      setQueue((prev) => prev.filter((i) => i.id !== item.id));
+      setQueue((prev) => removeFromQueueById(prev, item.id));
       setSkippedIds((prev) => {
         const n = new Set(prev);
         n.add(item.id);
@@ -1511,23 +1536,47 @@ export function SwipeMode({
   >(null);
   const [undoEntering, setUndoEntering] = useState(false);
 
-  // Cambio lingua / nuovo payload: le card già montate non devono restare nella lingua vecchia.
-  // Reset completo di deck, storico e cache categoria; non tocca Supabase né il pool.
+  // Cambio lingua / payload iniziale veramente nuovo:
+  // non risincronizzare la queue a ogni update del parent mentre l'utente sta swipando.
+  // Era la causa della card “vista dietro” che veniva sostituita subito dopo.
   useEffect(() => {
-    const freshQueue = maximallyMixAllTypes(initialItems);
-    setQueue(freshQueue);
-    seenIdsRef.current = new Set(initialItems.map((i) => i.id));
-    categoryQueues.current = {};
-    categoryLoading.current = {};
-    loadingRef.current = false;
-    setHistory([]);
-    wishlistHistoryRef.current.clear();
-    setIsLoadingMore(false);
-    setRating(null);
-    setCardDragX(0);
-    setCardFlying(false);
-    setCardFlyDir(null);
-    setUndoEntering(false);
+    const payloadKey = `${locale}:${initialItems.map((item) => item.id).join("|")}`;
+    if (payloadKey === lastAppliedPayloadKeyRef.current) return;
+
+    const currentIds = new Set(queueRef.current.map((item) => item.id));
+    const incomingIds = new Set(initialItems.map((item) => item.id));
+    const isLocaleChange = !payloadKey.startsWith(`${lastAppliedPayloadKeyRef.current.split(":")[0]}:`);
+    const hasNoCurrentQueue = queueRef.current.length === 0;
+
+    lastAppliedPayloadKeyRef.current = payloadKey;
+
+    if (isLocaleChange || hasNoCurrentQueue) {
+      const freshQueue = maximallyMixAllTypes(initialItems);
+      setQueue(freshQueue);
+      seenIdsRef.current = new Set(initialItems.map((i) => i.id));
+      categoryQueues.current = {};
+      categoryLoading.current = {};
+      loadingRef.current = false;
+      setHistory([]);
+      wishlistHistoryRef.current.clear();
+      setIsLoadingMore(false);
+      setRating(null);
+      setCardDragX(0);
+      setCardFlying(false);
+      setCardFlyDir(null);
+      setUndoEntering(false);
+      return;
+    }
+
+    const appendOnly = initialItems.filter((item) => !currentIds.has(item.id));
+    const removedCurrent = queueRef.current.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id));
+
+    if (appendOnly.length > 0) {
+      setQueue((prev) => appendMixedQueue(prev, appendOnly, "all"));
+      appendOnly.forEach((item) => seenIdsRef.current.add(item.id));
+    } else if (removedCurrent.length !== queueRef.current.length) {
+      setQueue((prev) => prev.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id)));
+    }
   }, [initialItems, locale, setRating]);
   const topItem = filteredQueue[0];
   const topItemGenres = topItem ? cleanDisplayGenres(topItem.genres) : [];
@@ -1543,7 +1592,7 @@ export function SwipeMode({
       setTimeout(() => {
         if (isOnboarding && onWishlistCallback) {
           setHistory((prev) => [item, ...prev].slice(0, 10));
-          setQueue((prev) => prev.filter((i) => i.id !== item.id));
+          setQueue((prev) => removeFromQueueById(prev, item.id));
           setSkippedIds((prev) => {
             const n = new Set(prev);
             n.add(item.id);

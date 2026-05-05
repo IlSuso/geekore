@@ -166,6 +166,7 @@ const DISCOVER_LOCALIZE_OPTIONS = {
   idKeys: ['external_id', 'id'],
   typeKeys: ['type'],
   descriptionKeys: ['description'],
+  mode: 'basic' as const,
 }
 
 function normalize(s: string): string {
@@ -464,10 +465,10 @@ export default function DiscoverPage() {
         return true
       }).map(normalizeMediaItem)
 
-      // Discover deve mostrare cover sempre. Le API di ricerca a volte tornano
-      // cover mancanti/parziali o titoli salvati in una lingua diversa; prima di
-      // mettere gli item nello state facciamo un passaggio full su /api/media/localize.
-      const localized = await localizeMediaRows(deduped, lang === 'en' ? 'en' : 'it', { ...DISCOVER_LOCALIZE_OPTIONS, mode: 'basic' }, { mode: 'basic' })
+      // Fast path: per le card servono titolo + cover. La descrizione completa
+      // viene richiesta dal drawer quando serve davvero. Niente force=true:
+      // così session cache + cache persistente Supabase evitano richieste duplicate.
+      const localized = await localizeMediaRows(deduped, lang === 'en' ? 'en' : 'it', DISCOVER_LOCALIZE_OPTIONS, { mode: 'basic' })
         .then(items => items.map(normalizeMediaItem))
         .catch(() => deduped)
 

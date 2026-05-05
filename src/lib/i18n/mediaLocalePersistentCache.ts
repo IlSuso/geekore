@@ -187,7 +187,7 @@ export async function readMediaLocaleAssets(items: MediaLike[], locale: Locale):
       if (row.media_key) out.set(row.media_key, row)
     }
   } catch {
-    // Tabella non ancora creata o service key assente: la route resta compatibile e usa i provider.
+    // Tabella non ancora creata / service key assente: fallback provider normale.
   }
 
   return out
@@ -244,6 +244,6 @@ export async function writeMediaLocaleAssets(items: MediaLike[], locale: Locale,
       .from('media_locale_assets')
       .upsert(Array.from(unique.values()), { onConflict: 'media_key,locale' })
   } catch {
-    // Cache persistente opportunistica: se Supabase non è configurato non deve rompere la UX.
+    // Cache opportunistica: se non scrive, non blocca mai la UX.
   }
 }

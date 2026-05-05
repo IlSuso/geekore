@@ -13,8 +13,8 @@ export type MediaLocalizationOptions = {
   typeKeys?: string[]
   descriptionKeys?: string[]
   /**
-   * basic = title + cover only, fast for cards/lists.
-   * full = title + cover + description/details, use for drawer or pages that render descriptions.
+   * basic = card/list: title + cover.
+   * full = drawer/swipe description: title + cover + description/details.
    */
   mode?: 'basic' | 'full'
   requireDescription?: boolean
@@ -30,7 +30,7 @@ const DEFAULT_OPTIONS: Required<MediaLocalizationOptions> = {
   requireDescription: false,
 }
 
-const CACHE_VERSION = 'v7-anilist-search-description-refresh'
+const CACHE_VERSION = 'v9-basic-full-persistent-locale-cache'
 const memoryCache = new Map<string, MediaRow>()
 const inflight = new Map<string, Promise<MediaRow[]>>()
 
@@ -213,10 +213,8 @@ function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale, mode: 
   if (!row) return true
   if (!hasLocaleChecked(row, locale)) return true
 
-  // Performance: le card/liste hanno bisogno subito di titolo + cover.
-  // La descrizione completa serve solo nel drawer o nelle UI che la renderizzano davvero.
-  // Prima veniva richiesta sempre: questo faceva partire /api/media/localize in modalità full
-  // su For You/Trending/Discover anche quando la descrizione non era visibile.
+  // Le card/list non devono bloccare la pagina per aspettare descrizioni.
+  // Titolo + cover bastano per mostrare subito la UI.
   if (!strictLocalizedTitleFor(row, locale)) return true
   if (!strictLocalizedCoverFor(row, locale)) return true
   if (mode === 'full' && !strictLocalizedDescriptionFor(row, locale)) return true
@@ -321,7 +319,7 @@ export async function localizeMediaRows<T extends MediaRow>(
   if (!Array.isArray(rows) || rows.length === 0) return rows
 
   const mergedOptions = mergeOptions(options)
-  const mode: 'basic' | 'full' = opts?.mode || options?.mode || (options?.requireDescription ? 'full' : 'basic')
+  const mode: 'basic' | 'full' = opts?.mode || mergedOptions.mode || (mergedOptions.requireDescription ? 'full' : 'basic')
   const payload = rows.map(row => toLocalizationPayload(row, mergedOptions))
   const keys = payload.map(row => cacheKeyFor(row, locale, mergedOptions))
   const cachedRows = rows.map((row, index) => {
@@ -344,14 +342,15 @@ export async function localizeMediaRows<T extends MediaRow>(
   const seenRequestKeys = new Map<string, number>()
 
   for (const index of missingIndexes) {
-    const key = keys[index] || `${index}:${payload[index]?.external_id || payload[index]?.id || payload[index]?.title || ''}`
-    const existingRequestIndex = seenRequestKeys.get(key)
-    if (existingRequestIndex != null) {
-      duplicateIndexesByRequestIndex.set(existingRequestIndex, [...(duplicateIndexesByRequestIndex.get(existingRequestIndex) || []), index])
+    const key = keys[index] || `${payload[index]?.type || ''}:${payload[index]?.external_id || payload[index]?.id || payload[index]?.title || index}`
+    const existing = seenRequestKeys.get(key)
+    if (existing != null) {
+      duplicateIndexesByRequestIndex.set(existing, [...(duplicateIndexesByRequestIndex.get(existing) || []), index])
       continue
     }
-    seenRequestKeys.set(key, uniqueIndexes.length)
-    duplicateIndexesByRequestIndex.set(uniqueIndexes.length, [index])
+    const requestIndex = uniqueIndexes.length
+    seenRequestKeys.set(key, requestIndex)
+    duplicateIndexesByRequestIndex.set(requestIndex, [index])
     uniqueIndexes.push(index)
   }
 
@@ -381,7 +380,6 @@ export async function localizeMediaRows<T extends MediaRow>(
     localizedItems.forEach((localized, localizedIndex) => {
       const originalIndexes = duplicateIndexesByRequestIndex.get(localizedIndex) || []
       for (const originalIndex of originalIndexes) {
-        if (originalIndex == null) continue
         const sourceRow = rows[originalIndex]
         const merged = markLocaleChecked(mergeLocalizedRow(sourceRow, localized || payload[uniqueIndexes[localizedIndex]], mergedOptions), locale)
         nextRows[originalIndex] = merged as unknown as T

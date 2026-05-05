@@ -816,10 +816,9 @@ export async function POST(request: NextRequest) {
 
   const out = items.map((item: MediaLike) => ({ ...item }))
 
-  // Fast path globale: prima di chiamare TMDB/AniList/BGG/Steam/IGDB/DeepL
-  // leggiamo la cache persistente Supabase per (media, lingua).
-  // Se un utente usa sempre EN, dopo il primo popolamento le page leggono asset EN
-  // già pronti e non fanno più provider calls inutili.
+  // Prima lettura: cache persistente Supabase per media + lingua.
+  // Se l'utente resta sempre nella stessa lingua, dopo il primo popolamento
+  // le pagine non devono più richiamare provider esterni per gli stessi media.
   const cachedAssets = await readMediaLocaleAssets(out, locale)
   out.forEach((item: MediaLike, index: number) => {
     const key = mediaLocaleKeyFor(item)

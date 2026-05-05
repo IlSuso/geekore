@@ -961,6 +961,7 @@ const FOR_YOU_MEDIA_LOCALIZATION_OPTIONS = {
   descriptionKeys: ['description'],
   idKeys: ['id', 'external_id'],
   typeKeys: ['type'],
+  mode: 'basic' as const,
 }
 
 function normalizeRecommendationForLocalization(item: Recommendation): Recommendation & { external_id: string; cover_image?: string } {
@@ -977,7 +978,7 @@ async function localizeRecommendationItems(items: Recommendation[], locale: 'it'
     items.map(normalizeRecommendationForLocalization),
     locale,
     FOR_YOU_MEDIA_LOCALIZATION_OPTIONS,
-    { force: true },
+    { mode: 'basic' },
   )
   return localized.map((item, index) => ({
     ...items[index],

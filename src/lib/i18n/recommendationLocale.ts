@@ -285,8 +285,9 @@ export async function ensureRecommendationDescriptionsLocale<T extends Recommend
   locale: Locale,
   options?: { maxSync?: number },
 ): Promise<T[]> {
-  const maxSync = options?.maxSync ?? 48
+  const maxSync = options?.maxSync ?? 0
   const out = items.map(item => ({ ...item })) as T[]
+  if (maxSync <= 0) return out
 
   const missing = out
     .filter(item => !getLocalizedField(item, locale, 'description'))
@@ -339,11 +340,11 @@ export async function localizeRecommendationsRecord(
       if (!Array.isArray(items)) return [type, []]
 
       const withTitles = await ensureOfficialTitlesLocale(items, locale, {
-        maxSync: options?.maxSyncTitles ?? 60,
+        maxSync: options?.maxSyncTitles ?? 18,
       })
 
       const withDescriptions = await ensureRecommendationDescriptionsLocale(withTitles, locale, {
-        maxSync: options?.maxSyncTranslations ?? 48,
+        maxSync: options?.maxSyncTranslations ?? 0,
       })
 
       return [
@@ -436,8 +437,8 @@ export async function buildLocalizedRecommendationPayload(params: {
   maxSyncTitles?: number
 }) {
   const recommendations = await localizeRecommendationsRecord(params.recommendations, params.locale, {
-    maxSyncTranslations: params.maxSyncTranslations ?? 48,
-    maxSyncTitles: params.maxSyncTitles ?? 60,
+    maxSyncTranslations: params.maxSyncTranslations ?? 0,
+    maxSyncTitles: params.maxSyncTitles ?? 18,
   })
 
   return {
@@ -454,8 +455,8 @@ export async function buildLocalizedRecommendationPayload(params: {
 export async function localizeRecommendationPayload<T extends PayloadLike>(payload: T, locale: Locale): Promise<T> {
   const recommendations = payload.recommendations
     ? await localizeRecommendationsRecord(payload.recommendations, locale, {
-      maxSyncTranslations: 48,
-      maxSyncTitles: 60,
+      maxSyncTranslations: 0,
+      maxSyncTitles: 18,
     })
     : undefined
 
@@ -463,9 +464,9 @@ export async function localizeRecommendationPayload<T extends PayloadLike>(paylo
     ? flattenRecommendations(recommendations)
     : Array.isArray(payload.items)
       ? (await ensureRecommendationDescriptionsLocale(
-        await ensureOfficialTitlesLocale(payload.items, locale, { maxSync: 60 }),
+        await ensureOfficialTitlesLocale(payload.items, locale, { maxSync: 18 }),
         locale,
-        { maxSync: 48 },
+        { maxSync: 0 },
       )).map(item => localizeRecommendationItem(item, locale))
       : payload.items
 
