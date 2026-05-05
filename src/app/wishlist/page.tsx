@@ -245,6 +245,7 @@ export default function WishlistPage() {
       title={copy.title}
       description={copy.description}
       icon={<Bookmark size={16} />}
+      className="gk-wishlist-page"
       contentClassName="mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <section className="mb-5 rounded-[30px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-4 ring-1 ring-white/5">

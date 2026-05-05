@@ -19,7 +19,6 @@ const TRENDING_LOCALIZATION_OPTIONS: MediaLocalizationOptions = {
   idKeys: ['external_id'],
   typeKeys: ['type'],
   descriptionKeys: ['description'],
-  mode: 'basic',
 }
 
 function normalizeType(type: string | null | undefined): string {
@@ -80,6 +79,7 @@ export function TrendingContent({ byAdditions, byRating }: { byAdditions: Trendi
       title={copy.title}
       description={copy.description}
       icon={<TrendingUp size={16} />}
+      className="gk-trending-page"
       contentClassName="mx-auto max-w-screen-lg pt-2 md:pt-8 pb-28"
     >
       <div className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[radial-gradient(circle_at_18%_0%,rgba(230,255,61,0.13),transparent_36%),linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
