@@ -470,7 +470,7 @@ export function MediaDetailsDrawer({
       }
 
       const isMovie = media.type === "movie";
-      const isBoardgame = media.type === "boardgame";
+      const isBoardgame = detailMedia.type === "boardgame";
 
       const seasonNum = opts?.season ?? 1;
       const maxEpThisSeason =
@@ -796,51 +796,52 @@ export function MediaDetailsDrawer({
     title: displayTitle,
     description: displayDescription,
     coverImage: displayCoverImage,
-  };
+  } as MediaDetails;
 
-  const Icon = TYPE_ICON[media.type] || Film;
-  const externalUrl = buildExternalUrl(media);
-  const sourceLabel = buildSourceLabel(media);
+  const detailMedia = displayMedia;
+  const Icon = TYPE_ICON[detailMedia.type] || Film;
+  const externalUrl = buildExternalUrl(detailMedia);
+  const sourceLabel = buildSourceLabel(detailMedia);
 
-  const isManga = media.type === "manga" || media.type === "novel";
-  const isBoardgame = media.type === "boardgame";
+  const isManga = detailMedia.type === "manga" || detailMedia.type === "novel";
+  const isBoardgame = detailMedia.type === "boardgame";
   // Autori/creatori priorità per tipo
   const creatorList = isManga
-    ? media.authors?.length
-      ? media.authors
-      : media.developers?.length
-        ? media.developers
-        : media.studios?.length
-          ? media.studios
+    ? detailMedia.authors?.length
+      ? detailMedia.authors
+      : detailMedia.developers?.length
+        ? detailMedia.developers
+        : detailMedia.studios?.length
+          ? detailMedia.studios
           : null
-    : media.studios?.length
-      ? media.studios
-      : media.directors?.length
-        ? media.directors
-        : media.authors?.length
-          ? media.authors
+    : detailMedia.studios?.length
+      ? detailMedia.studios
+      : detailMedia.directors?.length
+        ? detailMedia.directors
+        : detailMedia.authors?.length
+          ? detailMedia.authors
           : null;
 
   const creatorLabel = creatorList?.slice(0, 2).join(", ") ?? null;
   const creatorTitle = isManga
-    ? media.authors?.length
+    ? detailMedia.authors?.length
       ? ui.authors
       : ui.publishers
-    : media.studios?.length
+    : detailMedia.studios?.length
       ? ui.studios
-      : media.directors?.length
+      : detailMedia.directors?.length
         ? ui.directors
         : ui.authors;
 
-  const continuityRelations = (media.relations || [])
+  const continuityRelations = (detailMedia.relations || [])
     .filter((r) =>
       ["SEQUEL", "PREQUEL", "SIDE_STORY", "SPIN_OFF"].includes(r.relationType),
     )
     .slice(0, 4);
 
-  const isLongDesc = (media.description?.length ?? 0) > 350;
+  const isLongDesc = (detailMedia.description?.length ?? 0) > 350;
   const timeLabel =
-    media.type === "anime" || media.type === "tv"
+    detailMedia.type === "anime" || detailMedia.type === "tv"
       ? commonUi.minutesPerEpisode
       : commonUi.minutesShort;
 
@@ -889,12 +890,12 @@ export function MediaDetailsDrawer({
         <MediaDetailsHero
           media={{
             title: displayTitle,
-            type: media.type,
+            type: detailMedia.type,
             coverImage: displayCoverImage,
-            year: media.year,
-            score: media.score != null ? media.score.toFixed(1) : null,
-            matchScore: media.matchScore,
-            isAwardWinner: media.isAwardWinner,
+            year: detailMedia.year,
+            score: detailMedia.score != null ? detailMedia.score.toFixed(1) : null,
+            matchScore: detailMedia.matchScore,
+            isAwardWinner: detailMedia.isAwardWinner,
           }}
           fallbackIcon={<Icon size={28} />}
           subtitle={
@@ -907,29 +908,29 @@ export function MediaDetailsDrawer({
           }
           meta={
             <>
-              {media.episodes != null && media.episodes > 1 && (
+              {detailMedia.episodes != null && detailMedia.episodes > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
-                  <Layers size={10} /> {media.episodes}{" "}
-                  {media.type === "manga" ? "cap." : "ep."}
+                  <Layers size={10} /> {detailMedia.episodes}{" "}
+                  {detailMedia.type === "manga" ? "cap." : "ep."}
                 </span>
               )}
-              {(media.min_players != null || media.max_players != null) && (
+              {(detailMedia.min_players != null || detailMedia.max_players != null) && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
                   <Users size={10} />
-                  {media.min_players === media.max_players
-                    ? media.min_players
-                    : `${media.min_players ?? "?"}–${media.max_players ?? "?"}`}
+                  {detailMedia.min_players === detailMedia.max_players
+                    ? detailMedia.min_players
+                    : `${detailMedia.min_players ?? "?"}–${detailMedia.max_players ?? "?"}`}
                 </span>
               )}
-              {media.playing_time != null && (
+              {detailMedia.playing_time != null && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
-                  <Clock size={10} /> {media.playing_time}
+                  <Clock size={10} /> {detailMedia.playing_time}
                   {timeLabel}
                 </span>
               )}
-              {media.complexity != null && (
+              {detailMedia.complexity != null && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
-                  <Dices size={10} /> {media.complexity.toFixed(1)}/5
+                  <Dices size={10} /> {detailMedia.complexity.toFixed(1)}/5
                 </span>
               )}
             </>
@@ -944,10 +945,10 @@ export function MediaDetailsDrawer({
         >
           <div className="grid gap-2.5 p-3 md:grid-cols-1">
             {/* Generi */}
-            {media.genres && media.genres.length > 0 && (
+            {detailMedia.genres && detailMedia.genres.length > 0 && (
               <MediaDetailsSection title={ui.genres} icon={<Hash size={13} />}>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.genres.map((g) => (
+                  {detailMedia.genres.map((g) => (
                     <MediaDetailsTag key={g} accent>
                       {genreLabel(genreLabel(g, locale), locale)}
                     </MediaDetailsTag>
@@ -959,7 +960,7 @@ export function MediaDetailsDrawer({
             {/* Stats grid */}
             {(() => {
               const cells: React.ReactElement[] = [];
-              if (media.matchScore != null)
+              if (detailMedia.matchScore != null)
                 cells.push(
                   <div
                     key="match"
@@ -970,11 +971,11 @@ export function MediaDetailsDrawer({
                       className="font-mono-data text-[18px] font-black"
                       style={{ color: "var(--accent)" }}
                     >
-                      {media.matchScore}%
+                      {detailMedia.matchScore}%
                     </p>
                   </div>,
                 );
-              if (media.score != null)
+              if (detailMedia.score != null)
                 cells.push(
                   <div
                     key="score"
@@ -987,7 +988,7 @@ export function MediaDetailsDrawer({
                         className="text-yellow-400 fill-yellow-400"
                       />
                       <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                        {media.score!.toFixed(1)}
+                        {detailMedia.score!.toFixed(1)}
                       </p>
                       <span className="text-[10px] text-[var(--text-muted)]">
                         /5
@@ -995,7 +996,7 @@ export function MediaDetailsDrawer({
                     </div>
                   </div>,
                 );
-              if (media.year)
+              if (detailMedia.year)
                 cells.push(
                   <div
                     key="year"
@@ -1003,27 +1004,27 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.year}</p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.year}
+                      {detailMedia.year}
                     </p>
                   </div>,
                 );
-              if (media.episodes != null && media.episodes > 1)
+              if (detailMedia.episodes != null && detailMedia.episodes > 1)
                 cells.push(
                   <div
                     key="eps"
                     className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
                   >
                     <p className="gk-label mb-1">
-                      {media.type === "manga"
+                      {detailMedia.type === "manga"
                         ? commonUi.chapters
                         : commonUi.episodes}
                     </p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.episodes}
+                      {detailMedia.episodes}
                     </p>
                   </div>,
                 );
-              if (media.totalSeasons != null && media.totalSeasons > 1)
+              if (detailMedia.totalSeasons != null && detailMedia.totalSeasons > 1)
                 cells.push(
                   <div
                     key="seasons"
@@ -1031,11 +1032,11 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.seasons}</p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.totalSeasons}
+                      {detailMedia.totalSeasons}
                     </p>
                   </div>,
                 );
-              if (media.playing_time)
+              if (detailMedia.playing_time)
                 cells.push(
                   <div
                     key="time"
@@ -1043,14 +1044,14 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.duration}</p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.playing_time}
+                      {detailMedia.playing_time}
                       <span className="ml-0.5 text-[10px] text-[var(--text-muted)]">
                         m
                       </span>
                     </p>
                   </div>,
                 );
-              if (media.complexity)
+              if (detailMedia.complexity)
                 cells.push(
                   <div
                     key="cmplx"
@@ -1058,14 +1059,14 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.difficulty}</p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.complexity.toFixed(1)}
+                      {detailMedia.complexity.toFixed(1)}
                       <span className="text-[10px] text-[var(--text-muted)]">
                         /5
                       </span>
                     </p>
                   </div>,
                 );
-              if (media.min_players != null || media.max_players != null)
+              if (detailMedia.min_players != null || detailMedia.max_players != null)
                 cells.push(
                   <div
                     key="players"
@@ -1073,13 +1074,13 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.players}</p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {media.min_players === media.max_players
-                        ? media.min_players
-                        : `${media.min_players ?? "?"}–${media.max_players ?? "?"}`}
+                      {detailMedia.min_players === detailMedia.max_players
+                        ? detailMedia.min_players
+                        : `${detailMedia.min_players ?? "?"}–${detailMedia.max_players ?? "?"}`}
                     </p>
                   </div>,
                 );
-              if (media.pages)
+              if (detailMedia.pages)
                 cells.push(
                   <div
                     key="pages"
@@ -1087,7 +1088,7 @@ export function MediaDetailsDrawer({
                   >
                     <p className="gk-label mb-1">{commonUi.pages}</p>
                     <p className="text-lg font-bold text-white">
-                      {media.pages}
+                      {detailMedia.pages}
                     </p>
                   </div>,
                 );
@@ -1146,14 +1147,14 @@ export function MediaDetailsDrawer({
             )}
 
             {/* ── BOARDGAME: {ui.mechanics} ─────────────────────────────── */}
-            {isBoardgame && media.mechanics && media.mechanics.length > 0 && (
+            {isBoardgame && detailMedia.mechanics && detailMedia.mechanics.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5 flex items-center gap-1">
                   <Dices size={10} />
                   {ui.mechanics}
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {media.mechanics.slice(0, 10).map((m) => (
+                  {detailMedia.mechanics.slice(0, 10).map((m) => (
                     <span
                       key={m}
                       className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300"

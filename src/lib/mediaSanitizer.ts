@@ -1,4 +1,5 @@
 import type { MediaType } from '@/types'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 export const MEDIA_TYPES = new Set<MediaType>([
   'anime',
@@ -47,21 +48,7 @@ export function cleanString(value: unknown, max = 500): string | null {
 }
 
 export function cleanLongText(value: unknown, max = 3000): string | null {
-  if (typeof value !== 'string') return null
-  const clean = value
-    .replace(/\u0000/g, '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
+  const clean = cleanDescriptionForDisplay(value)
   if (!clean) return null
   if (BAD_STRING_VALUES.has(clean.toLowerCase())) return null
   return clampAtSentence(clean, max)

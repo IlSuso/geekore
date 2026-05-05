@@ -34,7 +34,7 @@ export function SectionHeader({ eyebrow, title, description, action, icon, class
           <h2 className="gk-title truncate text-[var(--text-primary)]">{title}</h2>
         </div>
         {description && (
-          <p className="gk-body mt-2 max-w-xl">
+          <p className="gk-description-scroll gk-body mt-2 max-h-[112px] max-w-xl overflow-y-auto pr-2">
             {description}
           </p>
         )}

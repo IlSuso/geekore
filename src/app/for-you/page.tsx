@@ -34,6 +34,7 @@ import type { TasteProfile } from '@/components/for-you/DNAWidget'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { optimizeCover } from '@/lib/imageOptimizer'
+import { localizeMediaRows } from '@/lib/i18n/clientMediaLocalization'
 
 // V5: Tipi per feedback granulare
 type FeedbackAction = 'not_interested' | 'already_seen' | 'added' | 'wishlist_add';
@@ -947,14 +948,99 @@ const forYouCache: {
   addedTitles: Set<string>
   totalEntries: number
   ts: number
+  locale: 'it' | 'en' | null
 } = {
   recommendations: null, rails: null, tasteProfile: null, friendsActivity: [],
   addedIds: new Set(), wishlistIds: new Set(), addedTitles: new Set(),
-  totalEntries: 0, ts: 0,
+  totalEntries: 0, ts: 0, locale: null,
+}
+
+const FOR_YOU_MEDIA_LOCALIZATION_OPTIONS = {
+  titleKeys: ['title'],
+  coverKeys: ['coverImage', 'cover_image'],
+  descriptionKeys: ['description'],
+  idKeys: ['id', 'external_id'],
+  typeKeys: ['type'],
+}
+
+function normalizeRecommendationForLocalization(item: Recommendation): Recommendation & { external_id: string; cover_image?: string } {
+  return {
+    ...item,
+    external_id: (item as any).external_id || item.id,
+    cover_image: (item as any).cover_image || item.coverImage,
+  }
+}
+
+async function localizeRecommendationItems(items: Recommendation[], locale: 'it' | 'en'): Promise<Recommendation[]> {
+  if (!Array.isArray(items) || items.length === 0) return items
+  const localized = await localizeMediaRows(
+    items.map(normalizeRecommendationForLocalization),
+    locale,
+    FOR_YOU_MEDIA_LOCALIZATION_OPTIONS,
+    { force: true },
+  )
+  return localized.map((item, index) => ({
+    ...items[index],
+    ...item,
+    id: items[index].id,
+    type: items[index].type,
+    coverImage: item.coverImage || (item as any).cover_image || items[index].coverImage,
+    description: item.description || items[index].description,
+  }))
+}
+
+async function localizeRecommendationMap(
+  recommendations: Record<string, Recommendation[]>,
+  locale: 'it' | 'en',
+): Promise<Record<string, Recommendation[]>> {
+  const entries = await Promise.all(
+    Object.entries(recommendations || {}).map(async ([type, items]) => [type, await localizeRecommendationItems(items || [], locale)] as const),
+  )
+  return Object.fromEntries(entries)
+}
+
+async function localizeRails(
+  rails: RecommendationRail[],
+  locale: 'it' | 'en',
+): Promise<RecommendationRail[]> {
+  if (!Array.isArray(rails) || rails.length === 0) return rails
+  return Promise.all(rails.map(async rail => ({ ...rail, items: await localizeRecommendationItems(rail.items || [], locale) })))
+}
+
+async function localizeForYouPayload(
+  payload: any,
+  locale: 'it' | 'en',
+): Promise<{
+  recommendations: Record<string, Recommendation[]>
+  rails: RecommendationRail[]
+}> {
+  const incoming = (payload?.recommendations || {}) as Record<string, Recommendation[]>
+  const merged: Record<string, Recommendation[]> = {}
+
+  for (const [type, items] of Object.entries(incoming)) {
+    if (!Array.isArray(items) || items.length === 0) continue
+    merged[type] = items as Recommendation[]
+  }
+
+  const localizedRecommendations = await localizeRecommendationMap(merged, locale).catch(() => merged)
+  const rawRails = Array.isArray(payload?.rails) ? payload.rails as RecommendationRail[] : []
+  const localizedRails = await localizeRails(rawRails, locale).catch(() => rawRails)
+
+  return { recommendations: localizedRecommendations, rails: localizedRails }
+}
+
+function resetForYouCacheForLocale(locale: 'it' | 'en') {
+  forYouCache.recommendations = null
+  forYouCache.rails = null
+  forYouCache.tasteProfile = null
+  forYouCache.friendsActivity = []
+  forYouCache.ts = 0
+  forYouCache.locale = locale
 }
 
 // Inline swipe mode wrapper — carica le raccomandazioni dalla cache e le passa a SwipeMode
 function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
+  const { locale } = useLocale()
   const supabase = createClient()
   const router = useRouter()
   const [items, setItems] = useState<SwipeItem[]>([])
@@ -972,35 +1058,39 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
         .from('swipe_queue_all').select('*').eq('user_id', user.id)
         .order('inserted_at', { ascending: true })
       if (queueRows && queueRows.length >= 5) {
-        setItems(queueRows.map((r: any) => ({
+        const rawItems = queueRows.map((r: any) => ({
           id: r.external_id, title: r.title, type: r.type,
-          coverImage: r.cover_image, year: r.year, genres: r.genres || [],
+          coverImage: r.cover_image, cover_image: r.cover_image, year: r.year, genres: r.genres || [],
           score: r.score, description: r.description, why: r.why,
           matchScore: r.match_score || 0, episodes: r.episodes,
           source: r.source,
-        })))
+        }))
+        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+        setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         setLoading(false)
         return
       }
       // Fall back to recommendations API
       try {
-        const res = await fetch('/api/recommendations?type=all&lang=${locale}')
+        const res = await fetch(`/api/recommendations?type=all&lang=${locale}`)
         if (res.ok) {
           const json = await res.json()
           const all = (Object.values(json.recommendations || {}) as any[][]).flat()
-          setItems(all.map((r: any) => ({
+          const rawItems = all.map((r: any) => ({
             id: r.id, title: r.title, type: r.type,
-            coverImage: r.coverImage, year: r.year, genres: r.genres || [],
+            coverImage: r.coverImage, cover_image: r.coverImage, year: r.year, genres: r.genres || [],
             score: r.score, description: r.description, why: r.why,
             matchScore: r.matchScore || 0, episodes: r.episodes,
             source: r.source,
-          })))
+          }))
+          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+          setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         }
       } catch { }
       setLoading(false)
     }
     init()
-  }, []) // eslint-disable-line
+  }, [locale]) // eslint-disable-line
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -1065,7 +1155,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
   }
 
   const requestMore = async (): Promise<SwipeItem[]> => {
-    const res = await fetch('/api/recommendations?type=all&lang=${locale}&refresh=1', { credentials: 'include' }).catch(() => null)
+    const res = await fetch(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { credentials: 'include' }).catch(() => null)
     if (!res?.ok) return []
     const json = await res.json()
     const all = (Object.values(json.recommendations || {}) as any[][]).flat()
@@ -1098,18 +1188,18 @@ export default function ForYouPage() {
   const supabase = createClient(); const router = useRouter()
   const { t, locale } = useLocale()
   const fy = t.forYou
-  const hasCachedData = forYouCache.recommendations !== null
+  const hasCachedData = forYouCache.recommendations !== null && forYouCache.locale === locale
   const [loading, setLoading] = useState(!hasCachedData); const [refreshing, setRefreshing] = useState(false)
-  const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(forYouCache.recommendations ?? {})
-  const [rails, setRails] = useState<RecommendationRail[]>(forYouCache.rails ?? [])
-  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(forYouCache.tasteProfile)
+  const [recommendations, setRecommendations] = useState<Record<string, Recommendation[]>>(hasCachedData ? (forYouCache.recommendations ?? {}) : {})
+  const [rails, setRails] = useState<RecommendationRail[]>(hasCachedData ? (forYouCache.rails ?? []) : [])
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(hasCachedData ? forYouCache.tasteProfile : null)
   const [totalEntries, setTotalEntries] = useState(forYouCache.totalEntries)
   const [addedIds, setAddedIds] = useState<Set<string>>(forYouCache.addedIds)
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(forYouCache.wishlistIds)
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
   const [showPrefs, setShowPrefs] = useState(false)
   const [isCached, setIsCached] = useState(hasCachedData)
-  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>(forYouCache.friendsActivity)
+  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>(hasCachedData ? forYouCache.friendsActivity : [])
   const [friendsLoading, setFriendsLoading] = useState(!hasCachedData || forYouCache.friendsActivity.length === 0)
   const [addingIds, setAddingIds] = useState<Set<string>>(new Set())
   const [reasonPending, setReasonPending] = useState<Recommendation | null>(null)
@@ -1126,10 +1216,10 @@ export default function ForYouPage() {
     const res = await fetch(`/api/recommendations?type=all&lang=${locale}${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
-    const incoming = json.recommendations || {}
-    if (Array.isArray(json.rails)) {
-      setRails(json.rails)
-      forYouCache.rails = json.rails
+    const { recommendations: incoming, rails: nextRails } = await localizeForYouPayload(json, locale)
+    if (nextRails.length > 0) {
+      setRails(nextRails)
+      forYouCache.rails = nextRails
     }
     // Merge invece di replace: non sovrascrivere con dati parziali.
     // Se la risposta contiene meno tipi di quelli in memoria, manteniamo i vecchi.
@@ -1140,11 +1230,58 @@ export default function ForYouPage() {
           merged[type] = items as Recommendation[]
         }
       }
+      forYouCache.recommendations = merged
+      forYouCache.locale = locale
+      forYouCache.ts = Date.now()
       return merged
     })
     setTasteProfile(json.tasteProfile || null)
     setIsCached(!!json.cached)
-  }, [])
+  }, [locale, router, supabase])
+
+  const relocalizeCurrentForYou = useCallback(async (nextLocale: 'it' | 'en') => {
+    const currentRecommendations = forYouCache.recommendations || recommendations
+    const currentRails = forYouCache.rails || rails
+    if (!currentRecommendations || Object.keys(currentRecommendations).length === 0) return
+
+    try {
+      // Fast path: il backend conosce già il pool salvato e può rimandarlo localizzato
+      // senza rigenerare consigli né chiamare refresh_pool.
+      const poolRes = await fetch(`/api/recommendations?source=pool&type=all&lang=${nextLocale}`, { cache: 'no-store' })
+      if (poolRes.ok) {
+        const poolJson = await poolRes.json().catch(() => null)
+        if (poolJson?.recommendations && Object.keys(poolJson.recommendations).length > 0) {
+          const localized = await localizeForYouPayload(poolJson, nextLocale)
+          const nextRecs = localized.recommendations
+          const nextRails = localized.rails.length > 0 ? localized.rails : await localizeRails(currentRails || [], nextLocale)
+          setRecommendations(nextRecs)
+          setRails(nextRails)
+          if (poolJson.tasteProfile) setTasteProfile(poolJson.tasteProfile)
+          forYouCache.recommendations = nextRecs
+          forYouCache.rails = nextRails
+          forYouCache.tasteProfile = poolJson.tasteProfile || forYouCache.tasteProfile
+          forYouCache.locale = nextLocale
+          forYouCache.ts = Date.now()
+          window.dispatchEvent(new CustomEvent('geekore:media-localized', { detail: { locale: nextLocale, target: 'for-you' } }))
+          return
+        }
+      }
+    } catch {}
+
+    // Fallback: rilocalizza client-side gli oggetti già in memoria.
+    const [localizedRecs, localizedRails] = await Promise.all([
+      localizeRecommendationMap(currentRecommendations, nextLocale),
+      localizeRails(currentRails || [], nextLocale),
+    ]).catch(() => [currentRecommendations, currentRails || []] as const)
+
+    setRecommendations(localizedRecs)
+    setRails(localizedRails)
+    forYouCache.recommendations = localizedRecs
+    forYouCache.rails = localizedRails
+    forYouCache.locale = nextLocale
+    forYouCache.ts = Date.now()
+    window.dispatchEvent(new CustomEvent('geekore:media-localized', { detail: { locale: nextLocale, target: 'for-you' } }))
+  }, [recommendations, rails])
 
   const fetchFriends = useCallback(async (userId: string) => {
     setFriendsLoading(true)
@@ -1211,8 +1348,17 @@ export default function ForYouPage() {
         }
       }
 
-      // ── Cache hit: mostra tutto immediatamente, poi aggiorna in background ──
-      if (forYouCache.recommendations !== null) {
+      // ── Cache hit: mostra tutto immediatamente solo se è della stessa lingua ──
+      if (forYouCache.recommendations !== null && forYouCache.locale !== locale) {
+        resetForYouCacheForLocale(locale)
+        setRecommendations({})
+        setRails([])
+        setTasteProfile(null)
+        setSimilarSection(null)
+        setDetailItem(null)
+      }
+
+      if (forYouCache.recommendations !== null && forYouCache.locale === locale) {
         // Aggiorna libreria e amici in background senza bloccare la UI
         Promise.all([
           supabase.from('user_media_entries').select('external_id, title').eq('user_id', userId),
@@ -1227,6 +1373,9 @@ export default function ForYouPage() {
           forYouCache.addedTitles = newTitles; forYouCache.totalEntries = entries?.length || 0
         })
         fetchFriends(userId)
+        if (forYouCache.locale !== locale) {
+          relocalizeCurrentForYou(locale).catch(() => null)
+        }
         return
       }
 
@@ -1247,15 +1396,14 @@ export default function ForYouPage() {
       fetchFriends(userId)
 
       // 1. Pool persistente (fast path ~50ms)
-      const poolRes = await fetch('/api/recommendations?source=pool', { cache: 'no-store' })
+      const poolRes = await fetch(`/api/recommendations?source=pool&type=all&lang=${locale}`, { cache: 'no-store' })
       if (poolRes.ok) {
         const poolJson = await poolRes.json()
         if ((poolJson.source === 'pool' || poolJson.source === 'pool_master_sample') && poolJson.recommendations) {
-          const recs = poolJson.recommendations || {}
-          const nextRails = Array.isArray(poolJson.rails) ? poolJson.rails : []
+          const { recommendations: recs, rails: nextRails } = await localizeForYouPayload(poolJson, locale)
           setRecommendations(recs); setTasteProfile(poolJson.tasteProfile || null); setIsCached(true)
           setRails(nextRails)
-          forYouCache.recommendations = recs; forYouCache.rails = nextRails; forYouCache.tasteProfile = poolJson.tasteProfile || null
+          forYouCache.recommendations = recs; forYouCache.rails = nextRails; forYouCache.tasteProfile = poolJson.tasteProfile || null; forYouCache.locale = locale
           forYouCache.ts = Date.now()
           setLoading(false)
           const lastVisit = localStorage.getItem('for_you_last_visit')
@@ -1267,18 +1415,13 @@ export default function ForYouPage() {
       }
 
       // 2. Pool vuota → calcola tutto
-      const recsRes = await fetch('/api/recommendations?type=all&lang=${locale}')
+      const recsRes = await fetch(`/api/recommendations?type=all&lang=${locale}`)
       if (recsRes.ok) {
         const json = await recsRes.json()
-        const incoming = json.recommendations || {}
-        const merged: Record<string, Recommendation[]> = {}
-        for (const [type, items] of Object.entries(incoming)) {
-          if (Array.isArray(items) && (items as any[]).length > 0) merged[type] = items as Recommendation[]
-        }
+        const { recommendations: merged, rails: nextRails } = await localizeForYouPayload(json, locale)
         setRecommendations(merged); setTasteProfile(json.tasteProfile || null); setIsCached(!!json.cached)
-        const nextRails = Array.isArray(json.rails) ? json.rails : []
         setRails(nextRails)
-        forYouCache.recommendations = merged; forYouCache.rails = nextRails; forYouCache.tasteProfile = json.tasteProfile || null
+        forYouCache.recommendations = merged; forYouCache.rails = nextRails; forYouCache.tasteProfile = json.tasteProfile || null; forYouCache.locale = locale
         forYouCache.ts = Date.now()
       }
 
@@ -1293,14 +1436,34 @@ export default function ForYouPage() {
       cancelled = true
       if (profileChannel) supabase.removeChannel(profileChannel)
     }
-  }, [])
+  }, [locale]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (forYouCache.recommendations === null && Object.keys(recommendations).length === 0) return
+    if (forYouCache.locale === locale) return
+    relocalizeCurrentForYou(locale).catch(() => null)
+  }, [locale]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onLocaleChanged = (event: Event) => {
+      const nextLocale = (event as CustomEvent).detail?.locale as 'it' | 'en' | undefined
+      if (!nextLocale) return
+      relocalizeCurrentForYou(nextLocale).catch(() => null)
+    }
+    window.addEventListener('geekore:locale-changed', onLocaleChanged)
+    window.addEventListener('geekore:media-locale-switch', onLocaleChanged)
+    return () => {
+      window.removeEventListener('geekore:locale-changed', onLocaleChanged)
+      window.removeEventListener('geekore:media-locale-switch', onLocaleChanged)
+    }
+  }, [relocalizeCurrentForYou])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     setShowNewRecsBadge(false)
     const { data: { user } } = await supabase.auth.getUser()
     const [lightJson] = await Promise.all([
-      fetch('/api/recommendations?type=all&lang=${locale}&refresh=1', { cache: 'no-store' })
+      fetch(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null),
       user ? fetchFriends(user.id) : Promise.resolve(),
@@ -1309,10 +1472,10 @@ export default function ForYouPage() {
     let json = lightJson
 
     if (json && json.recommendations) {
-      const incoming = json.recommendations as Record<string, Recommendation[]>
-      if (Array.isArray(json.rails)) {
-        setRails(json.rails)
-        forYouCache.rails = json.rails
+      const { recommendations: incoming, rails: nextRails } = await localizeForYouPayload(json, locale)
+      if (nextRails.length > 0) {
+        setRails(nextRails)
+        forYouCache.rails = nextRails
       }
       setRecommendations(prev => {
         const merged = { ...prev }
@@ -1320,6 +1483,7 @@ export default function ForYouPage() {
           if (Array.isArray(items) && items.length > 0) merged[type] = items
         }
         forYouCache.recommendations = merged
+        forYouCache.locale = locale
         forYouCache.ts = Date.now()
         return merged
       })
@@ -1408,9 +1572,17 @@ export default function ForYouPage() {
       title: item.title,
       type: item.type,
       coverImage: item.coverImage,
+      cover_image: (item as any).cover_image || item.coverImage,
       year: item.year,
       genres: item.genres,
       description: item.description,
+      title_en: (item as any).title_en,
+      title_it: (item as any).title_it,
+      description_en: (item as any).description_en,
+      description_it: (item as any).description_it,
+      cover_image_en: (item as any).cover_image_en,
+      cover_image_it: (item as any).cover_image_it,
+      localized: (item as any).localized,
       score: item.score,
       episodes: item.episodes,
       authors: item.authors,
@@ -1442,15 +1614,17 @@ export default function ForYouPage() {
     if (keywords?.length) params.set('keywords', keywords.slice(0, 15).join(','))
     if (excludeId) params.set('excludeId', excludeId)
     if (type) params.set('type', type)
+    params.set('lang', locale)
     const res = await fetch(`/api/recommendations/similar?${params}`)
     if (res.ok) {
       const json = await res.json()
-      const items: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
+      const rawItems: Recommendation[] = (json.items || []).filter((r: Recommendation) => r.id !== excludeId)
+      const items = await localizeRecommendationItems(rawItems, locale).catch(() => rawItems)
       setSimilarSection({ sourceTitle: title, sourceType: (type as MediaType) || 'movie', items })
       scrollToTop('smooth')
     } else {
     }
-  }, [])
+  }, [locale])
 
   const handleSimilar = useCallback(async (item: Recommendation) => {
     if (!item.genres.length) return

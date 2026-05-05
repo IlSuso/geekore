@@ -16,7 +16,7 @@ export function FollowBackButton({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
 
   useEffect(() => {
     const check = async () => {
@@ -34,6 +34,14 @@ export function FollowBackButton({
   }, [targetId, isFollowingInitial]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isFollowing === null || !currentUserId || currentUserId === targetId) return null
+
+  const followCopy = (t as any)?.follow
+  const followLabel = typeof followCopy?.follow === 'string'
+    ? followCopy.follow
+    : locale === 'en' ? 'Follow' : 'Segui'
+  const followingLabel = typeof followCopy?.following === 'string'
+    ? followCopy.following
+    : locale === 'en' ? 'Following' : 'Segui già'
 
   const toggle = async () => {
     if (!currentUserId || loading) return
@@ -62,7 +70,7 @@ export function FollowBackButton({
         : { background: 'var(--accent)', color: '#0B0B0F' }}
     >
       {loading ? <Loader2 size={12} className="animate-spin" /> : isFollowing ? <UserCheck size={12} /> : <UserPlus size={12} />}
-      {isFollowing ? t.follow.following : t.follow.follow}
+      {isFollowing ? followingLabel : followLabel}
     </button>
   )
 }

@@ -1,5 +1,6 @@
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 const IT_HINTS = new Set([
   ' il ', ' lo ', ' la ', ' gli ', ' le ', ' un ', ' una ', ' che ', ' dei ', ' degli ', ' delle ',
@@ -18,22 +19,7 @@ function normalizeSpaces(text: string): string {
 }
 
 export function cleanDescriptionText(value: unknown, maxLen = 900): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const clean = normalizeSpaces(value
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#\d+;/g, '')
-  )
-
-  if (!clean) return undefined
-  if (/^(0|null|undefined|nan|n\/a)$/i.test(clean)) return undefined
-  return clean
+  return cleanDescriptionForDisplay(value)
 }
 
 export function isProbablyEnglish(text: string): boolean {

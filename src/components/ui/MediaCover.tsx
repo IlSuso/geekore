@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 
 interface MediaCoverProps {
@@ -11,6 +11,7 @@ interface MediaCoverProps {
   progress?: number | null
   completed?: boolean
   fallback?: ReactNode
+  fallbackSrcs?: string[]
   className?: string
 }
 
@@ -34,6 +35,33 @@ const TYPE_COLOR_VAR: Record<string, string> = {
   tv: 'var(--type-tv)',
 }
 
+function normalizeImageUrl(src: string | null): string | null {
+  if (!src) return null
+  const trimmed = src.trim()
+  if (!trimmed) return null
+  if (trimmed.startsWith('//')) return `https:${trimmed}`
+  if (trimmed.startsWith('http://')) return `https://${trimmed.slice('http://'.length)}`
+  return trimmed
+}
+
+function imageProxyUrl(src: string): string | null {
+  if (!src.startsWith('https://')) return null
+  if (src.includes('/api/image-proxy?')) return null
+  return `/api/image-proxy?url=${encodeURIComponent(src)}`
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const normalized = normalizeImageUrl(value || null)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    out.push(normalized)
+  }
+  return out
+}
+
 export function MediaCover({
   src,
   alt,
@@ -44,27 +72,35 @@ export function MediaCover({
   progress,
   completed,
   fallback,
+  fallbackSrcs = [],
   className = '',
 }: MediaCoverProps) {
   const safeProgress = typeof progress === 'number'
     ? Math.max(0, Math.min(100, progress))
     : null
 
-  const normalizedSrc = typeof src === 'string' && src.trim().length > 0 ? src.trim() : null
+  const normalizedSrc = normalizeImageUrl(typeof src === 'string' ? src : null)
   const resolvedType = type || undefined
   const resolvedTypeLabel = typeLabel || (resolvedType ? TYPE_LABELS[resolvedType] || resolvedType : null)
   const typeColor = resolvedType ? TYPE_COLOR_VAR[resolvedType] : undefined
 
-  const [imageFailed, setImageFailed] = useState(false)
+  const imageCandidates = useMemo(() => {
+    const direct = uniqueStrings([normalizedSrc, ...fallbackSrcs])
+    const proxied = direct.map(imageProxyUrl).filter((value): value is string => Boolean(value))
+    return uniqueStrings([...direct, ...proxied])
+  }, [normalizedSrc, fallbackSrcs.join('|')])
+
+  const [candidateIndex, setCandidateIndex] = useState(0)
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
 
   useEffect(() => {
-    setImageFailed(false)
+    setCandidateIndex(0)
     setLoadedSrc(null)
-  }, [normalizedSrc])
+  }, [imageCandidates.join('|')])
 
-  const canTryImage = Boolean(normalizedSrc && !imageFailed)
-  const imageReady = Boolean(normalizedSrc && loadedSrc === normalizedSrc && !imageFailed)
+  const activeSrc = imageCandidates[candidateIndex] || null
+  const canTryImage = Boolean(activeSrc)
+  const imageReady = Boolean(activeSrc && loadedSrc === activeSrc)
 
   return (
     <div className={`gk-cover ${className}`}>
@@ -74,15 +110,15 @@ export function MediaCover({
 
       {canTryImage && (
         <img
-          src={normalizedSrc || undefined}
+          src={activeSrc || undefined}
           alt={alt}
           loading="lazy"
           decoding="async"
           className={`absolute inset-0 block h-full w-full object-cover transition-opacity duration-200 ${imageReady ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoadedSrc(normalizedSrc)}
+          onLoad={() => setLoadedSrc(activeSrc)}
           onError={() => {
-            setImageFailed(true)
             setLoadedSrc(null)
+            setCandidateIndex(index => index + 1)
           }}
         />
       )}

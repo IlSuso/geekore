@@ -24,6 +24,7 @@ import { useLocalizedMediaRows } from '@/lib/i18n/clientMediaLocalization'
 import { useLocale } from '@/lib/locale'
 import { pageCopy } from '@/lib/i18n/pageCopy'
 import { typeLabel } from '@/lib/i18n/uiCopy'
+import { MediaDetailsDrawer, type MediaDetails } from '@/components/media/MediaDetailsDrawer'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   anime: Swords,
@@ -51,6 +52,43 @@ function normalize(value: string): string {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 }
 
+function wishlistToDrawerMedia(item: any): MediaDetails {
+  const type = item.type === 'board_game' ? 'boardgame' : item.type
+  const achievement = item.achievement_data && typeof item.achievement_data === 'object' ? item.achievement_data : null
+  const bgg = achievement?.bgg && typeof achievement.bgg === 'object' ? achievement.bgg : null
+
+  return {
+    id: item.external_id || item.id,
+    external_id: item.external_id || undefined,
+    title: item.title,
+    title_en: item.title_en,
+    title_it: item.title_it,
+    title_original: item.title_original,
+    type,
+    coverImage: item.cover_image || item.coverImage || undefined,
+    cover_image: item.cover_image || undefined,
+    description: item.description,
+    description_en: item.description_en,
+    description_it: item.description_it,
+    localized: item.localized,
+    genres: Array.isArray(item.genres) ? item.genres : undefined,
+    year: item.year ?? item.release_year,
+    episodes: item.episodes,
+    seasons: item.season_episodes,
+    score: item.score ?? item.rating ?? bgg?.score,
+    min_players: item.min_players ?? bgg?.min_players,
+    max_players: item.max_players ?? bgg?.max_players,
+    playing_time: item.playing_time ?? bgg?.playing_time,
+    complexity: item.complexity ?? bgg?.complexity,
+    mechanics: item.mechanics,
+    designers: item.designers,
+    authors: item.authors,
+    studios: item.studios,
+    directors: item.directors,
+    developers: item.developer ? [item.developer] : item.developers,
+  } as MediaDetails
+}
+
 function WishlistMetric({ label, value, tone = 'default' }: { label: string; value: string | number; tone?: 'default' | 'accent' | 'green' }) {
   const toneClass = tone === 'accent' ? 'text-[var(--accent)]' : tone === 'green' ? 'text-emerald-300' : 'text-[var(--text-primary)]'
   return (
@@ -61,7 +99,7 @@ function WishlistMetric({ label, value, tone = 'default' }: { label: string; val
   )
 }
 
-function WishlistCard({ item, onRemove, isRemoving, locale, copy }: { item: any; onRemove: (id: string) => void; isRemoving: boolean; locale: 'it' | 'en'; copy: ReturnType<typeof pageCopy>['wishlist'] }) {
+function WishlistCard({ item, onRemove, onOpen, isRemoving, locale, copy }: { item: any; onRemove: (id: string) => void; onOpen: (item: any) => void; isRemoving: boolean; locale: 'it' | 'en'; copy: ReturnType<typeof pageCopy>['wishlist'] }) {
   const Icon = TYPE_ICON[item.type] ?? Bookmark
   const countdown = daysUntil(item.release_date, locale, copy)
   const color = getMediaTypeColor(item.type)
@@ -98,10 +136,14 @@ function WishlistCard({ item, onRemove, isRemoving, locale, copy }: { item: any;
             </span>
           )}
         </div>
-        <h3 className="line-clamp-2 text-[15px] font-black leading-tight tracking-[-0.015em] text-[var(--text-primary)]">{item.title}</h3>
-        {item.description ? (
-          <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--text-muted)]">{item.description}</p>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="line-clamp-2 text-left text-[15px] font-black leading-tight tracking-[-0.015em] text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+          data-no-swipe="true"
+        >
+          {item.title}
+        </button>
         {countdown.label ? (
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-black/16 px-2.5 py-1">
             {countdown.available ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Calendar size={12} className="text-[var(--text-muted)]" />}
@@ -139,6 +181,7 @@ export default function WishlistPage() {
   const [removing, setRemoving] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
   const localizedWishlist = useLocalizedMediaRows(wishlist, {
     titleKeys: ['title'],
     coverKeys: ['cover_image'],
@@ -170,7 +213,10 @@ export default function WishlistPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: itemId }),
     }).catch(() => null)
-    if (res?.ok) setWishlist(prev => prev.filter(i => i.id !== itemId))
+    if (res?.ok) {
+      setWishlist(prev => prev.filter(i => i.id !== itemId))
+      setDrawerMedia(prev => prev && (prev.id === itemId || prev.external_id === itemId) ? null : prev)
+    }
     setRemoving(null)
   }
 
@@ -194,6 +240,7 @@ export default function WishlistPage() {
   }
 
   return (
+    <>
     <PageScaffold
       title={copy.title}
       description={copy.description}
@@ -284,10 +331,12 @@ export default function WishlistPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((item) => (
-            <WishlistCard key={item.id} item={item} isRemoving={removing === item.id} onRemove={handleRemove} locale={locale} copy={copy} />
+            <WishlistCard key={item.id} item={item} isRemoving={removing === item.id} onRemove={handleRemove} onOpen={(selected) => setDrawerMedia(wishlistToDrawerMedia(selected))} locale={locale} copy={copy} />
           ))}
         </div>
       )}
     </PageScaffold>
+    <MediaDetailsDrawer media={drawerMedia} onClose={() => setDrawerMedia(null)} />
+    </>
   )
 }

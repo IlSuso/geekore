@@ -63,7 +63,7 @@ const STALE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 6500
 const BGG_TIMEOUT_MS = 8500
 const PER_SECTION_LIMIT = 10
-const TRENDING_CACHE_VERSION = 'v5'
+const TRENDING_CACHE_VERSION = 'v6-locale-covers'
 
 const memoryCache = new Map<string, CacheEntry>()
 let cachedIgdbToken: { token: string; expiresAt: number } | null = null

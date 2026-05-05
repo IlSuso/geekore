@@ -4,6 +4,7 @@ import { buildWhyV3, computeMatchScore } from './profile'
 import { getCurrentAnimeSeasonDates, isAwardWorthy, releaseFreshnessMult } from './scoring'
 import { TMDB_TV_GENRE_NAMES } from './tmdb-shared'
 import { batchedParallel } from './concurrent'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 const ANILIST_ANIME_GENRES = new Set([
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
@@ -117,7 +118,7 @@ function normalizeAnimeMedia(
     genres: mGenres,
     tags: mTags,
     score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-    description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
+    description: cleanDescriptionForDisplay(m.description),
     why: socialFriend
       ? `Il tuo amico con gusti simili ha adorato questo`
       : buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, !!context.isDiscovery, {

@@ -4,6 +4,7 @@ import { buildWhyV3, computeMatchScore } from './profile'
 import { applyFormatDiversity, getCurrentAnimeSeasonDates, isAwardWorthy, releaseFreshnessMult, runtimePenalty } from './scoring'
 import { BGG_TO_CROSS_GENRE, CROSS_TO_BGG_CATEGORY, CROSS_TO_IGDB_GENRE, CROSS_TO_IGDB_THEME, IGDB_VALID_GENRES, TMDB_GENRE_MAP, TMDB_TV_GENRE_MAP } from './genre-maps'
 import { batchedParallel } from './concurrent'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 const ANILIST_MANGA_GENRES = new Set([
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror',
   'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life',
@@ -123,7 +124,7 @@ export async function fetchMangaRecs(
           genres: recGenres,
           tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
+          description: cleanDescriptionForDisplay(m.description),
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
@@ -214,7 +215,7 @@ export async function fetchMangaRecs(
           coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
           year: m.seasonYear, genres: recGenres, tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
+          description: cleanDescriptionForDisplay(m.description),
           why: buildWhyV3(recGenres, id, title, tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
           matchScore,
           authors: mAuthors.length > 0 ? mAuthors : undefined,

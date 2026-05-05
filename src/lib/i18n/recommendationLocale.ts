@@ -2,6 +2,7 @@ import type { Locale } from './serverLocale'
 import type { Recommendation } from '@/lib/reco/types'
 import { composeRecommendationRails } from '@/lib/reco/rails'
 import { translateWithCache } from '@/lib/deepl'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 type RecommendationsByType = Record<string, Recommendation[]>
 
@@ -39,6 +40,10 @@ function cleanText(value: unknown): string | undefined {
   const text = value.trim()
   if (!text || BAD_EMPTY.has(text.toLowerCase())) return undefined
   return text
+}
+
+function cleanDescription(value: unknown): string | undefined {
+  return cleanDescriptionForDisplay(value)
 }
 
 function tmdbId(item: any): string | null {
@@ -186,11 +191,11 @@ function translationKey(item: any, sourceLocale: Locale, targetLocale: Locale) {
 function getLocalizedField(item: any, locale: Locale, field: 'title' | 'description'): string | undefined {
   const localized = item?.localized
   if (localized && typeof localized === 'object') {
-    const fromJson = cleanText(localized?.[locale]?.[field])
+    const fromJson = field === 'description' ? cleanDescription(localized?.[locale]?.[field]) : cleanText(localized?.[locale]?.[field])
     if (fromJson) return fromJson
   }
 
-  const direct = cleanText(item?.[`${field}_${locale}`])
+  const direct = field === 'description' ? cleanDescription(item?.[`${field}_${locale}`]) : cleanText(item?.[`${field}_${locale}`])
   if (direct) return direct
 
   if (field === 'title') {
@@ -209,24 +214,24 @@ function getLocalizedField(item: any, locale: Locale, field: 'title' | 'descript
   }
 
   if (locale === 'it') {
-    return cleanText(item?.description_it)
-      || cleanText(item?.localized?.it?.description)
+    return cleanDescription(item?.description_it)
+      || cleanDescription(item?.localized?.it?.description)
   }
 
-  return cleanText(item?.description_en)
-    || cleanText(item?.localized?.en?.description)
+  return cleanDescription(item?.description_en)
+    || cleanDescription(item?.localized?.en?.description)
 }
 
 function fallbackDescriptionCandidate(item: any, locale: Locale): string | undefined {
   if (locale === 'it') {
-    return cleanText(item?.description_en)
-      || cleanText(item?.localized?.en?.description)
-      || cleanText(item?.description)
+    return cleanDescription(item?.description_en)
+      || cleanDescription(item?.localized?.en?.description)
+      || cleanDescription(item?.description)
   }
 
-  return cleanText(item?.description_it)
-    || cleanText(item?.localized?.it?.description)
-    || cleanText(item?.description)
+  return cleanDescription(item?.description_it)
+    || cleanDescription(item?.localized?.it?.description)
+    || cleanDescription(item?.description)
 }
 
 function sourceLocaleForMissingTarget(targetLocale: Locale): Locale {
@@ -265,7 +270,7 @@ function localizeWhy(why: unknown, locale: Locale): string {
 
 export function localizeRecommendationItem<T extends Recommendation>(item: T, locale: Locale): T {
   const title = getLocalizedField(item, locale, 'title') || item.title
-  const description = getLocalizedField(item, locale, 'description') || item.description
+  const description = getLocalizedField(item, locale, 'description') || cleanDescription(item.description) || item.description
 
   return {
     ...item,
@@ -306,7 +311,7 @@ export async function ensureRecommendationDescriptionsLocale<T extends Recommend
 
   for (const { item } of missing) {
     const key = translationKey(item, sourceLocale, locale)
-    const text = cleanText(translated[key])
+    const text = cleanDescription(translated[key])
     if (!text) continue
 
     const mutable = item as any

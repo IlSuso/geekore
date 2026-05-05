@@ -1,5 +1,6 @@
 import { translateWithCache } from '@/lib/deepl'
 import { truncateAtSentence } from '@/lib/utils'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
@@ -16,6 +17,11 @@ const BGG_SEARCH_TERM_BUDGET = 16
 const BGG_SEARCH_CONCURRENCY = 3
 const BGG_MIN_MATCH_SCORE = 35
 const BGG_POOL_TARGET = 200
+
+function cleanBGGDescription(raw: string): string | undefined {
+  const clean = cleanDescriptionForDisplay(raw)
+  return clean ? truncateAtSentence(clean, 1200) : undefined
+}
 
 const BGG_CATEGORY_SEARCH_TERMS: Record<string, string[]> = {
   Adventure: ['quest', 'expedition', 'adventure'],
@@ -265,10 +271,7 @@ export async function fetchBoardgameRecs(
       if (!cover || cover.length < 10) continue
 
       const rawDesc = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
-      const description = rawDesc
-        .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
-        .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+      const description = cleanBGGDescription(rawDesc)
 
       const catRe = /<link[^>]*type="boardgamecategory"[^>]*value="([^"]*)"/g
       const categories: string[] = []
@@ -457,10 +460,7 @@ export async function fetchBoardgameRecs(
           if (matchScore2 < 3) continue  // stessa soglia del loop principale
 
           const rawDesc2 = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
-          const description2 = rawDesc2
-            .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
-            .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+          const description2 = cleanBGGDescription(rawDesc2)
 
           const ratingCountM2 = chunk.match(/<usersrated[^>]*value="(\d+)"/)
           const ratingCount2 = ratingCountM2 ? parseInt(ratingCountM2[1]) : 0
@@ -581,10 +581,7 @@ export async function fetchBoardgameRecs(
           if (matchScore2 < 3) continue  // stessa soglia minima del loop principale
 
           const rawDesc2 = (chunk.match(/<description>([^<]*)<\/description>/) || [])[1] || ''
-          const description2 = rawDesc2
-            .replace(/&#10;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
-            .replace(/<[^>]+>/g, '').trim().slice(0, 300) || undefined
+          const description2 = cleanBGGDescription(rawDesc2)
 
           const ratingCountM2 = chunk.match(/<usersrated[^>]*value="(\d+)"/)
           const ratingCount2 = ratingCountM2 ? parseInt(ratingCountM2[1]) : 0

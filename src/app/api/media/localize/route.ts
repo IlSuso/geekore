@@ -59,9 +59,10 @@ function anilistId(item: MediaLike): number | null {
   for (const value of candidates) {
     const raw = String(value || '').trim()
     if (!raw) continue
-    const prefixed = raw.match(/anilist-(?:anime|manga|novel)-(\d+)/i)
+    const prefixed = raw.match(/anilist-(?:anime|manga|novel)-(\d+)/i) || raw.match(/anilist[-:](\d+)/i)
     if (prefixed?.[1]) return Number(prefixed[1])
-    if ((item.source === 'anilist' || item.provider === 'anilist') && /^\d+$/.test(raw)) return Number(raw)
+    const type = normalizeType(item.type || item.media_type)
+    if ((item.source === 'anilist' || item.provider === 'anilist' || type === 'anime' || type === 'manga') && /^\d+$/.test(raw)) return Number(raw)
   }
   return null
 }
@@ -148,6 +149,30 @@ function xmlText(xml: string, tag: string): string | undefined {
   return match ? clean(decodeXmlEntities(match[1]).replace(/<[^>]+>/g, ' ')) : undefined
 }
 
+function xmlNumber(xml: string, tag: string): number | undefined {
+  const raw = xmlText(xml, tag)
+  if (!raw) return undefined
+  const num = Number(raw)
+  return Number.isFinite(num) ? num : undefined
+}
+
+function bggStatAverage(xml: string, tag: string): number | undefined {
+  const match = xml.match(new RegExp(`<${tag}[^>]*value=["']([^"']+)["'][^>]*\/?\s*>`, 'i'))
+  const num = match?.[1] ? Number(match[1]) : NaN
+  return Number.isFinite(num) ? num : undefined
+}
+
+function bggLinkValues(xml: string, type: string): string[] {
+  const out: string[] = []
+  const re = new RegExp(`<link[^>]*type=["']${type}["'][^>]*value=["']([^"']+)["'][^>]*\/?\s*>`, 'gi')
+  let match: RegExpExecArray | null
+  while ((match = re.exec(xml))) {
+    const value = clean(decodeXmlEntities(match[1]))
+    if (value && !out.includes(value)) out.push(value)
+  }
+  return out
+}
+
 function bggPrimaryName(xml: string): string | undefined {
   const primary = xml.match(/<name[^>]*type=["']primary["'][^>]*value=["']([^"']+)["'][^>]*\/?>/i)
   if (primary?.[1]) return clean(decodeXmlEntities(primary[1]))
@@ -157,7 +182,7 @@ function bggPrimaryName(xml: string): string | undefined {
 
 async function fetchBggBoardgameAssets(
   item: MediaLike,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale; year?: number; score?: number; min_players?: number; max_players?: number; playing_time?: number; complexity?: number; mechanics?: string[]; designers?: string[]; genres?: string[] }> {
   const id = bggId(item)
   if (!id) return {}
 
@@ -175,6 +200,15 @@ async function fetchBggBoardgameAssets(
       coverImage: xmlText(xml, 'image') || xmlText(xml, 'thumbnail'),
       externalId: `bgg-${id}`,
       descriptionLocale: 'en',
+      year: xmlNumber(xml, 'yearpublished'),
+      score: (() => { const avg = bggStatAverage(xml, 'average'); return avg != null ? Math.round((avg / 2) * 10) / 10 : undefined })(),
+      min_players: xmlNumber(xml, 'minplayers'),
+      max_players: xmlNumber(xml, 'maxplayers'),
+      playing_time: xmlNumber(xml, 'playingtime'),
+      complexity: bggStatAverage(xml, 'averageweight'),
+      mechanics: bggLinkValues(xml, 'boardgamemechanic'),
+      designers: bggLinkValues(xml, 'boardgamedesigner'),
+      genres: bggLinkValues(xml, 'boardgamecategory'),
     }
   } catch {
     return {}
@@ -189,7 +223,7 @@ function steamLanguage(locale: Locale): 'italian' | 'english' {
 async function fetchSteamGameLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
+): Promise<MediaLike> {
   const appId = steamAppId(item)
   if (!appId) return {}
 
@@ -213,6 +247,8 @@ async function fetchSteamGameLocaleAssets(
       coverImage: clean(data.header_image) || clean(data.capsule_image) || clean(data.capsule_imagev5),
       externalId: `steam-${appId}`,
       descriptionLocale: locale,
+      year: (() => { const date = clean(data.release_date?.date); const m = date?.match(/(19|20)\d{2}/); return m ? Number(m[0]) : undefined })(),
+      genres: Array.isArray(data.genres) ? data.genres.map((g: any) => clean(g?.description)).filter(Boolean) : undefined,
     }
   } catch {
     return {}
@@ -255,7 +291,7 @@ function igdbCoverUrl(cover: any): string | undefined {
 
 async function fetchIgdbGameAssets(
   item: MediaLike,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
+): Promise<MediaLike> {
   const id = igdbId(item)
   if (!id) return {}
   const token = await getIgdbToken()
@@ -270,7 +306,7 @@ async function fetchIgdbGameAssets(
         Authorization: `Bearer ${token}`,
         accept: 'application/json',
       },
-      body: `fields name,summary,cover.url,cover.image_id; where id = ${Number(id)}; limit 1;`,
+      body: `fields name,summary,cover.url,cover.image_id,first_release_date,total_rating,aggregated_rating,genres.name; where id = ${Number(id)}; limit 1;`,
       signal: AbortSignal.timeout(4500),
       next: { revalidate: 60 * 60 * 24 },
     })
@@ -284,6 +320,9 @@ async function fetchIgdbGameAssets(
       coverImage: igdbCoverUrl(game.cover),
       externalId: `igdb-${id}`,
       descriptionLocale: 'en',
+      year: game.first_release_date ? new Date(Number(game.first_release_date) * 1000).getUTCFullYear() : undefined,
+      score: (() => { const rating = Number(game.total_rating || game.aggregated_rating); return Number.isFinite(rating) ? Math.round((rating / 20) * 10) / 10 : undefined })(),
+      genres: Array.isArray(game.genres) ? game.genres.map((g: any) => clean(g?.name)).filter(Boolean) : undefined,
     }
   } catch {
     return {}
@@ -293,7 +332,7 @@ async function fetchIgdbGameAssets(
 async function fetchOfficialGameLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
+): Promise<MediaLike> {
   if (!isGameType(item)) return {}
 
   // Steam ha endpoint localizzato per lingua: usiamolo quando abbiamo appid Steam.
@@ -308,8 +347,8 @@ async function fetchOfficialGameLocaleAssets(
 async function fetchOfficialGameLocaleAssetsBatch(
   items: MediaLike[],
   locale: Locale,
-): Promise<Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }>> {
-  const out = new Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }>()
+): Promise<Map<MediaLike, MediaLike>> {
+  const out = new Map<MediaLike, MediaLike>()
   const steamPairs = items
     .map(item => ({ item, id: steamAppId(item) }))
     .filter((entry): entry is { item: MediaLike; id: string } => Boolean(entry.id))
@@ -363,7 +402,7 @@ async function fetchOfficialGameLocaleAssetsBatch(
             Authorization: `Bearer ${token}`,
             accept: 'application/json',
           },
-          body: `fields id,name,summary,cover.url,cover.image_id; where id = (${ids.join(',')}); limit ${ids.length};`,
+          body: `fields id,name,summary,cover.url,cover.image_id,first_release_date,total_rating,aggregated_rating,genres.name; where id = (${ids.join(',')}); limit ${ids.length};`,
           signal: AbortSignal.timeout(4500),
           next: { revalidate: 60 * 60 * 24 },
         })
@@ -379,6 +418,9 @@ async function fetchOfficialGameLocaleAssetsBatch(
               coverImage: igdbCoverUrl(game.cover),
               externalId: `igdb-${id}`,
               descriptionLocale: 'en',
+              year: game.first_release_date ? new Date(Number(game.first_release_date) * 1000).getUTCFullYear() : undefined,
+              score: (() => { const rating = Number(game.total_rating || game.aggregated_rating); return Number.isFinite(rating) ? Math.round((rating / 20) * 10) / 10 : undefined })(),
+              genres: Array.isArray(game.genres) ? game.genres.map((g: any) => clean(g?.name)).filter(Boolean) : undefined,
             })
           }
         }
@@ -510,7 +552,7 @@ async function fetchTmdbDetailsAndImages(
 async function fetchOfficialTmdbLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; description?: string; coverImage?: string; tmdbExternalId?: string }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; tmdbExternalId?: string; year?: number; score?: number; genres?: string[]; episodes?: number; totalSeasons?: number }> {
   const token = process.env.TMDB_API_KEY
   const endpoint = tmdbEndpoint(item)
   if (!token || !endpoint) return {}
@@ -540,6 +582,11 @@ async function fetchOfficialTmdbLocaleAssets(
       description: clean(details?.overview),
       coverImage: pickPoster(images?.posters || [], locale) || tmdbImage(details?.poster_path),
       tmdbExternalId: `tmdb-${endpoint}-${id}`,
+      year: (() => { const raw = endpoint === 'movie' ? details?.release_date : details?.first_air_date; const m = clean(raw)?.match(/(19|20)\d{2}/); return m ? Number(m[0]) : undefined })(),
+      score: (() => { const vote = Number(details?.vote_average); return Number.isFinite(vote) && vote > 0 ? Math.round((vote / 2) * 10) / 10 : undefined })(),
+      genres: Array.isArray(details?.genres) ? details.genres.map((g: any) => clean(g?.name)).filter(Boolean) : undefined,
+      episodes: endpoint === 'tv' ? Number(details?.number_of_episodes) || undefined : undefined,
+      totalSeasons: endpoint === 'tv' ? Number(details?.number_of_seasons) || undefined : undefined,
     }
   } catch {
     return {}
@@ -548,8 +595,8 @@ async function fetchOfficialTmdbLocaleAssets(
 
 async function fetchOfficialAniListAssetsBatch(
   items: MediaLike[],
-): Promise<Map<MediaLike, { title?: string; titleOriginal?: string; descriptionEn?: string; coverImage?: string; externalId?: string }>> {
-  const out = new Map<MediaLike, { title?: string; titleOriginal?: string; descriptionEn?: string; coverImage?: string; externalId?: string }>()
+): Promise<Map<MediaLike, MediaLike>> {
+  const out = new Map<MediaLike, MediaLike>()
   const pairs = items
     .map(item => ({ item, id: anilistId(item) }))
     .filter((entry): entry is { item: MediaLike; id: number } => typeof entry.id === 'number' && Number.isFinite(entry.id) && entry.id > 0)
@@ -566,6 +613,12 @@ async function fetchOfficialAniListAssetsBatch(
           title { romaji english native }
           coverImage { extraLarge large }
           description(asHtml: false)
+          genres
+          averageScore
+          episodes
+          chapters
+          startDate { year }
+          studios(isMain: true) { nodes { name } }
         }
       }
     }
@@ -594,6 +647,11 @@ async function fetchOfficialAniListAssetsBatch(
         descriptionEn: stripHtml(row.description),
         coverImage: clean(row.coverImage?.extraLarge) || clean(row.coverImage?.large),
         externalId: `anilist-${type === 'anime' ? 'anime' : 'manga'}-${id}`,
+        year: typeof row.startDate?.year === 'number' ? row.startDate.year : undefined,
+        score: typeof row.averageScore === 'number' ? Math.round((row.averageScore / 20) * 10) / 10 : undefined,
+        genres: Array.isArray(row.genres) ? row.genres.filter(Boolean) : undefined,
+        episodes: type === 'manga' ? (Number(row.chapters) || undefined) : (Number(row.episodes) || undefined),
+        studios: Array.isArray(row.studios?.nodes) ? row.studios.nodes.map((n: any) => clean(n?.name)).filter(Boolean) : undefined,
       })
     }
   } catch {}
@@ -638,6 +696,15 @@ function translationId(item: MediaLike, sourceLocale: Locale, targetLocale: Loca
   const source = item.source || item.type || item.media_type || 'media'
   const id = item.external_id || item.media_id || item.id || item.appid || item.title || item.media_title || 'unknown'
   return `${source}:${id}:description:${sourceLocale}->${targetLocale}`
+}
+
+
+function applyDetailFields(item: MediaLike, details: MediaLike) {
+  const detailKeys = ['year', 'score', 'genres', 'episodes', 'totalSeasons', 'studios', 'min_players', 'max_players', 'playing_time', 'complexity', 'mechanics', 'designers']
+  for (const key of detailKeys) {
+    const value = details[key]
+    if (value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0)) item[key] = value
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -687,6 +754,7 @@ export async function POST(request: NextRequest) {
         item.cover_image = coverImage
         item.media_cover = coverImage
       }
+      applyDetailFields(item, result.value)
       item.localized = {
         ...(item.localized || {}),
         [locale]: {
@@ -738,6 +806,7 @@ export async function POST(request: NextRequest) {
         item.cover_image = coverImage
         item.media_cover = coverImage
       }
+      applyDetailFields(item, assets)
       item.localized = {
         ...(item.localized || {}),
         en: {
@@ -792,6 +861,7 @@ export async function POST(request: NextRequest) {
         item.cover_image = coverImage
         item.media_cover = coverImage
       }
+      applyDetailFields(item, assets)
       item.localized = {
         ...(item.localized || {}),
         [locale]: {
@@ -847,6 +917,7 @@ export async function POST(request: NextRequest) {
         item.cover_image = coverImage
         item.media_cover = coverImage
       }
+      applyDetailFields(item, result.value)
       item.localized = {
         ...(item.localized || {}),
         en: {

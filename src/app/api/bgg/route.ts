@@ -1,3 +1,4 @@
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 // src/app/api/bgg/route.ts
 // BoardGameGeek XML API v2
 // Richiede Authorization: Bearer <token> per tutte le richieste.
@@ -131,18 +132,7 @@ async function fetchBGGBatch(ids: string[]): Promise<BGGItem[]> {
 
     // Descrizione: decodifica entità HTML base
     const rawDesc = extractText(chunk, "description");
-    const description = rawDesc
-      .replace(/&#10;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#\d+;/g, "")
-      .replace(/<[^>]+>/g, "")
-      .trim();
-    const trimmedDesc = description
-      ? description.trim() || undefined
-      : undefined;
+    const trimmedDesc = cleanDescriptionForDisplay(rawDesc);
 
     // Categorie → generi, meccaniche, designer
     const genres = extractLinks(chunk, "boardgamecategory");

@@ -241,8 +241,10 @@ export function LocaleProvider({ children, initialLocale }: { children: React.Re
     setLocaleState(normalized)
     writeLocaleEverywhere(normalized)
     fetch('/api/user/locale', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-lang': normalized, 'x-geekore-locale': normalized }, body: JSON.stringify({ locale: normalized }) }).catch(() => null)
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('geekore:locale-changed', { detail: { locale: normalized } }))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('geekore:locale-changed', { detail: { locale: normalized } }))
       window.dispatchEvent(new CustomEvent('geekore:media-locale-switch', { detail: { locale: normalized } }))
+    }
     prewarmForYouAndSwipeForLocale(normalized)
   }
 

@@ -1,6 +1,7 @@
 import { ANILIST_URL } from './constants'
 import { toTitleCase } from './genreResolution'
 import type { SimilarAdd, SimilarContext } from './types'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 export async function fetchAnilistManga(ctx: SimilarContext, add: SimilarAdd) {
   if (ctx.anilistGenres.length === 0 && ctx.rawTags.length === 0) return
@@ -22,7 +23,7 @@ export async function fetchAnilistManga(ctx: SimilarContext, add: SimilarAdd) {
             coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
             tags: (m.tags || []).map((t: any) => t.name),
             episodes: m.chapters ?? undefined,
-            description: m.description ? m.description.replace(/<[^>]*>/g, '') : undefined,
+            description: cleanDescriptionForDisplay(m.description),
             score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
             matchScore: 48 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres), _pop: m.popularity || 0 })
         }
@@ -53,7 +54,7 @@ export async function fetchAnilistManga(ctx: SimilarContext, add: SimilarAdd) {
             coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
             tags: mangaTags2,
             episodes: m.chapters ?? undefined,
-            description: m.description ? m.description.replace(/<[^>]*>/g, '') : undefined,
+            description: cleanDescriptionForDisplay(m.description),
             score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
             matchScore: 55 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres, anilistTags), _pop: m.popularity || 0 })
         }

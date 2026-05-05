@@ -21,6 +21,7 @@ import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
 import { optimizeCover } from '@/lib/imageOptimizer'
 import { DiscoverSection } from '@/components/discover/DiscoverSection'
 import { DiscoverMediaCard } from '@/components/discover/DiscoverMediaCard'
+import { localizeMediaRows } from '@/lib/i18n/clientMediaLocalization'
 
 type MediaItem = {
   id: string
@@ -128,10 +129,43 @@ const TYPE_COLORS: Record<string, string> = {
   boardgame: 'var(--type-board)',
 }
 
+function bestCover(item: any): string | undefined {
+  const candidates = [
+    item?.localized?.en?.coverImage,
+    item?.localized?.en?.cover_image,
+    item?.localized?.it?.coverImage,
+    item?.localized?.it?.cover_image,
+    item?.coverImage,
+    item?.cover_image,
+    item?.media_cover,
+  ]
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue
+    const url = value.trim()
+    if (url.length >= 10 && !url.includes('N/A') && !url.includes('placeholder') && !url.includes('no-image')) return url
+  }
+  return undefined
+}
+
 function hasValidCover(item: any): item is MediaItem & { coverImage: string } {
-  if (!item?.coverImage || typeof item.coverImage !== 'string') return false
-  const url = item.coverImage.trim()
-  return url.length >= 10 && !url.includes('N/A') && !url.includes('placeholder') && !url.includes('no-image')
+  return Boolean(bestCover(item))
+}
+
+function normalizeMediaItem(item: MediaItem): MediaItem {
+  const cover = bestCover(item)
+  return {
+    ...item,
+    coverImage: cover || item.coverImage,
+    cover_image: cover || item.cover_image,
+  }
+}
+
+const DISCOVER_LOCALIZE_OPTIONS = {
+  titleKeys: ['title'],
+  coverKeys: ['coverImage', 'cover_image', 'media_cover'],
+  idKeys: ['external_id', 'id'],
+  typeKeys: ['type'],
+  descriptionKeys: ['description'],
 }
 
 function normalize(s: string): string {
@@ -406,7 +440,7 @@ export default function DiscoverPage() {
         reqs.push(fetch(`/api/igdb?q=${encodeURIComponent(trimmed)}&lang=${lang}`, { signal: controller.signal }))
       }
       if (type === 'all' || type === 'boardgame') {
-        reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(trimmed)}&lang=${lang}&lang=${lang}`, { signal: controller.signal }))
+        reqs.push(fetch(`/api/bgg?q=${encodeURIComponent(trimmed)}&lang=${lang}`, { signal: controller.signal }))
       }
 
       const responses = await Promise.allSettled(reqs)
@@ -428,8 +462,16 @@ export default function DiscoverPage() {
         if (seen.has(i.id)) return false
         seen.add(i.id)
         return true
-      })
-      const withCover = deduped.filter(hasValidCover)
+      }).map(normalizeMediaItem)
+
+      // Discover deve mostrare cover sempre. Le API di ricerca a volte tornano
+      // cover mancanti/parziali o titoli salvati in una lingua diversa; prima di
+      // mettere gli item nello state facciamo un passaggio full su /api/media/localize.
+      const localized = await localizeMediaRows(deduped, lang === 'en' ? 'en' : 'it', DISCOVER_LOCALIZE_OPTIONS, { force: true })
+        .then(items => items.map(normalizeMediaItem))
+        .catch(() => deduped)
+
+      const withCover = localized.filter(hasValidCover)
       const filtered = type !== 'all' ? withCover.filter(i => i.type === type) : withCover
       setResults(rankByQuery(filtered, trimmed))
 
@@ -488,7 +530,7 @@ export default function DiscoverPage() {
   const handleResultClick = useCallback((item: MediaItem) => {
     haptic(30)
     if (searchTerm.trim().length >= 2) trackSearchClick(searchTerm, item)
-    setDrawerMedia(toMediaDetails(item))
+    setDrawerMedia(toMediaDetails(normalizeMediaItem(item)))
   }, [searchTerm])
 
   const handlePullRefresh = async () => {
@@ -744,9 +786,9 @@ export default function DiscoverPage() {
                   {items.map((item) => (
                     <DiscoverMediaCard
                       key={item.id}
-                      title={locale === 'en' && item.title_en ? item.title_en : item.title}
+                      title={item.title}
                       type={item.type}
-                      coverImage={hasValidCover(item) ? optimizeCover(item.coverImage, 'discover-card') : undefined}
+                      coverImage={hasValidCover(item) ? optimizeCover(bestCover(item), 'discover-card') : undefined}
                       year={item.year}
                       score={item.score}
                       added={alreadyAdded.includes(item.id)}

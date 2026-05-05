@@ -86,7 +86,7 @@ export function PageHero({
             {title}
           </h1>
           {description && (
-            <p className="mt-2 max-w-2xl text-[15px] leading-6 text-[var(--text-secondary)] md:text-[16px]">
+            <p className="gk-description-scroll mt-2 max-h-[144px] max-w-2xl overflow-y-auto pr-2 text-[15px] leading-6 text-[var(--text-secondary)] md:text-[16px]">
               {description}
             </p>
           )}

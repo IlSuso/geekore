@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
               episodes: isAnime ? m.episodes : m.chapters,
               description: descriptionEn,
               description_en: descriptionEn,
-              localized: { en: { title, description: descriptionEn } },
+              localized: { en: { title, description: descriptionEn, coverImage: m.coverImage.extraLarge || m.coverImage.large } },
               genres: m.genres || [],
               tags: (m.tags || [])
                 .filter((t: any) => t.rank >= 60)
@@ -256,7 +256,7 @@ export async function GET(request: NextRequest) {
           r.description_it = translated[r.id];
           r.localized = {
             ...(r.localized || {}),
-            it: { title: r.title, description: translated[r.id] },
+            it: { title: r.title, description: translated[r.id], coverImage: r.coverImage },
           };
         }
       });

@@ -34,6 +34,8 @@ interface TrendingItem {
   cover_image: string | null;
   external_id?: string | null;
   count: number;
+  friendCount: number;
+  userIds: string[];
 }
 
 const FEED_SIDEBAR_COPY = {
@@ -46,8 +48,9 @@ const FEED_SIDEBAR_COPY = {
     follow: "Segui",
     match: "match",
     activity: "attività",
-    trendingFriends: "Trending amici",
-    communityPulse: "Community pulse",
+    friend: "amico",
+    friends: "amici",
+    trendingFriends: "Trending dagli amici",
   },
   en: {
     see: "see",
@@ -58,8 +61,9 @@ const FEED_SIDEBAR_COPY = {
     follow: "Follow",
     match: "match",
     activity: "activities",
-    trendingFriends: "Friends trending",
-    communityPulse: "Community pulse",
+    friend: "friend",
+    friends: "friends",
+    trendingFriends: "Trending from friends",
   },
 } as const;
 
@@ -163,7 +167,7 @@ function PulseCard({ currentUserId }: { currentUserId: string | null }) {
     <RailCard className="bg-[linear-gradient(135deg,rgba(230,255,61,0.055),rgba(18,18,25,0.72))]">
       <RailHeader
         icon={<Radio size={14} />}
-        title={copy.communityPulse}
+        title="Community pulse"
         seeLabel={copy.see}
       />
       <div className="grid grid-cols-2 gap-2">
@@ -200,41 +204,105 @@ function localizedCategoryLabel(type: string, locale: "it" | "en") {
   return CATEGORY_LABEL[type] || type;
 }
 
-function FriendsTrendingCard() {
+function FriendsTrendingCard({ currentUserId }: { currentUserId: string | null }) {
   const { locale } = useLocale();
   const copy = FEED_SIDEBAR_COPY[locale];
   const [items, setItems] = useState<TrendingItem[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
-    const oneWeekAgo = new Date(
-      Date.now() - 7 * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    supabase
-      .from("user_media_entries")
-      .select("external_id, title, type, cover_image")
-      .gte("updated_at", oneWeekAgo)
-      .then(({ data }) => {
-        if (!data) return;
-        const map = new Map<string, TrendingItem>();
-        for (const row of data) {
-          if (!row.title) continue;
-          const key = `${row.type}::${row.external_id || row.title}`;
-          if (map.has(key)) map.get(key)!.count++;
-          else
-            map.set(key, {
-              title: row.title,
-              type: row.type,
-              cover_image: row.cover_image,
-              external_id: row.external_id,
-              count: 1,
-            });
+
+    const loadFriendsTrending = async () => {
+      if (!currentUserId) {
+        setItems([]);
+        return;
+      }
+
+      const { data: follows } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", currentUserId);
+
+      const followingIds = Array.from(
+        new Set((follows || []).map((f: any) => f.following_id).filter(Boolean)),
+      );
+
+      if (cancelled) return;
+      if (!followingIds.length) {
+        setItems([]);
+        return;
+      }
+
+      const twoWeeksAgo = new Date(
+        Date.now() - 14 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      const { data } = await supabase
+        .from("user_media_entries")
+        .select("user_id, external_id, title, type, cover_image, updated_at")
+        .in("user_id", followingIds)
+        .gte("updated_at", twoWeeksAgo)
+        .order("updated_at", { ascending: false })
+        .limit(250);
+
+      if (cancelled || !data) return;
+
+      const map = new Map<string, TrendingItem & { userSet: Set<string> }>();
+      for (const row of data as any[]) {
+        if (!row?.title || !row?.type || !row?.user_id) continue;
+
+        const externalId = typeof row.external_id === "string" && row.external_id.trim()
+          ? row.external_id.trim()
+          : null;
+        const normalizedTitle = String(row.title).trim().toLowerCase();
+        const key = `${row.type}::${externalId || normalizedTitle}`;
+        const existing = map.get(key);
+
+        if (existing) {
+          existing.count += 1;
+          existing.userSet.add(row.user_id);
+          existing.friendCount = existing.userSet.size;
+          if (!existing.cover_image && row.cover_image) existing.cover_image = row.cover_image;
+          if (!existing.external_id && externalId) existing.external_id = externalId;
+          continue;
         }
-        setItems(
-          [...map.values()].sort((a, b) => b.count - a.count).slice(0, 5),
-        );
-      });
-  }, []);
+
+        map.set(key, {
+          title: row.title,
+          type: row.type,
+          cover_image: row.cover_image || null,
+          external_id: externalId,
+          count: 1,
+          friendCount: 1,
+          userIds: [row.user_id],
+          userSet: new Set([row.user_id]),
+        });
+      }
+
+      const next = [...map.values()]
+        .map(({ userSet, ...item }) => ({
+          ...item,
+          friendCount: userSet.size,
+          userIds: [...userSet],
+        }))
+        .sort((a, b) => {
+          if (b.friendCount !== a.friendCount) return b.friendCount - a.friendCount;
+          return b.count - a.count;
+        })
+        .slice(0, 5);
+
+      setItems(next);
+    };
+
+    loadFriendsTrending().catch(() => {
+      if (!cancelled) setItems([]);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
 
   const localizedItems = useLocalizedMediaRows(items, {
     titleKeys: ["title"],
@@ -286,7 +354,7 @@ function FriendsTrendingCard() {
                   {localizedCategoryLabel(item.type, locale)}
                 </p>
                 <p className="mt-1 inline-flex rounded-full border border-[rgba(230,255,61,0.16)] bg-[rgba(230,255,61,0.06)] px-2 py-0.5 font-mono-data text-[10px] font-black text-[var(--accent)]">
-                  {item.count} {copy.activity}
+                  {item.friendCount} {item.friendCount === 1 ? copy.friend : copy.friends}
                 </p>
               </div>
             </Link>
@@ -397,7 +465,7 @@ export function FeedSidebar({
   return (
     <aside className="gk-home-right-rail space-y-3.5">
       <PulseCard currentUserId={currentUserId} />
-      <FriendsTrendingCard />
+      <FriendsTrendingCard currentUserId={currentUserId} />
       {currentUserId && <SuggestedUsersCard currentUserId={currentUserId} />}
     </aside>
   );

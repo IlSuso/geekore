@@ -8,6 +8,7 @@ import { SwipeMode } from "@/components/for-you/SwipeMode";
 import type { SwipeItem } from "@/components/for-you/SwipeMode";
 import { profileInvalidateBridge } from "@/hooks/profileInvalidateBridge";
 import { useLocale } from "@/lib/locale";
+import { cleanDescriptionForDisplay } from "@/lib/text/descriptionCleanup";
 
 const SWIPE_PAGE_COPY = {
   it: {
@@ -47,22 +48,94 @@ const QUEUE_TABLE_MAP: Record<string, string> = {
   boardgame: "swipe_queue_boardgame",
 };
 
-function rowToSwipeItem(row: any): SwipeItem {
+const MIXED_SWIPE_TYPES = [
+  "anime",
+  "manga",
+  "movie",
+  "tv",
+  "game",
+  "boardgame",
+] as const;
+
+type MixedSwipeType = (typeof MIXED_SWIPE_TYPES)[number];
+
+function isMixedSwipeType(type: unknown): type is MixedSwipeType {
+  return typeof type === "string" && MIXED_SWIPE_TYPES.includes(type as MixedSwipeType);
+}
+
+function countTypes(items: Array<{ type?: unknown }>): Map<MixedSwipeType, number> {
+  const counts = new Map<MixedSwipeType, number>();
+  for (const type of MIXED_SWIPE_TYPES) counts.set(type, 0);
+  for (const item of items) {
+    if (!isMixedSwipeType(item.type)) continue;
+    counts.set(item.type, (counts.get(item.type) || 0) + 1);
+  }
+  return counts;
+}
+
+function typeDiversity(items: Array<{ type?: unknown }>): number {
+  return [...countTypes(items).values()].filter((count) => count > 0).length;
+}
+
+function prioritizeFreshForAll<T extends { type?: unknown }>(
+  freshItems: T[],
+  existingItems: Array<{ type?: unknown }>,
+  limit: number,
+): T[] {
+  if (limit <= 0) return [];
+
+  const buckets = new Map<MixedSwipeType, T[]>();
+  for (const type of MIXED_SWIPE_TYPES) buckets.set(type, []);
+  for (const item of freshItems) {
+    if (!isMixedSwipeType(item.type)) continue;
+    buckets.get(item.type)!.push(item);
+  }
+
+  const counts = countTypes(existingItems);
+  const out: T[] = [];
+
+  while (out.length < limit) {
+    const nextType = [...MIXED_SWIPE_TYPES]
+      .filter((type) => (buckets.get(type)?.length || 0) > 0)
+      .sort((a, b) => (counts.get(a) || 0) - (counts.get(b) || 0))[0];
+
+    if (!nextType) break;
+    const next = buckets.get(nextType)!.shift();
+    if (!next) break;
+
+    out.push(next);
+    counts.set(nextType, (counts.get(nextType) || 0) + 1);
+  }
+
+  return out;
+}
+
+function rowToSwipeItem(row: any, locale: "it" | "en"): SwipeItem {
+  const localized = row?.localized && typeof row.localized === "object" ? row.localized : {};
+  const localeNode = localized?.[locale] || {};
+  const fallbackLocale = locale === "it" ? "en" : "it";
+  const fallbackNode = localized?.[fallbackLocale] || {};
+  const description = cleanDescriptionForDisplay(localeNode.description)
+    || cleanDescriptionForDisplay(locale === "it" ? row.description_it : row.description_en)
+    || cleanDescriptionForDisplay(row.description)
+    || cleanDescriptionForDisplay(fallbackNode.description)
+    || cleanDescriptionForDisplay(locale === "it" ? row.description_en : row.description_it);
+
   return {
     id: row.external_id,
-    title: row.title,
+    title: localeNode.title || (locale === "it" ? row.title_it : row.title_en) || row.title,
     title_original: row.title_original,
     title_en: row.title_en,
     title_it: row.title_it,
     type: row.type as SwipeItem["type"],
-    coverImage: row.cover_image,
+    coverImage: localeNode.coverImage || localeNode.cover_image || row.cover_image,
     year: row.year,
     genres: row.genres || [],
     score: row.score,
-    description: row.description_it || row.description_en || row.description,
-    description_en: row.description_en,
-    description_it: row.description_it,
-    localized: row.localized,
+    description,
+    description_en: cleanDescriptionForDisplay(row.description_en),
+    description_it: cleanDescriptionForDisplay(row.description_it),
+    localized,
     why: row.why,
     matchScore: row.match_score || 0,
     episodes: row.episodes,
@@ -88,9 +161,9 @@ function toQueueRow(r: any, userId: string) {
     year: r.year,
     genres: r.genres || [],
     score: r.score ?? null,
-    description: r.description ?? null,
-    description_en: r.description_en || r.localized?.en?.description || null,
-    description_it: r.description_it || r.localized?.it?.description || null,
+    description: cleanDescriptionForDisplay(r.description) ?? null,
+    description_en: cleanDescriptionForDisplay(r.description_en || r.localized?.en?.description) ?? null,
+    description_it: cleanDescriptionForDisplay(r.description_it || r.localized?.it?.description) ?? null,
     localized: r.localized || {},
     why: r.why ?? null,
     match_score: r.matchScore || 0,
@@ -112,11 +185,20 @@ async function localizeSwipeItems(
   const res = await fetch(`/api/media/localize?lang=${locale}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ items, mode: "full" }),
   }).catch(() => null);
   if (!res?.ok) return items;
   const json = await res.json().catch(() => null);
-  return Array.isArray(json?.items) ? json.items : items;
+  const localized = Array.isArray(json?.items) ? json.items : items;
+  return localized.map((item: any) => ({
+    ...item,
+    description: cleanDescriptionForDisplay(item.localized?.[locale]?.description)
+      || cleanDescriptionForDisplay(locale === "it" ? item.description_it : item.description_en)
+      || cleanDescriptionForDisplay(item.description)
+      || cleanDescriptionForDisplay(locale === "it" ? item.description_en : item.description_it),
+    description_en: cleanDescriptionForDisplay(item.description_en),
+    description_it: cleanDescriptionForDisplay(item.description_it),
+  }));
 }
 
 export default function SwipePage() {
@@ -176,9 +258,12 @@ export default function SwipePage() {
         (r: any) => !skippedSet.has(r.external_id),
       );
 
-      if (existingRows.length >= 10) {
+      const existingDiversity = typeDiversity(existingRows);
+      const allQueueIsDiverseEnough = existingDiversity >= 4;
+
+      if (existingRows.length >= 10 && allQueueIsDiverseEnough) {
         const localized = await localizeSwipeItems(
-          existingRows.map(rowToSwipeItem),
+          existingRows.map((row: any) => rowToSwipeItem(row, locale)),
           locale,
         );
         if (requestSeq !== requestSeqRef.current) return;
@@ -205,16 +290,19 @@ export default function SwipePage() {
             "game",
             "boardgame",
           ];
-          const newRecs = freshRecs
-            .filter(
-              (r: any) =>
-                validTypes.includes(r.type) &&
-                !skippedSet.has(r.id) &&
-                !existingIds.has(r.id) &&
-                !addedIdsRef.current.has(String(r.id)) &&
-                !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
-            )
-            .slice(0, 50 - existingRows.length);
+          const candidateRecs = freshRecs.filter(
+            (r: any) =>
+              validTypes.includes(r.type) &&
+              !skippedSet.has(r.id) &&
+              !existingIds.has(r.id) &&
+              !addedIdsRef.current.has(String(r.id)) &&
+              !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
+          );
+          const newRecs = prioritizeFreshForAll(
+            candidateRecs,
+            existingRows,
+            allQueueIsDiverseEnough ? Math.max(0, 50 - existingRows.length) : 50,
+          );
 
           if (newRecs.length > 0) {
             const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
@@ -227,7 +315,7 @@ export default function SwipePage() {
 
           const localized = await localizeSwipeItems(
             [
-              ...existingRows.map(rowToSwipeItem),
+              ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
               ...newRecs.map((r: any) => ({
                 id: r.id,
                 title: r.title,
@@ -427,8 +515,11 @@ export default function SwipePage() {
         existingRows.map((r: any) => r.external_id as string),
       );
 
-      if (existingRows.length >= REFILL_TRIGGER) {
-        return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
+      const existingDiversity = typeDiversity(existingRows);
+      const allQueueIsDiverseEnough = filter !== "all" || existingDiversity >= 4;
+
+      if (existingRows.length >= REFILL_TRIGGER && allQueueIsDiverseEnough) {
+        return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
       }
 
       try {
@@ -437,7 +528,7 @@ export default function SwipePage() {
           `/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`,
         );
         if (!res.ok)
-          return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
+          return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
         const json = await res.json();
 
         let freshRecs: any[] = [];
@@ -463,16 +554,22 @@ export default function SwipePage() {
           "game",
           "boardgame",
         ];
-        const newRecs = freshRecs
-          .filter(
-            (r: any) =>
-              validTypes.includes(r.type) &&
-              !skippedSet.has(r.id) &&
-              !existingIds.has(r.id) &&
-              !addedIdsRef.current.has(String(r.id)) &&
-              !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
-          )
-          .slice(0, TARGET - existingRows.length);
+        const candidateRecs = freshRecs.filter(
+          (r: any) =>
+            validTypes.includes(r.type) &&
+            !skippedSet.has(r.id) &&
+            !existingIds.has(r.id) &&
+            !addedIdsRef.current.has(String(r.id)) &&
+            !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
+        );
+        const newRecs =
+          filter === "all"
+            ? prioritizeFreshForAll(
+                candidateRecs,
+                existingRows,
+                allQueueIsDiverseEnough ? Math.max(0, TARGET - existingRows.length) : TARGET,
+              )
+            : candidateRecs.slice(0, TARGET - existingRows.length);
 
         if (newRecs.length > 0) {
           const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
@@ -488,7 +585,7 @@ export default function SwipePage() {
 
         return localizeSwipeItems(
           [
-            ...existingRows.map(rowToSwipeItem),
+            ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
             ...newRecs.map((r: any) => ({
               id: r.id,
               title: r.title,
@@ -518,7 +615,7 @@ export default function SwipePage() {
           locale,
         );
       } catch {
-        return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
+        return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
       }
     },
     [supabase, locale],

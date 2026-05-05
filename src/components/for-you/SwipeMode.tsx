@@ -80,6 +80,7 @@ import { useTabActive } from "@/context/TabActiveContext";
 import { optimizeCover } from "@/lib/imageOptimizer";
 import { useLocale } from '@/lib/locale'
 import { appCopy, typeLabel, genreLabel } from '@/lib/i18n/uiCopy'
+import { cleanDescriptionForDisplay } from '@/lib/text/descriptionCleanup'
 
 type SwipeMediaType = "anime" | "manga" | "movie" | "tv" | "game" | "boardgame";
 
@@ -220,22 +221,87 @@ function cleanDisplayGenres(genres: unknown): string[] {
     });
 }
 
-// Interleave by type — pure fn, stable, never reorders existing items at render time.
-// Only called at write-time (initial state + loadMore) so card positions never jump.
-function interleaveByType(items: SwipeItem[]): SwipeItem[] {
-  const buckets = new Map<string, SwipeItem[]>();
+function localizedDescriptionForSwipe(item: SwipeItem, locale: "it" | "en"): string | undefined {
+  return cleanDescriptionForDisplay(item.localized?.[locale]?.description)
+    || cleanDescriptionForDisplay(locale === "it" ? item.description_it : item.description_en)
+    || cleanDescriptionForDisplay(item.description)
+    || cleanDescriptionForDisplay(locale === "it" ? item.description_en : item.description_it);
+}
+
+const MIXED_SWIPE_TYPES: SwipeMediaType[] = [
+  "anime",
+  "manga",
+  "movie",
+  "tv",
+  "game",
+  "boardgame",
+];
+
+function rotateTypesAfter(lastType?: SwipeMediaType): SwipeMediaType[] {
+  if (!lastType) return MIXED_SWIPE_TYPES;
+  const index = MIXED_SWIPE_TYPES.indexOf(lastType);
+  if (index < 0) return MIXED_SWIPE_TYPES;
+  return [
+    ...MIXED_SWIPE_TYPES.slice(index + 1),
+    ...MIXED_SWIPE_TYPES.slice(0, index + 1),
+  ];
+}
+
+// Mix massimo per filtro "Tutti".
+// Non preserva l'ordine dell'API/queue, perché spesso arriva già raggruppato
+// tipo anime/anime/manga/manga. Qui trattiamo ogni categoria come una corsia
+// e peschiamo ciclicamente da tutte le corsie disponibili.
+function maximallyMixAllTypes(
+  items: SwipeItem[],
+  previousType?: SwipeMediaType,
+): SwipeItem[] {
+  if (items.length <= 1) return items;
+
+  const buckets = new Map<SwipeMediaType, SwipeItem[]>();
+  for (const type of MIXED_SWIPE_TYPES) buckets.set(type, []);
   for (const item of items) {
-    if (!buckets.has(item.type)) buckets.set(item.type, []);
-    buckets.get(item.type)!.push(item);
+    const bucket = buckets.get(item.type);
+    if (bucket) bucket.push(item);
   }
-  const cols = Array.from(buckets.values());
+
   const out: SwipeItem[] = [];
-  const max = Math.max(0, ...cols.map((c) => c.length));
-  for (let i = 0; i < max; i++) {
-    for (const col of cols) {
-      if (i < col.length) out.push(col[i]);
+  let order = rotateTypesAfter(previousType);
+  let guard = 0;
+
+  while (out.length < items.length && guard < items.length * MIXED_SWIPE_TYPES.length) {
+    guard += 1;
+    let pushedThisRound = false;
+
+    for (const type of order) {
+      const bucket = buckets.get(type);
+      if (!bucket?.length) continue;
+
+      // Se possibile evita due card consecutive dello stesso tipo anche al confine
+      // tra queue vecchia e append nuovo. Se è rimasto solo quel tipo, allora lo consente.
+      const lastType = out[out.length - 1]?.type ?? previousType;
+      const hasAlternative = order.some((candidate) => {
+        if (candidate === lastType) return false;
+        return (buckets.get(candidate)?.length ?? 0) > 0;
+      });
+      if (hasAlternative && type === lastType) continue;
+
+      out.push(bucket.shift()!);
+      pushedThisRound = true;
     }
+
+    if (!pushedThisRound) break;
+
+    // Ruota ogni giro: così non si crea sempre la sequenza fissa
+    // anime→manga→movie→tv→game→boardgame.
+    order = [...order.slice(1), order[0]];
   }
+
+  // Fallback di sicurezza: se qualche item resta fuori per casi patologici, appendilo.
+  for (const type of MIXED_SWIPE_TYPES) {
+    const bucket = buckets.get(type) || [];
+    while (bucket.length) out.push(bucket.shift()!);
+  }
+
   return out;
 }
 
@@ -1119,7 +1185,7 @@ export function SwipeMode({
 
   // La queue parte già interleaved — l'ordine non cambia mai a runtime, solo in append.
   const [queue, setQueue] = useState<SwipeItem[]>(() =>
-    interleaveByType(initialItems),
+    maximallyMixAllTypes(initialItems),
   );
   const [seenIds] = useState<Set<string>>(
     () => new Set(initialItems.map((i) => i.id)),
@@ -1224,7 +1290,7 @@ export function SwipeMode({
           const newItems = cachedFresh.filter((i) => !existingIds.has(i.id));
           return [
             ...prev,
-            ...(filter === "all" ? interleaveByType(newItems) : newItems),
+            ...(filter === "all" ? maximallyMixAllTypes(newItems, prev[prev.length - 1]?.type) : newItems),
           ];
         });
         cachedFresh.forEach((i) => seen.add(i.id));
@@ -1245,7 +1311,7 @@ export function SwipeMode({
         if (fresh.length) {
           setQueue((prev) => [
             ...prev,
-            ...(filter === "all" ? interleaveByType(fresh) : fresh),
+            ...(filter === "all" ? maximallyMixAllTypes(fresh, prev[prev.length - 1]?.type) : fresh),
           ]);
           fresh.forEach((i) => seen.add(i.id));
         } else {
@@ -1256,7 +1322,7 @@ export function SwipeMode({
           if (retryFresh.length) {
             setQueue((prev) => [
               ...prev,
-              ...(filter === "all" ? interleaveByType(retryFresh) : retryFresh),
+              ...(filter === "all" ? maximallyMixAllTypes(retryFresh, prev[prev.length - 1]?.type) : retryFresh),
             ]);
             retryFresh.forEach((i) => seen.add(i.id));
           }
@@ -1305,7 +1371,7 @@ export function SwipeMode({
           );
           return [
             ...prev,
-            ...(filter === "all" ? interleaveByType(newItems) : newItems),
+            ...(filter === "all" ? maximallyMixAllTypes(newItems, prev[prev.length - 1]?.type) : newItems),
           ];
         });
         preloaded.forEach((i) => seenIdsRef.current.add(i.id));
@@ -1448,7 +1514,7 @@ export function SwipeMode({
   // Cambio lingua / nuovo payload: le card già montate non devono restare nella lingua vecchia.
   // Reset completo di deck, storico e cache categoria; non tocca Supabase né il pool.
   useEffect(() => {
-    const freshQueue = interleaveByType(initialItems);
+    const freshQueue = maximallyMixAllTypes(initialItems);
     setQueue(freshQueue);
     seenIdsRef.current = new Set(initialItems.map((i) => i.id));
     categoryQueues.current = {};
@@ -1854,7 +1920,7 @@ export function SwipeMode({
                   <h2 className="shrink-0 text-[clamp(24px,2.15vw,30px)] font-black leading-[0.98] tracking-[-0.05em] text-white">
                     {topItem.title}
                   </h2>
-                  {topItem.description && (
+                  {localizedDescriptionForSwipe(topItem, locale) && (
                     <div className="mt-3 shrink-0">
                       <div className="rounded-[22px] border border-white/8 bg-white/[0.035] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                         <div className="mb-2 flex items-center gap-3">
@@ -1863,7 +1929,7 @@ export function SwipeMode({
                           </p>
                         </div>
                         <div className={`gk-onboarding-desc-scroll overflow-y-auto pr-2 text-sm leading-6 text-white/70 ${isOnboarding ? "max-h-[220px]" : "max-h-[150px]"}`}>
-                          {topItem.description}
+                          {localizedDescriptionForSwipe(topItem, locale)}
                         </div>
                       </div>
                     </div>

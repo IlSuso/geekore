@@ -19,6 +19,7 @@ import FriendsPage  from '@/app/friends/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
+import { useLocale } from '@/lib/locale'
 
 type KATab = 'feed' | 'for-you' | 'swipe' | 'discover' | 'friends'
 
@@ -103,6 +104,7 @@ function PanelWrapper({
 export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { activeTab, setActiveTab } = useActiveTab()
+  const { locale } = useLocale()
 
   const pathnameTab = getKATab(pathname)
   const tab = pathnameTab ?? (
@@ -115,7 +117,22 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   if (tab && pathnameTab) visited.current.add(tab)
 
   const [neighborReady, setNeighborReady] = useState(0)
+  const [localeEpoch, setLocaleEpoch] = useState(0)
+  const previousLocaleRef = useRef(locale)
   const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (previousLocaleRef.current === locale) return
+    previousLocaleRef.current = locale
+    visited.current = pathnameTab ? new Set<KATab>([pathnameTab]) : new Set<KATab>()
+    adjLeftRef.current = null
+    adjRightRef.current = null
+    exitingTabRef.current = null
+    setAdjLeft(null)
+    setAdjRight(null)
+    setExitingTab(null)
+    setLocaleEpoch(epoch => epoch + 1)
+  }, [locale, pathnameTab])
 
   useEffect(() => {
     if (!tab || !pathnameTab) return
@@ -380,31 +397,31 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     <>
       <Activity mode={activityMode('feed')}>
         <PanelWrapper divRef={panelRefs.current.feed} isActive={pathnameTab === 'feed'} style={getPanelStyle('feed')}>
-          {shouldMount('feed') && <FeedPage />}
+          {shouldMount('feed') && <FeedPage key={`feed-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('for-you')}>
         <PanelWrapper divRef={panelRefs.current['for-you']} isActive={pathnameTab === 'for-you'} style={getPanelStyle('for-you')}>
-          {shouldMount('for-you') && <ForYouPage />}
+          {shouldMount('for-you') && <ForYouPage key={`for-you-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('swipe')}>
         <PanelWrapper divRef={panelRefs.current.swipe} isActive={pathnameTab === 'swipe'} style={getPanelStyle('swipe')}>
-          {shouldMount('swipe') && <SwipePage />}
+          {shouldMount('swipe') && <SwipePage key={`swipe-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('discover')}>
         <PanelWrapper divRef={panelRefs.current.discover} isActive={pathnameTab === 'discover'} style={getPanelStyle('discover')}>
-          {shouldMount('discover') && <DiscoverPage />}
+          {shouldMount('discover') && <DiscoverPage key={`discover-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('friends')}>
         <PanelWrapper divRef={panelRefs.current.friends} isActive={pathnameTab === 'friends'} style={getPanelStyle('friends')}>
-          {shouldMount('friends') && <FriendsPage />}
+          {shouldMount('friends') && <FriendsPage key={`friends-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 

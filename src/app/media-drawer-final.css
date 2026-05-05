@@ -118,3 +118,29 @@ body:has(div[role='dialog'][aria-modal='true'] .gk-media-details-hero) > div.fix
 @supports not selector(:has(*)) {
   .gk-media-details-hero { min-height: auto; }
 }
+
+/* Descrizioni lunghe: scrollbar sottile stile Swipe Mode.
+   Con overflow-y: auto resta invisibile quando il testo non deve scorrere. */
+.gk-description-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(230,255,61,0.42) rgba(255,255,255,0.07);
+  scrollbar-gutter: stable;
+}
+
+.gk-description-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gk-description-scroll::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+}
+
+.gk-description-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(230,255,61,0.72), rgba(230,255,61,0.35));
+  border-radius: 999px;
+}
+
+.gk-description-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(230,255,61,0.86), rgba(230,255,61,0.44));
+}

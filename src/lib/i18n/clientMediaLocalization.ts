@@ -22,7 +22,7 @@ const DEFAULT_OPTIONS: Required<MediaLocalizationOptions> = {
   descriptionKeys: ['description', 'media_description'],
 }
 
-const CACHE_VERSION = 'v4-desc-required'
+const CACHE_VERSION = 'v6-cover-title-refresh'
 const memoryCache = new Map<string, MediaRow>()
 const inflight = new Map<string, Promise<MediaRow[]>>()
 
@@ -172,6 +172,21 @@ function localizedDescriptionFor(row: MediaRow | undefined, locale: Locale): str
   return clean(node?.description) || clean(row?.[`description_${locale}`]) || clean(row?.description)
 }
 
+function strictLocalizedTitleFor(row: MediaRow | undefined, locale: Locale): string | undefined {
+  const node = localizedNode(row, locale)
+  return clean(node?.title) || clean(row?.[`title_${locale}`]) || (locale === 'en' ? clean(row?.title_en) : clean(row?.title_it))
+}
+
+function strictLocalizedCoverFor(row: MediaRow | undefined, locale: Locale): string | undefined {
+  const node = localizedNode(row, locale)
+  return clean(node?.coverImage) || clean(node?.cover_image) || clean(row?.[`cover_image_${locale}`]) || clean(row?.[`coverImage_${locale}`])
+}
+
+function strictLocalizedDescriptionFor(row: MediaRow | undefined, locale: Locale): string | undefined {
+  const node = localizedNode(row, locale)
+  return clean(node?.description) || clean(row?.[`description_${locale}`]) || (locale === 'en' ? clean(row?.description_en) : clean(row?.description_it))
+}
+
 function localeCheckKey(locale: Locale): string {
   return `__geekore_full_locale_checked_${locale}`
 }
@@ -192,13 +207,21 @@ function cachedRowNeedsRefresh(row: MediaRow | undefined, locale: Locale): boole
   // descrizione: risultato = card localizzata a metà e drawer costretto a fare
   // fetch al click. Ora una riga è considerata completa solo se titolo, cover
   // e descrizione sono già disponibili nella lingua corrente.
-  if (!localizedTitleFor(row, locale)) return true
-  if (!localizedCoverFor(row, locale)) return true
-  if (!localizedDescriptionFor(row, locale)) return true
+  if (!strictLocalizedTitleFor(row, locale)) return true
+  if (!strictLocalizedCoverFor(row, locale)) return true
+  if (!strictLocalizedDescriptionFor(row, locale)) return true
 
   return false
 }
 
+
+const DETAIL_KEYS = [
+  'year', 'release_year', 'episodes', 'totalSeasons', 'seasons', 'season_episodes',
+  'genres', 'score', 'rating', 'avg_rating', 'playing_time', 'min_players', 'max_players',
+  'complexity', 'mechanics', 'designers', 'authors', 'studios', 'directors', 'developers',
+  'themes', 'platforms', 'cast', 'watchProviders', 'italianSupportTypes', 'publisher',
+  'pages', 'isbn', 'externalUrl', 'source', 'localized',
+]
 
 function mergeLocalizedRow<T extends MediaRow>(
   original: T,
@@ -208,6 +231,12 @@ function mergeLocalizedRow<T extends MediaRow>(
   if (!localized) return original
 
   let next: MediaRow = { ...original }
+  for (const key of DETAIL_KEYS) {
+    const value = localized[key]
+    if (value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')) {
+      next[key] = value
+    }
+  }
 
   const localizedTitle = clean(localized.title)
   const localizedCover = clean(localized.cover_image) || clean(localized.coverImage)
