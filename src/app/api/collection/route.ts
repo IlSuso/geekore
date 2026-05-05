@@ -9,12 +9,11 @@ import {
   cleanString,
   cleanStringArray,
   numberOrNull,
-  positiveNumberOrNull,
   normalizeMediaCore,
 } from '@/lib/mediaSanitizer'
 
 const STATUSES = new Set(['watching', 'playing', 'reading', 'completed', 'planned', 'dropped', 'paused'])
-const NUMERIC_UPDATE_FIELDS = new Set(['current_episode', 'current_season', 'episodes', 'rating', 'display_order'])
+const NUMERIC_UPDATE_FIELDS = new Set(['rating', 'display_order'])
 
 function updatePayload(body: any): Record<string, unknown> {
   const update: Record<string, unknown> = {}
@@ -32,7 +31,6 @@ function updatePayload(body: any): Record<string, unknown> {
   for (const field of NUMERIC_UPDATE_FIELDS) {
     if (field in body) {
       if (field === 'rating') update[field] = cleanRating(body[field])
-      else if (field === 'episodes') update[field] = positiveNumberOrNull(body[field])
       else update[field] = numberOrNull(body[field])
     }
   }
@@ -76,10 +74,6 @@ export async function POST(request: NextRequest) {
     directors: cleanStringArray(body?.directors),
     developer: cleanString(body?.developer, 200),
     status,
-    current_episode: numberOrNull(body?.current_episode),
-    current_season: numberOrNull(body?.current_season),
-    episodes: positiveNumberOrNull(body?.episodes),
-    season_episodes: body?.season_episodes && typeof body.season_episodes === 'object' ? body.season_episodes : null,
     rating: cleanRating(body?.rating),
     achievement_data: body?.achievement_data && typeof body.achievement_data === 'object' ? body.achievement_data : null,
     display_order: numberOrNull(body?.display_order) ?? Date.now(),

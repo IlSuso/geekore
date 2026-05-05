@@ -3,7 +3,6 @@
 // Activity stream compatto per profilo pubblico
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { Activity, Clock, Star, Sparkles } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 import { useLocale } from '@/lib/locale'
@@ -32,6 +31,21 @@ function RatingPill({ value }: { value: number }) {
       {Number(value).toFixed(1)}
     </span>
   )
+}
+
+function normalizeActivityCover(url?: string | null): string | null {
+  if (!url) return null
+  const raw = String(url).trim()
+  if (!raw) return null
+
+  // Alcune sorgenti importate, tipo MyAnimeList, non sono per forza presenti
+  // in next.config.js. Nel feed attività usiamo quindi un <img> normale e,
+  // per gli host più problematici/hotlink-protected, passiamo da wsrv.
+  if (/myanimelist\.net/i.test(raw)) {
+    return `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=160&output=webp&default=1`
+  }
+
+  return raw
 }
 
 export function ProfileActivityFeed({ userId }: { userId: string }) {
@@ -98,14 +112,15 @@ export function ProfileActivityFeed({ userId }: { userId: string }) {
           key={a.id}
           className="group flex items-center gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2.5 transition-all hover:border-[var(--border)] hover:bg-[var(--bg-card-hover)]"
         >
-          {a.media_cover ? (
+          {normalizeActivityCover(a.media_cover) ? (
             <div className="relative h-[72px] w-12 flex-shrink-0 overflow-hidden rounded-2xl bg-[var(--bg-secondary)] ring-1 ring-white/5">
-              <Image
-                src={a.media_cover}
+              <img
+                src={normalizeActivityCover(a.media_cover) || undefined}
                 alt={a.media_title || copy.mediaAlt}
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                sizes="48px"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
               />
             </div>
           ) : (

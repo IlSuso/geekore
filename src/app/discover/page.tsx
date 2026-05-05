@@ -923,6 +923,8 @@ export default function DiscoverPage() {
       {drawerMedia && (
         <MediaDetailsDrawer
           media={drawerMedia}
+          initialInCollection={alreadyAdded.includes(drawerMedia.id)}
+          initialInWishlist={wishlistIds.includes(drawerMedia.id)}
           onClose={() => setDrawerMedia(null)}
           onAdd={(media) => {
             setAlreadyAdded(prev => [...prev, media.id])

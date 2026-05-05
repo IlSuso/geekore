@@ -81,12 +81,17 @@ async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache 
   mobileHeaderProfilePromise = (async () => {
     const supabase = createClient()
     // Profilo subito; notifiche leggermente dopo. Così avatar/header non aspettano il count.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('username, display_name, avatar_url')
-      .eq('id', userId)
-      .single()
-      .catch(() => ({ data: null } as any))
+    let profile: { username?: string | null; display_name?: string | null; avatar_url?: string | null } | null = null
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username, display_name, avatar_url')
+        .eq('id', userId)
+        .single()
+      profile = data
+    } catch {
+      profile = null
+    }
 
     const base: HeaderProfileCache = {
       userId,
@@ -99,17 +104,22 @@ async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache 
     mobileHeaderProfileCache = base
 
     window.setTimeout(() => {
-      supabase.from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('receiver_id', userId)
-        .eq('is_read', false)
-        .then(({ count }) => {
+      void (async () => {
+        try {
+          const { count } = await supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .eq('is_read', false)
+
           if (mobileHeaderProfileCache?.userId === userId) {
             mobileHeaderProfileCache = { ...mobileHeaderProfileCache, unread: !!count && count > 0, ts: Date.now() }
             window.dispatchEvent(new CustomEvent('geekore:mobile-header-cache', { detail: mobileHeaderProfileCache }))
           }
-        })
-        .catch(() => null)
+        } catch {
+          // Ignore notification-count failures: the header should still render immediately.
+        }
+      })()
     }, 900)
 
     return base

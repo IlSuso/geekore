@@ -12,7 +12,7 @@ import { SteamIcon } from '@/components/icons/SteamIcon'
 import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
 import {
-  ArrowLeft, Search,
+  ArrowLeft, Search, Star,
   Clock, CheckCircle, X, Edit3, Loader2, Gamepad2, Tv, Bookmark, RefreshCw, RotateCcw, GripVertical,
 } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
@@ -27,7 +27,6 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useDndSensors } from '@/hooks/useDndSensors'
-import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +50,195 @@ type UserMedia = {
   genres?: string[]
   external_id?: string
   achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
+}
+
+type MediaTypeBadgeProps = {
+  type: UserMedia['type']
+  size?: 'xs' | 'sm'
+}
+
+function MediaTypeBadge({ type, size = 'xs' }: MediaTypeBadgeProps) {
+  const { locale } = useLocale()
+  const normalizedType = type === 'board_game' ? 'boardgame' : type
+  const labels = locale === 'it'
+    ? {
+      movie: 'FILM',
+      tv: 'SERIE TV',
+      anime: 'ANIME',
+      manga: 'MANGA',
+      game: 'VIDEOGIOCO',
+      boardgame: 'GIOCO DA TAVOLO',
+    }
+    : {
+      movie: 'MOVIE',
+      tv: 'TV SHOW',
+      anime: 'ANIME',
+      manga: 'MANGA',
+      game: 'GAME',
+      boardgame: 'BOARD GAME',
+    }
+
+  const tone = {
+    movie: 'border-red-400/95 bg-red-500/90 text-white shadow-red-500/45',
+    tv: 'border-violet-300/95 bg-violet-500/90 text-white shadow-violet-500/45',
+    anime: 'border-sky-300/95 bg-sky-500/90 text-white shadow-sky-500/45',
+    manga: 'border-pink-300/95 bg-pink-500/90 text-white shadow-pink-500/45',
+    game: 'border-emerald-300/95 bg-emerald-500/90 text-white shadow-emerald-500/45',
+    boardgame: 'border-orange-300/95 bg-orange-500/90 text-white shadow-orange-500/45',
+  }[normalizedType as keyof typeof labels] || 'border-white/80 bg-zinc-700/95 text-white shadow-white/20'
+
+  return (
+    <span
+      className={`inline-flex max-w-full shrink-0 items-center justify-center rounded-full border font-black uppercase tracking-[0.06em] text-center leading-[1.16]
+        ${size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-2.5 py-[5px] text-[9px]'}
+        ${tone}
+        shadow-[0_8px_22px_var(--tw-shadow-color),0_0_0_1px_rgba(0,0,0,0.72),inset_0_1px_0_rgba(255,255,255,0.32)]
+        drop-shadow-[0_3px_7px_rgba(0,0,0,1)]`}
+    >
+      {labels[normalizedType as keyof typeof labels] || String(type).toUpperCase()}
+    </span>
+  )
+}
+
+function ProfileLibrarySwipeStars({
+  value,
+  readOnly,
+  onChange,
+}: {
+  value: number
+  readOnly: boolean
+  onChange: (value: number) => void
+}) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [localValue, setLocalValue] = useState(value)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!dragging && hovered === null) setLocalValue(value)
+  }, [value, dragging, hovered])
+
+  const displayed = hovered ?? localValue
+
+  const valueFromClientX = useCallback((clientX: number): number => {
+    const el = containerRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    const x = clientX - rect.left
+    if (x < 0) return 0
+    const clamped = Math.min(x, rect.width - 1)
+    const starWidth = rect.width / 5
+    const star = Math.min(4, Math.floor(clamped / starWidth))
+    return clamped - star * starWidth < starWidth / 2 ? star + 0.5 : star + 1
+  }, [])
+
+  const commit = useCallback((next: number) => {
+    if (readOnly) return
+    const normalized = Math.max(0, Math.min(5, Math.round(next * 2) / 2))
+    setLocalValue(normalized)
+    setHovered(null)
+    setDragging(false)
+    onChange(normalized)
+  }, [readOnly, onChange])
+
+  return (
+    <div
+      ref={containerRef}
+      data-no-swipe="true"
+      data-interactive="true"
+      role={readOnly ? 'img' : 'slider'}
+      aria-label={readOnly ? `Rating ${displayed} of 5` : 'Change rating'}
+      aria-valuemin={readOnly ? undefined : 0}
+      aria-valuemax={readOnly ? undefined : 5}
+      aria-valuenow={readOnly ? undefined : displayed}
+      tabIndex={readOnly ? -1 : 0}
+      className={`flex h-9 min-w-0 items-center justify-center rounded-full border border-white/10 bg-black/35 px-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${readOnly ? '' : 'cursor-pointer touch-none select-none hover:border-amber-400/35'}`}
+      onClick={e => {
+        e.stopPropagation()
+        if (readOnly) return
+        commit(valueFromClientX(e.clientX))
+      }}
+      onMouseMove={e => {
+        if (readOnly || dragging) return
+        setHovered(valueFromClientX(e.clientX))
+      }}
+      onMouseLeave={() => {
+        if (!dragging) setHovered(null)
+      }}
+      onPointerDown={e => {
+        e.stopPropagation()
+        if (readOnly) return
+        setDragging(true)
+        const next = valueFromClientX(e.clientX)
+        setHovered(next)
+        try { (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId) } catch { }
+      }}
+      onPointerMove={e => {
+        if (readOnly || !dragging) return
+        e.stopPropagation()
+        setHovered(valueFromClientX(e.clientX))
+      }}
+      onPointerUp={e => {
+        if (readOnly || !dragging) return
+        e.stopPropagation()
+        commit(valueFromClientX(e.clientX))
+      }}
+      onPointerCancel={e => {
+        e.stopPropagation()
+        setDragging(false)
+        setHovered(null)
+      }}
+      onKeyDown={e => {
+        if (readOnly) return
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          commit((displayed || 0) - 0.5)
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          commit((displayed || 0) + 0.5)
+        }
+      }}
+    >
+      {[1, 2, 3, 4, 5].map(star => {
+        const full = displayed >= star
+        const half = !full && displayed >= star - 0.5
+        return (
+          <span key={star} className="grid h-7 w-6 place-items-center">
+            <span className="relative block h-[22px] w-[22px]">
+              <Star
+                size={22}
+                className="absolute inset-0 text-white/50"
+                fill="none"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              {full && (
+                <Star
+                  size={22}
+                  className="absolute inset-0 text-amber-400"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  style={{ filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }}
+                  aria-hidden="true"
+                />
+              )}
+              {half && (
+                <Star
+                  size={22}
+                  className="absolute inset-0 text-amber-400"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  style={{ clipPath: 'inset(0 50% 0 0)', filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }}
+                  aria-hidden="true"
+                />
+              )}
+            </span>
+          </span>
+        )
+      })}
+    </div>
+  )
 }
 
 // ─── InlineChapterInput ───────────────────────────────────────────────────────
@@ -169,11 +357,7 @@ function SortableCard({ media, children, dragEnabled }: { media: UserMedia; chil
       }}
       {...attributes}
       {...(dragEnabled ? listeners : {})}
-      className={`${dragEnabled ? 'cursor-grab active:cursor-grabbing' : ''} rounded-3xl overflow-hidden h-full ${
-        isDragging
-          ? 'border-2 shadow-2xl z-50'
-          : 'border border-zinc-800 hover:border-zinc-600 hover:shadow-xl'
-      }`}
+      className={`${dragEnabled ? 'cursor-grab active:cursor-grabbing' : ''} h-full rounded-[24px] ${isDragging ? 'z-50 shadow-2xl ring-2 ring-[var(--accent)]' : ''}`}
     >
       {children}
     </div>
@@ -183,7 +367,7 @@ function SortableCard({ media, children, dragEnabled }: { media: UserMedia; chil
 // ─── Card griglia ─────────────────────────────────────────────────────────────
 
 const MediaCard = memo(function MediaCard({
-  media, isOwner, onRating, onNotes, onViewNotes, onStatusChange, onSaveProgress, onMarkComplete, onReset, onEnrichEpisodes, enriching, onDelete, onMobileTap,
+  media, isOwner, onRating, onNotes, onViewNotes, onDelete, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -199,315 +383,136 @@ const MediaCard = memo(function MediaCard({
   onDelete?: (id: string) => void
   onMobileTap?: () => void
 }) {
+  const { locale } = useLocale()
   const hasNotes = !!media.notes?.trim()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
+  const shownRating = media.rating && media.rating > 0 ? Math.round(media.rating * 10) / 10 : 0
+
+  const copy = locale === 'it'
+    ? { note: 'Nota', noNote: 'Nota vuota' }
+    : { note: 'Note', noNote: 'No note' }
+
+  const renderCover = () => {
+    if (media.is_steam) {
+      return <SteamCoverImg appid={media.appid} title={media.title} />
+    }
+
+    if (media.cover_image && !imgFailed) {
+      return (
+        <img
+          src={media.cover_image}
+          alt={media.title}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => {
+            const img = e.target as HTMLImageElement
+            if (!img.src.includes('wsrv.nl')) {
+              const referer = media.cover_image!.includes('myanimelist.net')
+                ? '&referer=https://myanimelist.net'
+                : media.cover_image!.includes('anilist.co')
+                  ? '&referer=https://anilist.co'
+                  : ''
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=560&output=webp${referer}`
+            } else {
+              setImgFailed(true)
+            }
+          }}
+        />
+      )
+    }
+
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-900 text-white">
+        <Tv size={36} className="text-zinc-700 opacity-50" />
+        <p className="line-clamp-3 px-4 text-center text-xs font-semibold leading-[1.22] text-zinc-400">{media.title}</p>
+      </div>
+    )
+  }
 
   return (
     <div
-      className="group relative bg-zinc-950 rounded-3xl overflow-hidden flex flex-col h-full"
+      className="group relative flex h-[350px] flex-col overflow-hidden rounded-[24px] bg-[rgba(255,255,255,0.045)] ring-1 ring-white/[0.08] shadow-[0_18px_45px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[rgba(255,255,255,0.062)] hover:ring-white/[0.15] sm:h-[400px] md:h-[424px]"
       onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onMobileTap?.() }}
     >
-      {/* Cover */}
-      <div className="relative h-64 bg-zinc-900 flex-shrink-0 overflow-hidden">
-        {/* Badge tipo */}
-        <div className="absolute bottom-3 left-3 z-20">
-          <MediaTypeBadge type={media.type} size="xs" />
-        </div>
-        {/* Delete — hidden on mobile (in modal instead) */}
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-zinc-900">
         {isOwner && (
-          <div className="hidden md:block absolute top-3 right-3 z-30">
+          <div className="hidden md:block absolute top-3 right-3 z-50">
             {confirmDelete ? (
-              <div className="flex gap-1">
-                <button onClick={e => { e.stopPropagation(); setConfirmDelete(false) }} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-zinc-900/95 border border-zinc-600 rounded-full">Annulla</button>
-                <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} onPointerDown={e => e.stopPropagation()} className="px-2 py-1 text-[10px] bg-red-900/95 border border-red-700 text-red-300 rounded-full">Elimina</button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={e => { e.stopPropagation(); setConfirmDelete(false) }}
+                  onPointerDown={e => e.stopPropagation()}
+                  className="rounded-full border border-white/15 bg-black/80 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-black"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete?.(media.id) }}
+                  onPointerDown={e => e.stopPropagation()}
+                  className="rounded-full border border-red-700 bg-red-950/95 px-3 py-1.5 text-[10px] font-bold text-red-200 transition hover:bg-red-900"
+                >
+                  Elimina
+                </button>
               </div>
             ) : (
               <button
                 onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
                 onPointerDown={e => e.stopPropagation()}
-                className="opacity-0 group-hover:opacity-100 bg-black/50 hover:bg-red-950/80 border border-white/10 hover:border-red-500/60 p-1.5 rounded-xl transition-all"
+                aria-label={`Elimina ${media.title}`}
+                className="rounded-xl border border-white/20 bg-black/65 p-1.5 opacity-0 transition-all duration-200 hover:border-red-500/80 hover:bg-red-950/90 group-hover:opacity-100"
               >
-                <X size={14} className="text-white" />
+                <X className="h-4 w-4 text-white transition-colors hover:text-red-300" />
               </button>
             )}
           </div>
         )}
-        {/* Notes icon — only shown when notes exist; owner=edit, visitor=read-only */}
-        {hasNotes && (
-          <button
-            onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
-            aria-label="Note"
-            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border transition-all ${isOwner ? 'hidden md:flex' : 'flex'}`}
-            style={{ background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' }}
+
+        {renderCover()}
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-28 bg-gradient-to-b from-black/72 via-black/24 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[46%] bg-gradient-to-t from-black/92 via-black/42 to-transparent" />
+
+        <div className="absolute left-3 right-3 top-3 z-30 flex items-start justify-between gap-2">
+          <MediaTypeBadge type={media.type as UserMedia['type']} size="xs" />
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 z-30 p-3.5">
+          <h4
+            title={media.title}
+            className="inline-block max-w-[94%] rounded-[16px] bg-[linear-gradient(90deg,rgba(0,0,0,0.86),rgba(0,0,0,0.68)_72%,rgba(0,0,0,0.24))] px-3 py-2.5 text-[14px] font-black leading-[1.22] text-white shadow-[0_10px_28px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.10)] [text-shadow:0_2px_4px_rgba(0,0,0,1)] sm:text-[15px]"
           >
-            <Edit3 size={11} />
-          </button>
-        )}
-        <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
-        {/* Cover image */}
-        {media.is_steam ? (
-          <SteamCoverImg appid={media.appid} title={media.title} />
-        ) : media.cover_image && !imgFailed ? (
-          <img
-            src={media.cover_image}
-            alt={media.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => {
-              const img = e.target as HTMLImageElement
-              if (!img.src.includes('wsrv.nl')) {
-                const referer = media.cover_image!.includes('myanimelist.net')
-                  ? '&referer=https://myanimelist.net'
-                  : media.cover_image!.includes('anilist.co')
-                  ? '&referer=https://anilist.co'
-                  : ''
-                img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=jpg${referer}`
-              } else {
-                setImgFailed(true)
-              }
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-            <Tv size={36} className="text-zinc-700 opacity-40" />
-          </div>
-        )}
-      </div>
-
-      {/* ── Mobile: static read-only info ────────────────────────────────── */}
-      <div className="md:hidden flex flex-col flex-1 px-4 pt-3 pb-4 gap-1.5">
-        <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
-        <StarRating value={media.rating || 0} viewOnly size={13} />
-        <div className="flex-1 min-h-0" />
-        <div className="text-[11px] text-zinc-400">
-          {media.type === 'game' && (media.current_episode || 0) > 0 && (
-            <span className="inline-flex items-center gap-1 bg-zinc-800/60 px-2 py-0.5 rounded-full">
-              <Clock size={10} className="text-zinc-500" />{media.current_episode}h
-            </span>
-          )}
-          {media.type === 'manga' && (() => {
-            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
-            const current = media.current_episode || 0
-            if (maxCh && current >= maxCh) return null
-            return <span className="text-zinc-500">Cap. <span className="text-emerald-400 font-semibold">{current}</span>{maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}</span>
-          })()}
-          {(media.type === 'tv' || media.type === 'anime') && (() => {
-            const isCompleted = media.status === 'completed'
-            const hasEpData = !!(media.episodes && media.episodes > 1)
-            const csn = media.current_season || 1
-            const maxEps = media.season_episodes?.[csn]?.episode_count || media.episodes || 0
-            if (isCompleted) return null
-            if (hasEpData) return <span className="text-zinc-500">{media.season_episodes ? `S${csn} · ` : ''}Ep. <span className="text-emerald-400 font-semibold">{media.current_episode}</span><span className="text-zinc-600"> / {maxEps}</span></span>
-            return null
-          })()}
+            <span className="line-clamp-3 pb-[1px]">{media.title}</span>
+          </h4>
         </div>
       </div>
 
-      {/* ── Desktop: full interactive info ────────────────────────────────── */}
-      <div className="hidden md:flex flex-col flex-1 px-4 pt-3 pb-4 gap-2">
-        <h4 className="font-semibold text-sm leading-snug text-white line-clamp-2">{media.title}</h4>
+      <div className="grid h-[52px] grid-cols-[minmax(0,1fr)_42px] items-center gap-2 border-t border-white/[0.06] bg-[rgba(8,8,12,0.94)] px-2.5">
+        <ProfileLibrarySwipeStars
+          value={shownRating}
+          readOnly={!isOwner}
+          onChange={(next) => onRating?.(media.id, next)}
+        />
 
-        {/* Stars */}
-        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-          <StarRating
-            value={media.rating || 0}
-            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-            size={14}
-            viewOnly={!isOwner}
-          />
-        </div>
-
-        {/* Status — select/badge solo per tv/anime */}
-        {(media.type === 'tv' || media.type === 'anime') && (
-          isOwner ? (
-            <select
-              value={media.status || 'watching'}
-              onChange={e => onStatusChange?.(media.id, e.target.value)}
-              onPointerDown={e => e.stopPropagation()}
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-zinc-900 border-zinc-800 text-zinc-400 focus:outline-none focus:border-zinc-600 transition cursor-pointer appearance-none w-fit"
-            >
-              <option value="watching">In corso</option>
-              <option value="completed">Completato</option>
-              <option value="paused">In pausa</option>
-              <option value="dropped">Abbandonato</option>
-              <option value="wishlist">Wishlist</option>
-            </select>
-          ) : (
-            media.status && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit bg-zinc-800 text-zinc-400">
-                {media.status === 'completed' ? 'Completato'
-                  : media.status === 'watching' ? 'In corso'
-                  : media.status === 'paused' ? 'In pausa'
-                  : media.status === 'dropped' ? 'Abbandonato'
-                  : media.status === 'wishlist' ? 'Wishlist'
-                  : media.status}
-              </span>
-            )
-          )
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1 min-h-0" />
-
-        {/* Progress area */}
-        {media.type === 'game' ? (() => {
-          const ach = media.achievement_data
-          const hours = media.current_episode || 0
-          return (
-            <div className="space-y-1.5">
-              {hours > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded-full">
-                  <Clock size={10} className="text-zinc-500 flex-shrink-0" />
-                  {hours}h
-                </span>
-              )}
-              {ach && ach.tot > 0 && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                    <span>Achievement</span>
-                    <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
-                  </div>
-                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[#107c10] rounded-full transition-all duration-300"
-                      style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })() : media.type === 'manga' ? (() => {
-          const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
-          const current = media.current_episode || 0
-          const isChCompleted = !!maxCh && current >= maxCh
-          return (
-            <div className="space-y-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-              {isChCompleted ? (
-                isOwner ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-emerald-400">
-                      <CheckCircle size={12} />
-                      <span className="text-[11px] font-semibold">Completato</span>
-                    </div>
-                    <button onClick={() => onStatusChange?.(media.id, 'chapter:0')} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
-                      <RotateCcw size={13} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-emerald-400">
-                    <CheckCircle size={12} />
-                    <span className="text-[11px] font-semibold">Completato</span>
-                  </div>
-                )
-              ) : (
-                <>
-                  <div className="flex items-center justify-between gap-1">
-                    {isOwner && (
-                      <button onClick={() => onStatusChange?.(media.id, `chapter:${Math.max(0, current - 1)}`)} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>
-                    )}
-                    <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
-                      <span className="text-zinc-500 text-[10px] mr-0.5">Cap.</span>
-                      {isOwner ? (
-                        <>
-                          <InlineChapterInput value={current} max={maxCh} onSave={n => onStatusChange?.(media.id, `chapter:${n}`)} />
-                          {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-emerald-400">{current}</span>
-                          {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
-                        </>
-                      )}
-                    </div>
-                    {isOwner && (
-                      <button
-                        onClick={() => onStatusChange?.(media.id, `chapter:${current + 1}`)}
-                        onPointerDown={e => e.stopPropagation()}
-                        className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold"
-                      >+</button>
-                    )}
-                  </div>
-                  {maxCh && (
-                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
-                    </div>
-                  )}
-                  {isOwner && !maxCh && (
-                    <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
-                      {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                      {enriching ? 'Recupero…' : 'Recupera totale'}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )
-        })() : (() => {
-          if (media.type !== 'tv' && media.type !== 'anime') return null
-          const hasEpisodeData = !!(media.episodes && media.episodes > 1)
-          const isCompleted = media.status === 'completed'
-          const hasSeasonData = !!(media.season_episodes && Object.keys(media.season_episodes).length > 0)
-          const currentSeasonNum = media.current_season || 1
-          const maxSeasons = hasSeasonData ? Object.keys(media.season_episodes!).length : 1
-          const maxEpisodesThisSeason = hasSeasonData
-            ? (media.season_episodes![currentSeasonNum]?.episode_count || media.episodes || 1)
-            : (media.episodes || 1)
-          const totalEps = media.episodes || 1
-          const totalProgress = Math.min(100, Math.round((media.current_episode / totalEps) * 100))
-
-          if (!hasEpisodeData) {
-            return isOwner ? (
-              <button
-                onClick={() => onEnrichEpisodes?.(media.id)}
-                onPointerDown={e => e.stopPropagation()}
-                disabled={enriching}
-                className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-              >
-                {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                {enriching ? 'Recupero…' : 'Recupera episodi'}
-              </button>
-            ) : null
-          }
-
-          if (isCompleted) {
-            return isOwner ? (
-              <div className="flex items-center justify-end">
-                <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1.5 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ripristina progresso">
-                  <RotateCcw size={15} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-emerald-400">
-                <CheckCircle size={13} />
-                <span className="text-[11px] font-semibold">Completato</span>
-              </div>
-            )
-          }
-
-          return (
-            <div className="space-y-1.5">
-              {hasSeasonData && (
-                <div className="flex items-center justify-between gap-1">
-                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum <= 1} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>}
-                  <div className="flex-1 text-emerald-400 text-[11px] font-semibold flex items-center justify-center">Stagione {currentSeasonNum}</div>
-                  {isOwner && <button onClick={() => { if (currentSeasonNum < maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum >= maxSeasons} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">+</button>}
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-1">
-                {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} onPointerDown={e => e.stopPropagation()} disabled={media.current_episode <= 1} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold disabled:opacity-30">−</button>}
-                <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
-                  <span className="text-emerald-400">Ep. {media.current_episode}</span>
-                  <span className="text-zinc-600">/{maxEpisodesThisSeason}</span>
-                </div>
-                {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id) }} onPointerDown={e => e.stopPropagation()} className="w-6 h-6 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/50 rounded-lg transition-all text-emerald-400 text-sm font-bold">+</button>}
-              </div>
-              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
-              </div>
-            </div>
-          )
-        })()}
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation()
+            if (isOwner) onNotes?.(media)
+            else if (hasNotes) onViewNotes?.(media)
+          }}
+          onPointerDown={e => e.stopPropagation()}
+          disabled={!isOwner && !hasNotes}
+          title={hasNotes ? copy.note : copy.noNote}
+          aria-label={hasNotes ? 'Open note' : 'No note'}
+          className={`inline-flex h-9 w-[42px] items-center justify-center rounded-full border px-0 transition-all
+            ${hasNotes
+              ? 'border-[rgba(230,255,61,0.42)] bg-[rgba(230,255,61,0.16)] text-[var(--accent)] shadow-[0_0_18px_rgba(230,255,61,0.12)]'
+              : 'border-white/10 bg-white/[0.035] text-white/30'
+            }
+            ${isOwner || hasNotes ? 'hover:border-[rgba(230,255,61,0.62)] hover:bg-[rgba(230,255,61,0.1)] hover:text-[var(--accent)]' : 'cursor-default opacity-60'}`}
+        >
+          <Edit3 size={15} />
+        </button>
       </div>
     </div>
   )
@@ -995,7 +1000,7 @@ export default function ProfileTypePage() {
               <>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                   <SortableContext items={visible.map(m => m.id)} strategy={rectSortingStrategy}>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5">
                       {visible.map(media => (
                         <SortableCard key={media.id} media={media} dragEnabled={effectiveDragEnabled}>
                           <MediaCard
@@ -1022,7 +1027,7 @@ export default function ProfileTypePage() {
               </>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5">
                   {visible.map(media => (
                     <MediaCard
                       key={media.id}

@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useRef, useId, useCallback, useEffect } from 'react'
-import { X } from 'lucide-react'
-
-const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Star } from 'lucide-react'
 
 interface StarRatingProps {
   value?: number
@@ -18,78 +16,76 @@ export function StarRating({
   size = 22,
   viewOnly = false,
 }: StarRatingProps) {
-  const [hovered,  setHovered]  = useState<number | null>(null)
-  const [pending,  setPending]  = useState<number | null>(null)
-  const gestureActive = useRef(false)
-  const instanceId    = useId()
-  const containerRef  = useRef<HTMLDivElement>(null)
-
-  const displayed = hovered ?? pending ?? value
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [pending, setPending] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const liveValueRef = useRef<number>(value)
 
   useEffect(() => {
+    liveValueRef.current = value
     if (pending !== null && value === pending) setPending(null)
   }, [value, pending])
 
-  const GAP = 2
+  const displayed = hovered ?? pending ?? value
 
   const commitRating = useCallback((rating: number) => {
     if (viewOnly) return
-    const normalized = Math.max(0, Math.min(5, rating))
+
+    // 0 means "no rating". Every real rating is snapped to half-stars.
+    const normalized = rating <= 0 ? 0 : Math.max(0.5, Math.min(5, Math.round(rating * 2) / 2))
     setPending(normalized)
     setHovered(null)
-    if (normalized !== value) onChange?.(normalized)
-  }, [viewOnly, value, onChange])
+
+    if (normalized !== liveValueRef.current) {
+      liveValueRef.current = normalized
+      onChange?.(normalized)
+    }
+  }, [viewOnly, onChange])
 
   const ratingFromClientX = useCallback((clientX: number): number => {
     const el = containerRef.current
     if (!el) return 0
+
     const rect = el.getBoundingClientRect()
     const x = clientX - rect.left
+
     if (x <= 0) return 0
-    const clampedX = Math.min(x, rect.width - 1)
-    const starIdx  = Math.min(4, Math.floor(clampedX / (size + GAP)))
-    const xInStar  = clampedX - starIdx * (size + GAP)
-    return xInStar < size / 2 ? starIdx + 0.5 : starIdx + 1
-  }, [size])
+    if (x >= rect.width) return 5
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const cellWidth = rect.width / 5
+    const starIndex = Math.min(4, Math.max(0, Math.floor(x / cellWidth)))
+    const xInCell = x - starIndex * cellWidth
+
+    // Only the very beginning of the first star clears the rating.
+    // After that, the minimum real vote is 0.5.
+    if (starIndex === 0 && xInCell < cellWidth * 0.28) return 0
+
+    return xInCell < cellWidth / 2 ? starIndex + 0.5 : starIndex + 1
+  }, [])
+
+  const updateHoverFromPointer = useCallback((clientX: number) => {
     if (viewOnly) return
-    e.preventDefault()
-    e.stopPropagation()
-    gestureActive.current = true
-    setHovered(ratingFromClientX(e.touches[0].clientX))
+    setHovered(ratingFromClientX(clientX))
   }, [viewOnly, ratingFromClientX])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (viewOnly || !gestureActive.current) return
-    e.preventDefault()
-    e.stopPropagation()
-    setHovered(ratingFromClientX(e.touches[0].clientX))
-  }, [viewOnly, ratingFromClientX])
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (viewOnly) return
-    e.preventDefault()
-    e.stopPropagation()
-    gestureActive.current = false
-    if (hovered !== null) commitRating(hovered)
-    setHovered(null)
-  }, [viewOnly, hovered, commitRating])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (viewOnly) return
+
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault()
-      commitRating((displayed || 0) - 0.5)
+      commitRating((displayed || 0.5) - 0.5)
     }
+
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault()
       commitRating((displayed || 0) + 0.5)
     }
+
     if (e.key === 'Home') {
       e.preventDefault()
       commitRating(0)
     }
+
     if (e.key === 'End') {
       e.preventDefault()
       commitRating(5)
@@ -100,27 +96,27 @@ export function StarRating({
     <div
       data-no-swipe="true"
       data-interactive="true"
-      className={`inline-flex items-center gap-1.5 select-none ${viewOnly ? '' : 'group'}`}
-      onClick={e => e.stopPropagation()}
-      onPointerDown={e => !viewOnly && e.stopPropagation()}
+      className="inline-flex items-center gap-2 select-none"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        if (!viewOnly) e.stopPropagation()
+      }}
     >
       {!viewOnly && (
-        <button
-          type="button"
-          data-no-swipe="true"
-          onClick={(event) => { event.stopPropagation(); commitRating(0); setHovered(null); setPending(null) }}
-          onMouseEnter={() => setHovered(0)}
-          onMouseLeave={() => setHovered(null)}
-          aria-label="Rimuovi voto"
-          className={`flex items-center justify-center rounded transition-colors ${
-            value > 0
-              ? 'text-zinc-500 hover:text-red-400 cursor-pointer'
-              : 'text-zinc-800 cursor-default pointer-events-none'
+        <span
+          className={`min-w-[28px] text-right text-[12px] font-black leading-none tabular-nums ${
+            displayed > 0 ? 'text-amber-300' : 'text-zinc-500'
           }`}
-          style={{ width: Math.round(size * 0.7), height: size }}
+          aria-hidden="true"
         >
-          <X size={Math.round(size * 0.55)} strokeWidth={2.5} />
-        </button>
+          {displayed > 0 ? Number(displayed).toFixed(1) : '—'}
+        </span>
+      )}
+
+      {viewOnly && displayed > 0 && (
+        <span className="min-w-[28px] text-right text-[12px] font-black leading-none text-amber-300 tabular-nums">
+          {Number(displayed).toFixed(1)}
+        </span>
       )}
 
       <div
@@ -132,74 +128,74 @@ export function StarRating({
         aria-valuemin={viewOnly ? undefined : 0}
         aria-valuemax={viewOnly ? undefined : 5}
         aria-valuenow={viewOnly ? undefined : displayed}
+        aria-valuetext={viewOnly ? undefined : displayed > 0 ? `${displayed} su 5` : 'Nessun voto'}
         tabIndex={viewOnly ? -1 : 0}
-        className={`flex flex-row items-center gap-0.5 outline-none ${viewOnly ? 'pointer-events-none' : 'touch-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 rounded-lg'}`}
+        className={`flex items-center gap-1 outline-none ${
+          viewOnly
+            ? 'pointer-events-none'
+            : 'cursor-pointer touch-none rounded-xl focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35'
+        }`}
+        onMouseMove={(event) => updateHoverFromPointer(event.clientX)}
         onMouseLeave={() => !viewOnly && setHovered(null)}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onClick={(event) => {
+          if (viewOnly) return
+          event.stopPropagation()
+          commitRating(ratingFromClientX(event.clientX))
+        }}
+        onTouchStart={(event) => {
+          if (viewOnly) return
+          event.preventDefault()
+          event.stopPropagation()
+          updateHoverFromPointer(event.touches[0].clientX)
+        }}
+        onTouchMove={(event) => {
+          if (viewOnly) return
+          event.preventDefault()
+          event.stopPropagation()
+          updateHoverFromPointer(event.touches[0].clientX)
+        }}
+        onTouchEnd={(event) => {
+          if (viewOnly) return
+          event.preventDefault()
+          event.stopPropagation()
+          commitRating(hovered ?? value)
+        }}
         onKeyDown={handleKeyDown}
       >
         {[1, 2, 3, 4, 5].map((star) => {
-          const full   = displayed >= star
-          const half   = !full && displayed >= star - 0.5
-          const clipId = `star-half-${instanceId}-${star}`
+          const full = displayed >= star
+          const half = !full && displayed >= star - 0.5
 
           return (
-            <div
+            <span
               key={star}
-              className={`relative ${!viewOnly ? 'cursor-pointer hover:scale-110' : ''} transition-transform duration-100`}
+              className="relative flex items-center justify-center"
               style={{ width: size, height: size }}
+              aria-hidden="true"
             >
-              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0" aria-hidden="true">
-                <path d={STAR_PATH} fill="#27272a" />
-              </svg>
+              <Star
+                size={size}
+                className="absolute inset-0 text-white/45"
+                fill="none"
+                strokeWidth={1.55}
+              />
 
-              <svg width={size} height={size} viewBox="0 0 24 24" className="absolute inset-0 transition-colors duration-100" aria-hidden="true">
-                <defs>
-                  <clipPath id={clipId}>
-                    <rect x="0" y="0" width="12" height="24" />
-                  </clipPath>
-                </defs>
-                <path
-                  d={STAR_PATH}
-                  fill={full || half ? 'var(--accent, #E6FF3D)' : 'transparent'}
-                  clipPath={full ? undefined : half ? `url(#${clipId})` : undefined}
+              {(full || half) && (
+                <Star
+                  size={size}
+                  className="absolute inset-0 text-amber-400"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  style={{
+                    clipPath: half ? 'inset(0 50% 0 0)' : undefined,
+                    filter: 'drop-shadow(0 0 7px rgba(251,191,36,.65))',
+                  }}
                 />
-              </svg>
-
-              {!viewOnly && (
-                <>
-                  <button
-                    type="button"
-                    data-no-swipe="true"
-                    aria-label={`${star - 0.5} stelle`}
-                    className="absolute inset-y-0 left-0 z-10 cursor-pointer"
-                    style={{ width: '50%' }}
-                    onMouseEnter={() => setHovered(star - 0.5)}
-                    onClick={(event) => { event.stopPropagation(); commitRating(star - 0.5) }}
-                  />
-                  <button
-                    type="button"
-                    data-no-swipe="true"
-                    aria-label={`${star} stelle`}
-                    className="absolute inset-y-0 right-0 z-10 cursor-pointer"
-                    style={{ width: '50%' }}
-                    onMouseEnter={() => setHovered(star)}
-                    onClick={(event) => { event.stopPropagation(); commitRating(star) }}
-                  />
-                </>
               )}
-            </div>
+            </span>
           )
         })}
       </div>
-
-      {displayed > 0 && (
-        <span className="text-[12px] font-bold text-[var(--accent)] tabular-nums leading-none ml-0.5">
-          {displayed % 1 === 0 ? displayed.toFixed(1) : displayed}
-        </span>
-      )}
     </div>
   )
 }

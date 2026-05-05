@@ -113,6 +113,12 @@ interface MediaDetailsDrawerProps {
   onClose: () => void;
   isOwner?: boolean;
   onAdd?: (media: MediaDetails) => void;
+  /**
+   * Stato già noto dalla pagina che apre il drawer.
+   * Serve a evitare il flash sbagliato "Aggiungi" -> "In collezione" mentre parte la verifica Supabase.
+   */
+  initialInCollection?: boolean;
+  initialInWishlist?: boolean;
 }
 
 // Piattaforma — calcolata una sola volta
@@ -407,18 +413,45 @@ export function MediaDetailsDrawer({
   onClose,
   isOwner,
   onAdd,
+  initialInCollection,
+  initialInWishlist,
 }: MediaDetailsDrawerProps) {
-  const [inCollection, setInCollection] = useState(false);
-  const [inWishlist, setInWishlist] = useState(false);
+  const getKnownCollectionState = useCallback((item: MediaDetails | null): boolean | undefined => {
+    if (typeof initialInCollection === "boolean") return initialInCollection;
+    if (!item) return undefined;
+
+    const raw = item as any;
+    if (typeof raw.inCollection === "boolean") return raw.inCollection;
+    if (typeof raw.in_collection === "boolean") return raw.in_collection;
+    if (typeof raw.added === "boolean") return raw.added;
+    if (typeof raw.isAdded === "boolean") return raw.isAdded;
+    if (typeof raw.isInCollection === "boolean") return raw.isInCollection;
+    if (typeof raw.collection_id === "string" && raw.collection_id.length > 0) return true;
+    if (typeof raw.entry_id === "string" && raw.entry_id.length > 0) return true;
+    if (typeof raw.user_media_entry_id === "string" && raw.user_media_entry_id.length > 0) return true;
+    return undefined;
+  }, [initialInCollection]);
+
+  const getKnownWishlistState = useCallback((item: MediaDetails | null): boolean | undefined => {
+    if (typeof initialInWishlist === "boolean") return initialInWishlist;
+    if (!item) return undefined;
+
+    const raw = item as any;
+    if (typeof raw.inWishlist === "boolean") return raw.inWishlist;
+    if (typeof raw.in_wishlist === "boolean") return raw.in_wishlist;
+    if (typeof raw.wishlisted === "boolean") return raw.wishlisted;
+    if (typeof raw.isWishlisted === "boolean") return raw.isWishlisted;
+    if (typeof raw.wishlist_id === "string" && raw.wishlist_id.length > 0) return true;
+    return undefined;
+  }, [initialInWishlist]);
+
+  const [inCollection, setInCollection] = useState(() => getKnownCollectionState(media) ?? false);
+  const [inWishlist, setInWishlist] = useState(() => getKnownWishlistState(media) ?? false);
   const [checkDone, setCheckDone] = useState(false);
   const [addingToCollection, setAddingToCollection] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formRating, setFormRating] = useState<number>(0);
-  const [formEpisode, setFormEpisode] = useState<string>("0");
-  const [formSeason, setFormSeason] = useState<string>("1");
-  const [formEpisodeError, setFormEpisodeError] = useState<string | null>(null);
-  const [formSeasonError, setFormSeasonError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -523,10 +556,6 @@ export function MediaDetailsDrawer({
   useEffect(() => {
     setShowAddForm(false);
     setFormRating(0);
-    setFormEpisode("0");
-    setFormSeason("1");
-    setFormEpisodeError(null);
-    setFormSeasonError(null);
     setDescExpanded(false);
     setAddingToCollection(false);
     setWishlistBusy(false);
@@ -548,14 +577,27 @@ export function MediaDetailsDrawer({
 
   useEffect(() => {
     if (!media) {
+      setInCollection(false);
+      setInWishlist(false);
       setCheckDone(false);
       return;
     }
+
+    // Stato immediato: se la pagina che apre il drawer conosce già collection/wishlist,
+    // usiamolo subito. Così non compare mai "Aggiungi" per poi diventare "In collezione".
+    const knownCollection = getKnownCollectionState(media);
+    const knownWishlist = getKnownWishlistState(media);
+
+    setInCollection(knownCollection ?? false);
+    setInWishlist(knownWishlist ?? false);
     setCheckDone(false);
+
+    let cancelled = false;
     const check = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (cancelled) return;
       if (!user) {
         setCheckDone(true);
         return;
@@ -574,15 +616,20 @@ export function MediaDetailsDrawer({
           .eq("external_id", media.id)
           .maybeSingle(),
       ]);
+      if (cancelled) return;
       setInCollection(!!col);
       setInWishlist(!!wish);
       setCheckDone(true);
     };
     check();
-  }, [media?.id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [media?.id, initialInCollection, initialInWishlist, getKnownCollectionState, getKnownWishlistState]);
 
   const handleAddToCollection = useCallback(
-    async (opts?: { rating?: number; episode?: number; season?: number }) => {
+    async (opts?: { rating?: number }) => {
       if (!media || addingToCollection || inCollection) return;
       setAddingToCollection(true);
       const {
@@ -596,25 +643,7 @@ export function MediaDetailsDrawer({
       const isMovie = media.type === "movie";
       const isBoardgame = detailMedia.type === "boardgame";
 
-      const seasonNum = opts?.season ?? 1;
-      const maxEpThisSeason =
-        media.seasons?.[seasonNum]?.episode_count ?? media.episodes ?? null;
-      const maxSeasons =
-        media.totalSeasons ??
-        (media.seasons ? Object.keys(media.seasons).length : null);
-      const isLastSeason = !maxSeasons || seasonNum >= maxSeasons;
-      const isLastEpisode =
-        maxEpThisSeason !== null &&
-        opts?.episode !== undefined &&
-        opts.episode >= maxEpThisSeason;
-      const autoCompleted =
-        isMovie || isBoardgame || (isLastSeason && isLastEpisode);
-
-      const status = autoCompleted
-        ? "completed"
-        : isBoardgame
-          ? "playing"
-          : "watching";
+      const status = isMovie || isBoardgame ? "completed" : "watching";
 
       // Per i boardgame: mappa i campi BGG sulle colonne disponibili
       const bggAchievementData =
@@ -656,10 +685,6 @@ export function MediaDetailsDrawer({
             : media.authors || [],
           keywords: isBoardgame ? [] : [],
           status,
-          current_episode: opts?.episode ?? (isMovie || isBoardgame ? null : 0),
-          current_season: opts?.season ?? null,
-          episodes: media.episodes ?? null,
-          season_episodes: media.seasons ?? null,
           rating: opts?.rating ?? null,
           studios: isBoardgame ? [] : media.studios || [],
           directors: isBoardgame ? [] : media.directors || [],
@@ -1453,108 +1478,19 @@ export function MediaDetailsDrawer({
               <div
                 ref={formRef}
                 data-no-swipe="true"
-                className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-4"
+                className="rounded-[22px] border border-white/8 bg-white/[0.035] px-4 py-3 shadow-[0_14px_36px_rgba(0,0,0,.22)]"
               >
-                <div>
-                  <p className="gk-label mb-2">{ui.yourRatingOptional}</p>
-                  <div data-no-swipe="true">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="gk-label whitespace-nowrap">{ui.yourRatingOptional}</p>
+
+                  <div data-no-swipe="true" className="flex min-h-9 items-center justify-end">
                     <StarRating
                       value={formRating}
                       onChange={setFormRating}
-                      size={28}
+                      size={26}
                     />
                   </div>
                 </div>
-
-                {(detailMedia.type === "tv" || detailMedia.type === "anime") &&
-                  (() => {
-                    const maxSeasons =
-                      detailMedia.totalSeasons ??
-                      (detailMedia.seasons
-                        ? Object.keys(detailMedia.seasons).length
-                        : null);
-                    return (
-                      <div>
-                        <p className="gk-label mb-1">
-                          Stagione{maxSeasons ? ` (max ${maxSeasons})` : ""}
-                        </p>
-                        <input
-                          data-no-swipe="true"
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={maxSeasons ?? undefined}
-                          value={formSeason}
-                          aria-invalid={!!formSeasonError}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormSeason(val);
-                            const n = parseInt(val);
-                            if (isNaN(n) || n < 1)
-                              setFormSeasonError(ui.minOne);
-                            else if (maxSeasons && n > maxSeasons)
-                              setFormSeasonError(`${ui.maxValue} ${maxSeasons}`);
-                            else setFormSeasonError(null);
-                            setFormEpisode("0");
-                            setFormEpisodeError(null);
-                          }}
-                          className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[rgba(230,255,61,0.45)]"
-                        />
-                        {formSeasonError && (
-                          <p className="text-xs text-red-400 mt-1">
-                            {formSeasonError}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                {detailMedia.type !== "movie" &&
-                  !isBoardgame &&
-                  (() => {
-                    const seasonNum = parseInt(formSeason) || 1;
-                    const maxEp =
-                      detailMedia.seasons?.[seasonNum]?.episode_count ??
-                      detailMedia.episodes ??
-                      null;
-                    const label =
-                      detailMedia.type === "manga" || detailMedia.type === "novel"
-                        ? "Capitolo corrente"
-                        : "Episodio corrente";
-                    return (
-                      <div>
-                        <p className="gk-label mb-1">
-                          {label}
-                          {maxEp ? ` (max ${maxEp})` : ""}
-                        </p>
-                        <input
-                          data-no-swipe="true"
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={maxEp ?? undefined}
-                          value={formEpisode}
-                          aria-invalid={!!formEpisodeError}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormEpisode(val);
-                            const n = parseInt(val);
-                            if (isNaN(n) || n < 0)
-                              setFormEpisodeError(ui.negativeValue);
-                            else if (maxEp && n > maxEp)
-                              setFormEpisodeError(`${ui.maxValue} ${maxEp}`);
-                            else setFormEpisodeError(null);
-                          }}
-                          className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[rgba(230,255,61,0.45)]"
-                        />
-                        {formEpisodeError && (
-                          <p className="text-xs text-red-400 mt-1">
-                            {formEpisodeError}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
               </div>
             )}
           </div>
@@ -1565,94 +1501,87 @@ export function MediaDetailsDrawer({
           className="gk-media-details-footer relative z-10 flex-shrink-0 space-y-2 border-t border-[var(--border)] bg-[rgba(11,11,15,0.94)] p-3 backdrop-blur-xl"
           data-no-swipe="true"
         >
-          {!checkDone ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-10 bg-[var(--bg-card)] rounded-2xl" />
-              <div className="h-9 bg-[var(--bg-card)] rounded-2xl" />
+          {showAddForm ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                data-no-swipe="true"
+                onClick={() => setShowAddForm(false)}
+                className="flex-1 rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:text-[var(--text-primary)]"
+              >
+                {commonUi.cancel}
+              </button>
+              <button
+                type="button"
+                data-no-swipe="true"
+                disabled={addingToCollection}
+                onClick={() =>
+                  handleAddToCollection({
+                    rating: formRating || undefined,
+                  })
+                }
+                className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-40"
+                style={{ background: "var(--accent)", color: "#0B0B0F" }}
+              >
+                {addingToCollection ? ui.adding : ui.confirm}
+              </button>
             </div>
+          ) : !checkDone && getKnownCollectionState(media) === undefined ? (
+            <div
+              aria-label={locale === "it" ? "Verifica stato collezione" : "Checking collection status"}
+              className="flex h-[42px] w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] opacity-80"
+            >
+              <span className="h-3 w-32 animate-pulse rounded-full bg-white/10" />
+            </div>
+          ) : !inCollection ? (
+            <button
+              type="button"
+              data-no-swipe="true"
+              disabled={addingToCollection}
+              onClick={() => setShowAddForm(true)}
+              className="w-full rounded-2xl py-2.5 text-sm font-black transition-all shadow-[0_0_24px_rgba(230,255,61,0.12)] disabled:cursor-default disabled:opacity-80"
+              style={{ background: "var(--accent)", color: "#0B0B0F" }}
+            >
+              {ui.addToCollection}
+            </button>
           ) : (
-            <>
-              {showAddForm ? (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    data-no-swipe="true"
-                    onClick={() => setShowAddForm(false)}
-                    className="flex-1 rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[rgba(230,255,61,0.45)] hover:text-[var(--text-primary)]"
-                  >
-                    {commonUi.cancel}
-                  </button>
-                  <button
-                    type="button"
-                    data-no-swipe="true"
-                    disabled={
-                      addingToCollection ||
-                      !!formEpisodeError ||
-                      !!formSeasonError
-                    }
-                    onClick={() =>
-                      handleAddToCollection({
-                        rating: formRating || undefined,
-                        episode: parseInt(formEpisode) || 0,
-                        season: parseInt(formSeason) || 1,
-                      })
-                    }
-                    className="flex-1 rounded-2xl py-2.5 text-sm font-black transition-all disabled:opacity-40"
-                    style={{ background: "var(--accent)", color: "#0B0B0F" }}
-                  >
-                    {addingToCollection ? ui.adding : ui.confirm}
-                  </button>
-                </div>
-              ) : !inCollection ? (
-                <button
-                  type="button"
-                  data-no-swipe="true"
-                  onClick={() => setShowAddForm(true)}
-                  className="w-full rounded-2xl py-2.5 text-sm font-black transition-all shadow-[0_0_24px_rgba(230,255,61,0.12)]"
-                  style={{ background: "var(--accent)", color: "#0B0B0F" }}
-                >
-                  {ui.addToCollection}
-                </button>
-              ) : (
-                <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 py-2.5 text-center text-sm font-black text-emerald-300">
-                  <Check size={14} /> {ui.inCollection}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  data-no-swipe="true"
-                  onClick={handleToggleWishlist}
-                  disabled={wishlistBusy}
-                  className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all disabled:opacity-60 flex items-center justify-center gap-1.5 ${
-                    inWishlist
-                      ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                      : "bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.45)]"
-                  }`}
-                >
-                  <Bookmark
-                    size={12}
-                    fill={inWishlist ? "currentColor" : "none"}
-                  />
-                  {inWishlist ? "In wishlist" : "Wishlist"}
-                </button>
-
-                {externalUrl && (
-                  <a
-                    data-no-swipe="true"
-                    href={externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 rounded-2xl text-xs font-bold bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[rgba(230,255,61,0.45)] transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <ExternalLink size={12} />
-                    {sourceLabel}
-                  </a>
-                )}
-              </div>
-            </>
+            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 py-2.5 text-center text-sm font-black text-emerald-300">
+              <Check size={14} /> {ui.inCollection}
+            </div>
           )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-no-swipe="true"
+              onClick={handleToggleWishlist}
+              disabled={!checkDone || wishlistBusy}
+              className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all disabled:cursor-default disabled:opacity-70 flex items-center justify-center gap-1.5 ${
+                inWishlist
+                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                  : "bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.45)]"
+              }`}
+            >
+              <Bookmark
+                size={12}
+                fill={inWishlist ? "currentColor" : "none"}
+              />
+              {inWishlist ? "In wishlist" : "Wishlist"}
+            </button>
+
+            {externalUrl && (
+              <a
+                data-no-swipe="true"
+                href={externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 rounded-2xl text-xs font-bold bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[rgba(230,255,61,0.45)] transition-all flex items-center justify-center gap-1.5"
+              >
+                <ExternalLink size={12} />
+                {sourceLabel}
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </>,

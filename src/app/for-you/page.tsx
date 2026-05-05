@@ -1881,6 +1881,8 @@ export default function ForYouPage() {
       {detailItem && (
         <MediaDetailsDrawer
           media={detailItem as any}
+          initialInCollection={addedIds.has(detailItem.id)}
+          initialInWishlist={wishlistIds.has(detailItem.id)}
           onClose={() => setDetailItem(null)}
           onAdd={(media) => {
             setAddedIds(prev => new Set([...prev, media.id]))

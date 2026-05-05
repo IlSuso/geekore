@@ -2,7 +2,7 @@
 
 import { logActivity } from '@/lib/activity'
 import { profileInvalidateBridge } from '@/hooks/profileInvalidateBridge'
-import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, Film, BarChart2, Users, TrendingUp, GripVertical, List } from 'lucide-react'
+import { Copy, Check, Search as SearchIcon, SlidersHorizontal, ArrowUpDown, ChevronRight, Download, X as XIcon, Gamepad2, Tv, Film, BarChart2, Users, TrendingUp, GripVertical, List, Star } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { gestureState } from '@/hooks/gestureState'
 import { useParams, usePathname, useRouter } from 'next/navigation'
@@ -43,7 +43,6 @@ import { NotesModal } from '@/components/profile/NotesModal'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import { PullToRefreshIndicator } from '@/components/ui/ErrorState'
 import { optimizeCover } from '@/lib/imageOptimizer'
-import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
 
 // ─── Cache ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +80,54 @@ type UserMedia = {
   genres?: string[]
   external_id?: string
   achievement_data?: { curr: number; tot: number; gs_curr: number; gs_tot: number } | null
+}
+
+type MediaTypeBadgeProps = {
+  type: UserMedia['type']
+  size?: 'xs' | 'sm'
+}
+
+function MediaTypeBadge({ type, size = 'xs' }: MediaTypeBadgeProps) {
+  const { locale } = useLocale()
+  const normalizedType = type === 'board_game' ? 'boardgame' : type
+  const labels = locale === 'it'
+    ? {
+      movie: 'FILM',
+      tv: 'SERIE TV',
+      anime: 'ANIME',
+      manga: 'MANGA',
+      game: 'VIDEOGIOCO',
+      boardgame: 'GIOCO DA TAVOLO',
+    }
+    : {
+      movie: 'MOVIE',
+      tv: 'TV SHOW',
+      anime: 'ANIME',
+      manga: 'MANGA',
+      game: 'GAME',
+      boardgame: 'BOARD GAME',
+    }
+
+  const tone = {
+    movie: 'border-red-400/95 bg-red-500/90 text-white shadow-red-500/45',
+    tv: 'border-violet-300/95 bg-violet-500/90 text-white shadow-violet-500/45',
+    anime: 'border-sky-300/95 bg-sky-500/90 text-white shadow-sky-500/45',
+    manga: 'border-pink-300/95 bg-pink-500/90 text-white shadow-pink-500/45',
+    game: 'border-emerald-300/95 bg-emerald-500/90 text-white shadow-emerald-500/45',
+    boardgame: 'border-orange-300/95 bg-orange-500/90 text-white shadow-orange-500/45',
+  }[normalizedType as keyof typeof labels] || 'border-white/80 bg-zinc-700/95 text-white shadow-white/20'
+
+  return (
+    <span
+      className={`inline-flex max-w-full shrink-0 items-center justify-center rounded-full border font-black uppercase tracking-[0.06em] text-center leading-[1.16]
+        ${size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-2.5 py-[5px] text-[9px]'}
+        ${tone}
+        shadow-[0_8px_22px_var(--tw-shadow-color),0_0_0_1px_rgba(0,0,0,0.72),inset_0_1px_0_rgba(255,255,255,0.32)]
+        drop-shadow-[0_3px_7px_rgba(0,0,0,1)]`}
+    >
+      {labels[normalizedType as keyof typeof labels] || String(type).toUpperCase()}
+    </span>
+  )
 }
 
 type Profile = {
@@ -201,9 +248,9 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
       }}
       {...attributes}
       {...(disabled ? {} : listeners)}
-      className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-[28px] overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] h-full flex flex-col bg-[var(--bg-card)] ${isDragging
+      className={`${disabled ? '' : 'cursor-grab active:cursor-grabbing'} rounded-[24px] overflow-hidden h-auto flex flex-col bg-[rgba(255,255,255,0.035)] ${isDragging
         ? 'border-2 shadow-2xl scale-[1.02] z-50'
-        : 'border border-[var(--border-subtle)] md:hover:border-[var(--border)] md:hover:shadow-[0_18px_50px_rgba(0,0,0,0.30)]'
+        : 'border border-white/10 md:hover:border-[rgba(230,255,61,0.24)] md:hover:shadow-[0_18px_44px_rgba(230,255,61,0.07)]'
         }`}
     >
       {children}
@@ -214,9 +261,151 @@ function SortableBox({ media, children, disabled }: { media: UserMedia; children
 // ─── MediaCard ────────────────────────────────────────────────────────────────
 
 
+
+function ProfileLibrarySwipeStars({
+  value,
+  readOnly,
+  onChange,
+}: {
+  value: number
+  readOnly: boolean
+  onChange: (value: number) => void
+}) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [localValue, setLocalValue] = useState(value)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!dragging && hovered === null) setLocalValue(value)
+  }, [value, dragging, hovered])
+
+  const displayed = hovered ?? localValue
+
+  const valueFromClientX = useCallback((clientX: number): number => {
+    const el = containerRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    const x = clientX - rect.left
+    if (x < 0) return 0
+    const clamped = Math.min(x, rect.width - 1)
+    const starWidth = rect.width / 5
+    const star = Math.min(4, Math.floor(clamped / starWidth))
+    return clamped - star * starWidth < starWidth / 2 ? star + 0.5 : star + 1
+  }, [])
+
+  const commit = useCallback((next: number) => {
+    if (readOnly) return
+    const normalized = Math.max(0, Math.min(5, Math.round(next * 2) / 2))
+    setLocalValue(normalized)
+    setHovered(null)
+    setDragging(false)
+    onChange(normalized)
+  }, [readOnly, onChange])
+
+  return (
+    <div
+      ref={containerRef}
+      data-no-swipe="true"
+      data-interactive="true"
+      role={readOnly ? 'img' : 'slider'}
+      aria-label={readOnly ? `Rating ${displayed} of 5` : 'Change rating'}
+      aria-valuemin={readOnly ? undefined : 0}
+      aria-valuemax={readOnly ? undefined : 5}
+      aria-valuenow={readOnly ? undefined : displayed}
+      tabIndex={readOnly ? -1 : 0}
+      className={`flex h-9 min-w-0 items-center justify-center rounded-full border border-white/10 bg-black/35 px-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${readOnly ? '' : 'cursor-pointer touch-none select-none hover:border-amber-400/35'}`}
+      onClick={e => {
+        e.stopPropagation()
+        if (readOnly) return
+        commit(valueFromClientX(e.clientX))
+      }}
+      onMouseMove={e => {
+        if (readOnly || dragging) return
+        setHovered(valueFromClientX(e.clientX))
+      }}
+      onMouseLeave={() => {
+        if (!dragging) setHovered(null)
+      }}
+      onPointerDown={e => {
+        e.stopPropagation()
+        if (readOnly) return
+        setDragging(true)
+        const next = valueFromClientX(e.clientX)
+        setHovered(next)
+        try { (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId) } catch { }
+      }}
+      onPointerMove={e => {
+        if (readOnly || !dragging) return
+        e.stopPropagation()
+        setHovered(valueFromClientX(e.clientX))
+      }}
+      onPointerUp={e => {
+        if (readOnly || !dragging) return
+        e.stopPropagation()
+        commit(valueFromClientX(e.clientX))
+      }}
+      onPointerCancel={e => {
+        e.stopPropagation()
+        setDragging(false)
+        setHovered(null)
+      }}
+      onKeyDown={e => {
+        if (readOnly) return
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          commit((displayed || 0) - 0.5)
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          commit((displayed || 0) + 0.5)
+        }
+      }}
+    >
+      {[1, 2, 3, 4, 5].map(star => {
+        const full = displayed >= star
+        const half = !full && displayed >= star - 0.5
+        return (
+          <span key={star} className="grid h-7 w-6 place-items-center">
+            <span className="relative block h-[22px] w-[22px]">
+              <Star
+                size={22}
+                className="absolute inset-0 text-white/50"
+                fill="none"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              {full && (
+                <Star
+                  size={22}
+                  className="absolute inset-0 text-amber-400"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  style={{ filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }}
+                  aria-hidden="true"
+                />
+              )}
+              {half && (
+                <Star
+                  size={22}
+                  className="absolute inset-0 text-amber-400"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  style={{ clipPath: 'inset(0 50% 0 0)', filter: 'drop-shadow(0 0 7px rgba(251,191,36,.85))' }}
+                  aria-hidden="true"
+                />
+              )}
+            </span>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function MediaCard({
   media, isOwner, deletingId,
-  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onViewNotes, onSaveProgress, onMarkComplete, onReset, onStatusChange, onEnrichEpisodes, enriching, onMobileTap,
+  onDelete, onDeleteRequest, onDeleteCancel, onRating, onNotes, onViewNotes, onStatusChange, onMobileTap,
 }: {
   media: UserMedia
   isOwner: boolean
@@ -236,47 +425,27 @@ function MediaCard({
   onMobileTap?: () => void
 }) {
   const { t, locale } = useLocale()
-  const router = useRouter()
   const m = t.media
-  const cardCopy = locale === 'it' ? { completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', watching: 'In corso', fetching: 'Recupero…', fetchTotal: 'Recupera totale', fetchEpisodes: 'Recupera episodi' } : { completed: 'Completed', paused: 'Paused', dropped: 'Dropped', watching: 'In progress', fetching: 'Fetching…', fetchTotal: 'Fetch total', fetchEpisodes: 'Fetch episodes' }
   const [imgFailed, setImgFailed] = useState(false)
   const displayTitle = locale === 'en' && media.title_en ? media.title_en : media.title
-
   const isConfirmingDelete = deletingId === media.id
-  const hasSeasonData = !!media.season_episodes && Object.keys(media.season_episodes).length > 0
-  const hasEpisodeData = !!(media.episodes && media.episodes > 1)
-  const currentSeasonNum = media.current_season || 1
-  const maxEpisodesThisSeason = media.season_episodes?.[currentSeasonNum]?.episode_count || media.episodes || 0
-  const maxSeasons = hasSeasonData && media.season_episodes
-    ? Math.max(...Object.keys(media.season_episodes).map(Number)) : 1
-
-  const isCompleted = media.status === 'completed' || (
-    hasEpisodeData &&
-    media.current_episode >= maxEpisodesThisSeason &&
-    (!hasSeasonData || currentSeasonNum >= maxSeasons)
-  )
-
-  let totalProgress = 0
-  if (hasSeasonData && media.season_episodes) {
-    const totalEp = Object.values(media.season_episodes).reduce((s, v) => s + (v.episode_count || 0), 0)
-    let done = media.current_episode
-    for (let s = 1; s < currentSeasonNum; s++) done += media.season_episodes[s]?.episode_count || 0
-    totalProgress = totalEp > 0 ? Math.min(Math.round((done / totalEp) * 100), 100) : 0
-  } else if (hasEpisodeData && maxEpisodesThisSeason > 0) {
-    totalProgress = Math.min(Math.round((media.current_episode / maxEpisodesThisSeason) * 100), 100)
-  }
-
   const rating = media.rating || 0
+  const compactRating = rating > 0 ? Math.round(rating * 10) / 10 : 0
   const hasNotes = !!media.notes?.trim()
 
-  const statusBadge: Record<string, { label: string; cls: string; style?: React.CSSProperties }> = {
-    completed: { label: cardCopy.completed, cls: '', style: { background: 'rgba(230,255,61,0.12)', color: 'var(--accent)', border: '1px solid rgba(230,255,61,0.3)' } },
-    paused: { label: cardCopy.paused, cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40' },
-    dropped: { label: cardCopy.dropped, cls: 'bg-red-500/20 text-red-300 border border-red-500/40' },
-    watching: { label: cardCopy.watching, cls: 'bg-sky-500/20 text-sky-300 border border-sky-500/40' },
-  }
+  const copy = locale === 'it'
+    ? {
+      noRating: 'Nessun voto',
+      note: 'Nota',
+      noNote: 'Nota vuota',
+    }
+    : {
+      noRating: 'No rating',
+      note: 'Note',
+      noNote: 'No note',
+    }
+  const shownRating = compactRating
 
-  // Cover rendering
   const renderCover = () => {
     if (media.is_steam) {
       return <SteamCoverImg appid={media.appid} title={displayTitle} />
@@ -286,7 +455,7 @@ function MediaCard({
         <img
           src={optimizeCover(media.cover_image, 'profile-cover')}
           alt={displayTitle}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             const img = e.target as HTMLImageElement
             if (!img.src.includes('wsrv.nl')) {
@@ -295,7 +464,7 @@ function MediaCard({
                 : media.cover_image!.includes('anilist.co')
                   ? '&referer=https://anilist.co'
                   : ''
-              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=500&output=webp${referer}`
+              img.src = `https://wsrv.nl/?url=${encodeURIComponent(media.cover_image!)}&w=520&output=webp${referer}`
             } else {
               setImgFailed(true)
             }
@@ -306,308 +475,79 @@ function MediaCard({
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--bg-secondary)] text-[var(--text-primary)]">
         <Tv size={36} className="text-zinc-600" />
-        <p className="line-clamp-2 px-4 text-center text-xs font-semibold text-[var(--text-muted)]">{displayTitle}</p>
+        <p className="line-clamp-3 px-4 text-center text-xs font-semibold text-[var(--text-muted)]">{displayTitle}</p>
       </div>
     )
   }
 
   return (
     <div
-      className="group relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[var(--bg-card)]"
+      className="group relative flex h-[350px] flex-col overflow-hidden rounded-[24px] bg-[rgba(255,255,255,0.045)] ring-1 ring-white/[0.08] shadow-[0_18px_45px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-0.5 hover:bg-[rgba(255,255,255,0.062)] hover:ring-white/[0.15] sm:h-[400px] md:h-[424px]"
       onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) onMobileTap?.() }}
     >
-      {/* Cover */}
-      <div className="relative h-56 flex-shrink-0 overflow-hidden bg-[var(--bg-secondary)]">
-        {/* Delete — hidden on mobile (in modal instead) */}
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--bg-secondary)]">
         {isOwner && isConfirmingDelete && (
-          <div className="hidden md:flex absolute top-3 right-3 z-30 gap-1.5">
+          <div className="hidden md:flex absolute top-3 right-3 z-50 gap-1.5">
             <button onClick={e => { e.stopPropagation(); onDeleteCancel?.() }} className="rounded-full border border-[var(--border)] bg-black/80 px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] transition hover:bg-black">{m.cancel}</button>
-            <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} className="px-3 py-1.5 text-xs font-medium bg-red-900/95 border border-red-700 text-red-300 rounded-full hover:bg-red-800 transition">{m.delete}</button>
+            <button onClick={e => { e.stopPropagation(); onDelete?.(media.id) }} className="rounded-full border border-red-700 bg-red-900/95 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-800">{m.delete}</button>
           </div>
         )}
+
         {isOwner && !isConfirmingDelete && (
           <button
             onClick={e => { e.stopPropagation(); onDeleteRequest?.(media.id) }}
             aria-label={`Elimina ${media.title}`}
-            className="hidden md:flex absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-red-950/90 border border-white/20 hover:border-red-500/80 p-1.5 rounded-xl transition-all duration-200"
+            className="hidden md:flex absolute top-3 right-3 z-50 rounded-xl border border-white/20 bg-black/65 p-1.5 opacity-0 transition-all duration-200 hover:border-red-500/80 hover:bg-red-950/90 group-hover:opacity-100"
           >
-            <X className="w-4 h-4 text-white hover:text-red-300 transition-colors" />
+            <X className="h-4 w-4 text-white transition-colors hover:text-red-300" />
           </button>
         )}
-        {/* Notes icon — owner: always visible on desktop (dimmed if empty, full if has notes)
-                       visitor: only when notes exist */}
-        {(isOwner || hasNotes) && (
-          <button
-            onClick={e => { e.stopPropagation(); isOwner ? onNotes?.(media) : onViewNotes?.(media) }}
-            aria-label="Note"
-            className={`absolute bottom-3 right-3 z-20 p-1.5 rounded-lg border text-white transition-all duration-200 hidden md:flex
-              ${hasNotes
-                ? 'border-transparent opacity-100'
-                : 'opacity-0 group-hover:opacity-100 bg-black/70 hover:bg-black/90 border-white/20'
-              }`}
-            style={hasNotes ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
-          >
-            <Edit3 size={11} />
-          </button>
-        )}
-        <div className="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-black/70 to-transparent z-10 pointer-events-none" />
-        <div className="absolute bottom-3 left-3 z-20">
+
+        {renderCover()}
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-28 bg-gradient-to-b from-black/72 via-black/24 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[46%] bg-gradient-to-t from-black/92 via-black/42 to-transparent" />
+
+        <div className="absolute left-3 right-3 top-3 z-30 flex items-start justify-between gap-2">
           <MediaTypeBadge type={media.type} size="xs" />
         </div>
-        {renderCover()}
-      </div>
 
-      {/* ── Mobile: static read-only info (tap card to open modal) ─────────── */}
-      <div className="md:hidden flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
-        <h4 className="line-clamp-2 text-[13px] font-black leading-snug text-[var(--text-primary)]">{displayTitle}</h4>
-        <StarRating value={rating} viewOnly size={13} />
-        {/* Static progress */}
-        <div className="flex-1 min-h-0" />
-        <div className="space-y-1.5 text-[11px] text-[var(--text-secondary)]">
-          {media.type === 'game' && (() => {
-            const ach = media.achievement_data
-            const hours = media.current_episode || 0
-            return (
-              <div className="space-y-1.5">
-                {hours > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5">
-                    <Clock size={10} className="text-zinc-500" />{m.hoursPlayed(hours)}
-                  </span>
-                )}
-                {ach && ach.tot > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                      <span>Achievement</span>
-                      <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
-                    </div>
-                    <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                      <div className="h-full bg-[#107c10] rounded-full" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-          {media.type === 'manga' && (() => {
-            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
-            const current = media.current_episode || 0
-            return isCompleted || (maxCh && current >= maxCh) ? null : (
-              <div className="space-y-1.5">
-                <span className="text-zinc-500">
-                  Cap. <span className="text-[var(--accent)] font-semibold font-mono">{current}</span>
-                  {maxCh ? <span className="text-zinc-600"> / {maxCh}</span> : null}
-                </span>
-                {maxCh && (
-                  <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                    <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-          {(media.type === 'tv' || media.type === 'anime') && (
-            isCompleted ? null : hasEpisodeData ? (
-              <div className="space-y-1.5">
-                <span className="text-zinc-500">
-                  {hasSeasonData && <span className="text-zinc-500">{m.season(currentSeasonNum)} · </span>}
-                  Ep. <span className="text-[var(--accent)] font-semibold font-mono">{media.current_episode}</span>
-                  <span className="text-zinc-600"> / {maxEpisodesThisSeason}</span>
-                </span>
-                {maxEpisodesThisSeason > 0 && (
-                  <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                    <div className="h-full bg-[var(--accent)] rounded-full" style={{ width: `${totalProgress}%` }} />
-                  </div>
-                )}
-              </div>
-            ) : null
-          )}
+        <div className="absolute inset-x-0 bottom-0 z-30 p-3.5">
+          <h4
+            title={displayTitle}
+            className="inline-block max-w-[94%] rounded-[16px] bg-[linear-gradient(90deg,rgba(0,0,0,0.86),rgba(0,0,0,0.68)_72%,rgba(0,0,0,0.24))] px-3 py-2.5 text-[14px] font-black leading-[1.22] text-white shadow-[0_10px_28px_rgba(0,0,0,0.72),0_0_0_1px_rgba(255,255,255,0.10)] [text-shadow:0_2px_4px_rgba(0,0,0,1)] sm:text-[15px]"
+          >
+            <span className="line-clamp-3 pb-[1px]">{displayTitle}</span>
+          </h4>
         </div>
       </div>
 
-      {/* ── Desktop: full interactive info ────────────────────────────────── */}
-      <div className="hidden md:flex flex-col flex-1 px-3 pt-2.5 pb-3 gap-1.5">
-        <h4 className="line-clamp-2 text-[13px] font-black leading-snug text-[var(--text-primary)]">{displayTitle}</h4>
+      <div className="grid h-[52px] grid-cols-[minmax(0,1fr)_42px] items-center gap-2 border-t border-white/[0.06] bg-[rgba(8,8,12,0.94)] px-2.5">
+        <ProfileLibrarySwipeStars
+          value={shownRating}
+          readOnly={!isOwner}
+          onChange={(next) => onRating?.(media.id, next)}
+        />
 
-        {/* Stars */}
-        <div onPointerDown={isOwner ? e => e.stopPropagation() : undefined}>
-          <StarRating
-            value={rating}
-            onChange={isOwner ? (r) => onRating?.(media.id, r) : undefined}
-            size={14}
-            viewOnly={!isOwner}
-          />
-        </div>
-
-        {/* Status row */}
-        <div className="flex items-center gap-1.5">
-          {(media.type === 'tv' || media.type === 'anime') && (
-            isOwner ? (
-              <select
-                value={media.status || 'watching'}
-                onChange={e => onStatusChange?.(media.id, e.target.value)}
-                onClick={e => e.stopPropagation()}
-                onPointerDown={e => e.stopPropagation()}
-                className="min-w-0 flex-1 cursor-pointer appearance-none rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-bold text-[var(--text-secondary)] outline-none transition focus:border-[rgba(230,255,61,0.45)]"
-              >
-                <option value="watching">{cardCopy.watching}</option>
-                <option value="completed">{cardCopy.completed}</option>
-                <option value="paused">{cardCopy.paused}</option>
-                <option value="dropped">{cardCopy.dropped}</option>
-              </select>
-            ) : (
-              (() => {
-                const badge = statusBadge[media.status || 'watching']
-                return badge ? (
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${badge.cls}`} style={badge.style}>{badge.label}</span>
-                ) : null
-              })()
-            )
-          )}
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1 min-h-0" />
-
-        {/* Progress area */}
-        <div>
-          {media.type === 'game' ? (() => {
-            const ach = media.achievement_data
-            const hours = media.current_episode || 0
-            return (
-              <div className="space-y-1.5">
-                {hours > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
-                    <Clock size={10} className="text-zinc-500 flex-shrink-0" />
-                    {m.hoursPlayed(hours)}
-                  </span>
-                )}
-                {ach && ach.tot > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500">
-                      <span>Achievement</span>
-                      <span className="font-mono text-zinc-400">{ach.curr}/{ach.tot}</span>
-                    </div>
-                    <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                      <div className="h-full bg-[#107c10] rounded-full transition-all duration-300" style={{ width: `${Math.round((ach.curr / ach.tot) * 100)}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })() : media.type === 'manga' ? (() => {
-            const maxCh = media.episodes && media.episodes > 1 ? media.episodes : undefined
-            const current = media.current_episode || 0
-            const isChCompleted = !!maxCh && current >= maxCh
-            return (
-              <div className="space-y-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-                {isChCompleted ? (
-                  isOwner ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-[var(--accent)]">
-                        <CheckCircle size={12} />
-                        <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
-                      </div>
-                      <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ricomincia">
-                        <RotateCcw size={13} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-[var(--accent)]">
-                      <CheckCircle size={12} />
-                      <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
-                    </div>
-                  )
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-1">
-                      {isOwner && (
-                        <button onClick={() => onSaveProgress?.(media.id, Math.max(0, current - 1))} onPointerDown={e => e.stopPropagation()} disabled={current <= 0} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>
-                      )}
-                      <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
-                        <span className="text-zinc-500 text-[10px] mr-0.5">Cap.</span>
-                        {isOwner ? (
-                          <>
-                            <InlineChapterInput value={current} max={maxCh} onSave={n => onSaveProgress?.(media.id, n)} />
-                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-[var(--accent)]">{current}</span>
-                            {maxCh && <span className="text-zinc-600">/{maxCh}</span>}
-                          </>
-                        )}
-                      </div>
-                      {isOwner && (
-                        <button
-                          onClick={() => { const next = current + 1; (maxCh && next > maxCh) ? onMarkComplete?.(media.id, media) : onSaveProgress?.(media.id, next) }}
-                          onPointerDown={e => e.stopPropagation()}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold"
-                        >+</button>
-                      )}
-                    </div>
-                    {maxCh && (
-                      <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                        <div className="h-full bg-[var(--accent)] transition-all duration-300 rounded-full" style={{ width: `${Math.min(100, Math.round((current / maxCh) * 100))}%` }} />
-                      </div>
-                    )}
-                    {isOwner && !maxCh && (
-                      <button onClick={() => onEnrichEpisodes?.(media.id)} onPointerDown={e => e.stopPropagation()} disabled={enriching} className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50">
-                        {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                        {enriching ? cardCopy.fetching : cardCopy.fetchTotal}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )
-          })() : hasEpisodeData ? (
-            isCompleted ? (
-              isOwner ? (
-                <div className="flex items-center justify-end">
-                  <button onClick={() => onReset?.(media.id)} onPointerDown={e => e.stopPropagation()} className="p-1.5 text-zinc-600 hover:text-zinc-400 transition-colors" title="Ripristina progresso">
-                    <RotateCcw size={15} />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[var(--accent)]">
-                  <CheckCircle size={13} />
-                  <span className="text-[11px] font-semibold">{cardCopy.completed}</span>
-                </div>
-              )
-            ) : (
-              <div className="space-y-1.5">
-                {hasSeasonData && (
-                  <div className="flex items-center justify-between gap-1">
-                    {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, currentSeasonNum - 1), 'current_season')} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
-                    <div className="flex-1 text-[var(--accent)] text-[11px] font-semibold flex items-center justify-center">{m.season(currentSeasonNum)}</div>
-                    {isOwner && <button onClick={() => { if (currentSeasonNum + 1 <= maxSeasons) onSaveProgress?.(media.id, currentSeasonNum + 1, 'current_season') }} onPointerDown={e => e.stopPropagation()} disabled={currentSeasonNum >= maxSeasons} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">+</button>}
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-1">
-                  {isOwner && <button onClick={() => onSaveProgress?.(media.id, Math.max(1, media.current_episode - 1))} onPointerDown={e => e.stopPropagation()} disabled={media.current_episode <= 1} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold disabled:opacity-30">−</button>}
-                  <div className="flex-1 text-[11px] font-semibold flex items-center justify-center gap-0.5">
-                    <span className="text-[var(--accent)]">{m.ep(media.current_episode)}</span>
-                    <span className="text-zinc-600">/{maxEpisodesThisSeason}</span>
-                  </div>
-                  {isOwner && <button onClick={() => { const next = media.current_episode + 1; next <= maxEpisodesThisSeason ? onSaveProgress?.(media.id, next) : onMarkComplete?.(media.id, media) }} onPointerDown={e => e.stopPropagation()} className="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--accent)] transition-all hover:border-[rgba(230,255,61,0.45)] text-sm font-bold">+</button>}
-                </div>
-                <div className="h-1 overflow-hidden rounded-full bg-black/30">
-                  <div className="h-full bg-[var(--accent)] transition-all duration-300 rounded-full" style={{ width: `${totalProgress}%` }} />
-                </div>
-              </div>
-            )
-          ) : (media.type === 'tv' || media.type === 'anime') && isOwner ? (
-            <button
-              onClick={() => onEnrichEpisodes?.(media.id)}
-              onPointerDown={e => e.stopPropagation()}
-              disabled={enriching}
-              className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-            >
-              {enriching ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-              {enriching ? cardCopy.fetching : cardCopy.fetchEpisodes}
-            </button>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation()
+            if (isOwner) onNotes?.(media)
+            else if (hasNotes) onViewNotes?.(media)
+          }}
+          disabled={!isOwner && !hasNotes}
+          title={hasNotes ? copy.note : copy.noNote}
+          aria-label={hasNotes ? 'Open note' : 'No note'}
+          className={`inline-flex h-9 w-[42px] items-center justify-center rounded-full border px-0 transition-all
+            ${hasNotes
+              ? 'border-[rgba(230,255,61,0.42)] bg-[rgba(230,255,61,0.16)] text-[var(--accent)] shadow-[0_0_18px_rgba(230,255,61,0.12)]'
+              : 'border-white/10 bg-white/[0.035] text-white/30'
+            }
+            ${isOwner || hasNotes ? 'hover:border-[rgba(230,255,61,0.62)] hover:bg-[rgba(230,255,61,0.1)] hover:text-[var(--accent)]' : 'cursor-default opacity-60'}`}
+        >
+          <Edit3 size={15} />
+        </button>
       </div>
     </div>
   )
@@ -661,7 +601,7 @@ function CollectionControls({
   const hasFilters = search || statusFilter !== 'all' || sort !== 'default'
 
   return (
-    <div className="mb-5 rounded-[22px] border border-[var(--border-subtle)] bg-[var(--bg-card)]/70 p-2.5 ring-1 ring-white/5">
+    <div className="mb-6 rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.045)] p-2.5 shadow-[0_18px_60px_rgba(0,0,0,0.18)] ring-1 ring-white/5">
       <div className="grid gap-2 md:grid-cols-[1fr_150px_150px_auto]">
         <div className="relative">
           <SearchIcon size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
@@ -670,7 +610,7 @@ function CollectionControls({
             value={search}
             onChange={e => onSearch(e.target.value)}
             placeholder={isOwner ? copy.ownerPlaceholder : copy.otherPlaceholder}
-            className="h-10 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
+            className="h-10 w-full rounded-2xl border border-white/10 bg-black/25 pl-9 pr-8 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition-colors focus:border-[rgba(230,255,61,0.45)]"
           />
           {search && (
             <button type="button" onClick={() => onSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label={copy.clearSearch}>
@@ -682,26 +622,23 @@ function CollectionControls({
         <select
           value={statusFilter}
           onChange={e => onStatusFilter(e.target.value)}
-          className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
+          className="h-10 rounded-2xl border border-white/10 bg-black/25 px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
           <option value="all">{copy.all}</option>
           <option value="watching">{copy.watching}</option>
           <option value="completed">{copy.completed}</option>
-          <option value="paused">{copy.paused}</option>
           <option value="dropped">{copy.dropped}</option>
         </select>
 
         <select
           value={sort}
           onChange={e => onSort(e.target.value as SortMode)}
-          className="h-10 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
+          className="h-10 rounded-2xl border border-white/10 bg-black/25 px-3 text-xs font-bold text-[var(--text-secondary)] outline-none transition-colors focus:border-[rgba(230,255,61,0.45)]"
         >
           <option value="default">{copy.default}</option>
           <option value="rating_desc">{copy.ratingDesc}</option>
           <option value="title_asc">A → Z</option>
           <option value="title_desc">Z → A</option>
-          <option value="progress_desc">{copy.progressDesc}</option>
-          <option value="date_desc">{copy.recent}</option>
         </select>
 
         {hasFilters && (
@@ -895,7 +832,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
       ownerCheck ? supabase.from('steam_accounts').select('steam_id64, steam_username, avatar_url, created_at, games, last_synced').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }).limit(10000),
+      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }).limit(10000),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -966,7 +903,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false }).limit(10000)
+    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false }).limit(10000)
     if (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[Profile] Errore refresh media:', error)
@@ -1160,13 +1097,21 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const setRating = async (mediaId: string, rating: number) => {
     if (!isOwner) return
     const item = mediaList.find(m => m.id === mediaId)
+    const previousRating = item?.rating || 0
+
+    setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
+
     const res = await fetch('/api/collection', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: mediaId, rating }),
     }).catch(() => null)
-    if (!res?.ok) return
-    setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating } : item)))
+
+    if (!res?.ok) {
+      setMediaList(prev => sortMediaList(prev.map(item => item.id === mediaId ? { ...item, rating: previousRating } : item)))
+      return
+    }
+
     if (item) await logActivity({ type: 'rating_given', media_id: item.id, media_title: item.title, media_type: item.type, media_cover: item.cover_image, rating_value: rating })
   }
 
@@ -1342,7 +1287,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const profileDisplayName = profile.display_name || profile.username
 
   return (
-    <div className="gk-profile-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20">
+    <div className="gk-profile-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] pb-24 md:pb-20 [--profile-heavy-leading:1.18]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPullRefreshing} />
       <div className="gk-page-density pt-4 md:pt-8 max-w-screen-2xl mx-auto px-4 md:px-6">
 
@@ -1418,7 +1363,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
               { label: 'top', value: profileTopGenre },
             ].map(stat => (
               <div key={stat.label} className="rounded-2xl bg-black/16 px-3 py-2.5 ring-1 ring-white/5">
-                <p className={`line-clamp-1 font-mono-data text-[18px] font-black leading-none ${stat.accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{stat.value}</p>
+                <p className={`line-clamp-1 font-mono-data text-[18px] font-black leading-[1.16] ${stat.accent ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>{stat.value}</p>
                 <p className="gk-label mt-1">{stat.label}</p>
               </div>
             ))}
@@ -1502,10 +1447,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                       const preview = items.slice(0, 6)
                       const hasMore = items.length > 6
                       return (
-                        <div key={category} className="mb-10 md:mb-14">
-                          <div className="mb-4 flex items-center justify-between gap-4 md:mb-5">
+                        <div key={category} className="mb-8 rounded-[34px] border border-white/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012))] p-3 shadow-[0_18px_70px_rgba(0,0,0,0.20)] md:mb-10 md:p-5">
+                          <div className="mb-3 flex items-center justify-between gap-4 md:mb-4">
                             <div className="min-w-0">
-                              <p className="gk-label mb-1">{pc.collectionSection}</p>
                               <h3 className="truncate text-lg font-black tracking-[-0.02em] text-[var(--text-primary)] md:text-2xl">{category}</h3>
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-3">
@@ -1522,9 +1466,9 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                           </div>
                           {isOwner ? (
                             <SortableContext items={preview.map(m => m.id)} strategy={rectSortingStrategy}>
-                              <div className={`flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide `}>
+                              <div className={`flex items-start gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide md:mx-0 md:px-0 md:gap-5 `}>
                                 {preview.map((media) => (
-                                  <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0">
+                                  <div key={media.id} className="w-44 flex-shrink-0 sm:w-56 md:w-60">
                                     <SortableBox media={media} disabled={isMobile}>
                                       <MediaCard media={media} isOwner={true} deletingId={deletingId}
                                         onDelete={handleDelete} onDeleteRequest={setDeletingId} onDeleteCancel={() => setDeletingId(null)}
@@ -1538,7 +1482,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                                 {hasMore && (
                                   <Link
                                     href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                    className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
+                                    className="group flex min-h-[350px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-white/10 text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[400px] md:min-h-[424px] md:w-14"
                                   >
                                     <ChevronRight size={16} />
                                     <span className="text-xs font-semibold">+{items.length - 6}</span>
@@ -1547,16 +1491,16 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                               </div>
                             </SortableContext>
                           ) : (
-                            <div className="flex gap-3 md:gap-4 items-stretch overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+                            <div className="flex items-start gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide md:mx-0 md:px-0 md:gap-5">
                               {preview.map((media) => (
-                                <div key={media.id} className="w-40 sm:w-48 md:w-52 flex-shrink-0 border border-zinc-800 rounded-3xl overflow-hidden min-h-[340px] sm:min-h-[380px] md:min-h-[420px] flex flex-col">
+                                <div key={media.id} className="w-44 flex-shrink-0 overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.035)] sm:w-56 md:w-60">
                                   <MediaCard media={media} isOwner={false} onStatusChange={changeStatus} onViewNotes={setViewingNotes} />
                                 </div>
                               ))}
                               {hasMore && (
                                 <Link
                                   href={`/profile/${profile.username}/${categoryToType[category] || category}`}
-                                  className="group flex min-h-[340px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-[var(--border)] text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[380px] md:min-h-[420px] md:w-14"
+                                  className="group flex min-h-[350px] w-12 flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed border-white/10 text-[var(--text-muted)] transition-all hover:border-[rgba(230,255,61,0.34)] hover:text-[var(--accent)] sm:min-h-[400px] md:min-h-[424px] md:w-14"
                                 >
                                   <ChevronRight size={16} />
                                   <span className="text-xs font-semibold">+{items.length - 6}</span>
