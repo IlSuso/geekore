@@ -1,5 +1,4 @@
 import { translateWithCache } from '@/lib/deepl'
-import { truncateAtSentence } from '@/lib/utils'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
@@ -163,7 +162,7 @@ export async function fetchGameRecs(
           tags: (g.themes || []).map((t: any) => t.name),
           keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
           score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
-          description: g.summary ? truncateAtSentence(g.summary, 300) : undefined,
+          description: g.summary || undefined,
           why: buildWhyV3(recGenres, recId, g.name, tasteProfile, matchScore, slot.isDiscovery, {
             recDeveloper: developer, creatorBoost
           }),
@@ -255,7 +254,7 @@ export async function fetchGameRecs(
               tags: (g.themes || []).map((t: any) => t.name),
               keywords: (g.keywords || []).map((k: any) => k.name).slice(0, 20),
               score: g.rating ? Math.min(Math.round(g.rating) / 20, 5) : undefined,
-              description: g.summary ? truncateAtSentence(g.summary, 300) : undefined,
+              description: g.summary || undefined,
               why: buildWhyV3(recGenres, g.id.toString(), g.name, tasteProfile, matchScore, false, { recDeveloper: developer }),
               matchScore,
               isAwardWinner: isAwardWorthy(g.rating, undefined, g.rating_count, 'igdb'),

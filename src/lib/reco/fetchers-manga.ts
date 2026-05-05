@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
@@ -124,7 +123,7 @@ export async function fetchMangaRecs(
           genres: recGenres,
           tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+          description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : buildWhyV3(recGenres, recId, m.title.romaji || '', tasteProfile, matchScore, slot.isDiscovery, {
@@ -215,7 +214,7 @@ export async function fetchMangaRecs(
           coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
           year: m.seasonYear, genres: recGenres, tags: mTags,
           score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-          description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+          description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
           why: buildWhyV3(recGenres, id, title, tasteProfile, matchScore, false, { recStudios: [], recDirectors: mAuthors }),
           matchScore,
           authors: mAuthors.length > 0 ? mAuthors : undefined,

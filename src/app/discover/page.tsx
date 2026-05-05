@@ -28,11 +28,16 @@ type MediaItem = {
   title_en?: string
   type: string
   coverImage?: string
+  cover_image?: string
+  description?: string
+  description_en?: string
+  description_it?: string
+  localized?: Record<string, any>
+  external_id?: string
   year?: number
   episodes?: number
   totalSeasons?: number
   seasons?: Record<number, { episode_count: number }>
-  description?: string
   genres?: string[]
   source: 'anilist' | 'tmdb' | 'igdb' | 'bgg'
   tags?: string[]
@@ -60,6 +65,12 @@ type TrendingItem = {
   title: string
   type: string
   coverImage?: string
+  cover_image?: string
+  description?: string
+  description_en?: string
+  description_it?: string
+  localized?: Record<string, any>
+  external_id?: string
   year?: number
   genres?: string[]
   score?: number
@@ -195,6 +206,24 @@ function trackSearchClick(query: string, item: MediaItem) {
       result_clicked_genres: item.genres || [],
     }),
   }).catch(() => { })
+}
+
+function toDrawerMediaFromTrending(item: TrendingItem): MediaDetails {
+  return {
+    id: item.id,
+    external_id: item.external_id || item.id,
+    title: item.title,
+    type: item.type,
+    coverImage: item.coverImage || item.cover_image,
+    cover_image: item.cover_image || item.coverImage,
+    year: item.year,
+    genres: item.genres,
+    source: item.source as any,
+    description: item.description,
+    description_en: item.description_en,
+    description_it: item.description_it,
+    localized: item.localized,
+  } as MediaDetails
 }
 
 function triggerTasteDelta(options: {
@@ -622,7 +651,7 @@ export default function DiscoverPage() {
                     onClick={() => {
                       const item = trendingToday[0]
                       if (!item) return
-                      setDrawerMedia({ id: item.id, title: item.title, type: item.type, coverImage: item.coverImage, year: item.year, genres: item.genres, source: item.source as any })
+                      setDrawerMedia(toDrawerMediaFromTrending(item))
                     }}
                     className="group relative min-h-[310px] overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.22)] bg-[var(--bg-card)] text-left shadow-[0_20px_70px_rgba(0,0,0,0.26)] ring-1 ring-white/5"
                   >
@@ -645,15 +674,7 @@ export default function DiscoverPage() {
                         year={item.year}
                         score={item.score}
                         placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}
-                        onClick={() => setDrawerMedia({
-                          id: item.id,
-                          title: item.title,
-                          type: item.type,
-                          coverImage: item.coverImage,
-                          year: item.year,
-                          genres: item.genres,
-                          source: item.source as any,
-                        })}
+                        onClick={() => setDrawerMedia(toDrawerMediaFromTrending(item))}
                       />
                     ))}
                   </div>
@@ -683,15 +704,7 @@ export default function DiscoverPage() {
                           year={item.year}
                           score={item.score}
                           placeholderIcon={TYPE_PLACEHOLDER_ICON[item.type]}
-                          onClick={() => setDrawerMedia({
-                            id: item.id,
-                            title: item.title,
-                            type: item.type,
-                            coverImage: item.coverImage,
-                            year: item.year,
-                            genres: item.genres,
-                            source: item.source as any,
-                          })}
+                          onClick={() => setDrawerMedia(toDrawerMediaFromTrending(item))}
                         />
                       ))}
                     </div>

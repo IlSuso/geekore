@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import { ANILIST_URL } from './constants'
 import { toTitleCase } from './genreResolution'
 import type { SimilarAdd, SimilarContext } from './types'
@@ -23,7 +22,7 @@ export async function fetchAnilistManga(ctx: SimilarContext, add: SimilarAdd) {
             coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
             tags: (m.tags || []).map((t: any) => t.name),
             episodes: m.chapters ?? undefined,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,
+            description: m.description ? m.description.replace(/<[^>]*>/g, '') : undefined,
             score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
             matchScore: 48 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres), _pop: m.popularity || 0 })
         }
@@ -54,7 +53,7 @@ export async function fetchAnilistManga(ctx: SimilarContext, add: SimilarAdd) {
             coverImage: m.coverImage?.extraLarge || m.coverImage?.large, year: m.startDate?.year, genres: recGenres,
             tags: mangaTags2,
             episodes: m.chapters ?? undefined,
-            description: m.description ? truncateAtSentence(m.description.replace(/<[^>]*>/g, ''), 500) : undefined,
+            description: m.description ? m.description.replace(/<[^>]*>/g, '') : undefined,
             score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
             matchScore: 55 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres, anilistTags), _pop: m.popularity || 0 })
         }

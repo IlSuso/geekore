@@ -100,7 +100,7 @@ function WishlistCard({ item, onRemove, isRemoving, locale, copy }: { item: any;
         </div>
         <h3 className="line-clamp-2 text-[15px] font-black leading-tight tracking-[-0.015em] text-[var(--text-primary)]">{item.title}</h3>
         {item.description ? (
-          <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-5 text-[var(--text-muted)]">{item.description}</p>
+          <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--text-muted)]">{item.description}</p>
         ) : null}
         {countdown.label ? (
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-black/16 px-2.5 py-1">

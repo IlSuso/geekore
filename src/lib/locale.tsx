@@ -214,8 +214,7 @@ function prewarmForYouAndSwipeForLocale(locale: Locale) {
   if (typeof window === 'undefined') return
   const run = async () => {
     try {
-      await fetch('/api/recommendations?invalidateCache=true', { method: 'POST', keepalive: true, headers: { 'x-lang': locale, 'x-geekore-locale': locale } }).catch(() => null)
-      await safeWarmFetch(`/api/recommendations?source=refresh_pool&type=all&lang=${locale}`, locale)
+      await safeWarmFetch(`/api/recommendations?source=pool&type=all&prewarm=1&lang=${locale}`, locale)
       for (const queue of ['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame']) {
         await safeWarmFetch(`/api/swipe/queue?queue=${queue}&type=${queue}&limit=40&prewarm=1&lang=${locale}`, locale)
       }
@@ -243,6 +242,7 @@ export function LocaleProvider({ children, initialLocale }: { children: React.Re
     writeLocaleEverywhere(normalized)
     fetch('/api/user/locale', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', 'x-lang': normalized, 'x-geekore-locale': normalized }, body: JSON.stringify({ locale: normalized }) }).catch(() => null)
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('geekore:locale-changed', { detail: { locale: normalized } }))
+      window.dispatchEvent(new CustomEvent('geekore:media-locale-switch', { detail: { locale: normalized } }))
     prewarmForYouAndSwipeForLocale(normalized)
   }
 

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Zap, Gamepad2, Layers, Tv, Film, Sparkles, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Zap, Gamepad2, Swords, Layers, Tv, Film, Dices, ArrowRight } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
 
@@ -27,17 +27,19 @@ function loginBrandItems(locale: 'it' | 'en') {
   return locale === 'en'
     ? [
       { icon: Gamepad2, label: 'Games', color: '#7C3AED' },
-      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Swords, label: 'Anime', color: '#E6FF3D' },
+      { icon: Layers, label: 'Manga', color: '#22C55E' },
       { icon: Tv, label: 'TV Shows', color: '#0EA5E9' },
       { icon: Film, label: 'Movies', color: '#F97316' },
-      { icon: Sparkles, label: 'For You — AI', color: '#EC4899' },
+      { icon: Dices, label: 'Board Games', color: '#F59E0B' },
     ]
     : [
       { icon: Gamepad2, label: 'Videogiochi', color: '#7C3AED' },
-      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Swords, label: 'Anime', color: '#E6FF3D' },
+      { icon: Layers, label: 'Manga', color: '#22C55E' },
       { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
       { icon: Film, label: 'Film', color: '#F97316' },
-      { icon: Sparkles, label: 'Per Te — AI', color: '#EC4899' },
+      { icon: Dices, label: 'Board Game', color: '#F59E0B' },
     ]
 }
 
@@ -172,7 +174,7 @@ export default function LoginPage() {
           <div className="relative rounded-2xl p-4" style={{ background: 'rgba(230,255,61,0.04)', border: '1px solid rgba(230,255,61,0.12)' }}>
             <p className="text-xs font-black mb-1" style={{ color: 'var(--accent)' }}>{hero.noAccount}</p>
             <Link href="/register" className="inline-flex items-center gap-1.5 text-xs font-bold transition-opacity hover:opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Registrati gratis <ArrowRight size={11} />
+              {hero.createAccount} <ArrowRight size={11} />
             </Link>
           </div>
         </div>
@@ -180,11 +182,7 @@ export default function LoginPage() {
         {/* Right: form centered */}
         <div className="flex flex-1 flex-col">
           {/* Top bar */}
-          <div className="flex h-14 items-center justify-between px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Non hai un account?{' '}
-              <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>Registrati</Link>
-            </span>
+          <div className="flex h-14 items-center justify-end px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <LocaleToggle />
           </div>
 
@@ -195,7 +193,7 @@ export default function LoginPage() {
               {/* Form card */}
               <div className="rounded-[28px] p-8" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.07)' }}>
                 <div className="mb-8">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Accesso</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>{hero.signInLabel}</p>
                   <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '-0.03em' }}>{l.welcome}</h1>
                   <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
                 </div>
@@ -240,10 +238,6 @@ export default function LoginPage() {
                 </form>
               </div>
 
-              <p className="mt-5 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                Non hai un account?{' '}
-                <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>{l.registerLink}</Link>
-              </p>
             </div>
           </div>
         </div>
@@ -252,7 +246,7 @@ export default function LoginPage() {
       {/* Mobile form */}
       <div className="md:hidden relative z-10 px-5 py-8" style={{ maxWidth: 420, margin: '0 auto' }}>
         <div className="mb-7">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>Accesso</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--accent)' }}>{hero.signInLabel}</p>
           <h1 className="font-black mb-1.5" style={{ fontFamily: 'var(--font-display)', fontSize: 30, letterSpacing: '-0.03em' }}>{l.welcome}</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.subtitle}</p>
         </div>
@@ -268,7 +262,7 @@ export default function LoginPage() {
             <div>
               <div className="flex justify-between mb-2">
                 <label htmlFor="m-pw" className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.4)' }}>{l.password}</label>
-                <Link href="/forgot-password" className="text-xs font-bold" style={{ color: 'var(--accent)' }}>Dimenticata?</Link>
+                <Link href="/forgot-password" className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{hero.forgotPassword}</Link>
               </div>
               <div className="relative">
                 <input id="m-pw" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder={l.passwordPlaceholder} autoComplete="current-password" required
@@ -289,7 +283,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-          Non hai un account? <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>{l.registerLink}</Link>
+          {hero.noAccount} <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>{l.registerLink}</Link>
         </p>
       </div>
 

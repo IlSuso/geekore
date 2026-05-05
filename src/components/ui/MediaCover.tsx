@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 
 interface MediaCoverProps {
@@ -49,26 +49,42 @@ export function MediaCover({
   const safeProgress = typeof progress === 'number'
     ? Math.max(0, Math.min(100, progress))
     : null
+
+  const normalizedSrc = typeof src === 'string' && src.trim().length > 0 ? src.trim() : null
   const resolvedType = type || undefined
   const resolvedTypeLabel = typeLabel || (resolvedType ? TYPE_LABELS[resolvedType] || resolvedType : null)
   const typeColor = resolvedType ? TYPE_COLOR_VAR[resolvedType] : undefined
+
   const [imageFailed, setImageFailed] = useState(false)
-  const showImage = Boolean(src && !imageFailed)
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    setImageFailed(false)
+    setLoadedSrc(null)
+  }, [normalizedSrc])
+
+  const canTryImage = Boolean(normalizedSrc && !imageFailed)
+  const imageReady = Boolean(normalizedSrc && loadedSrc === normalizedSrc && !imageFailed)
 
   return (
     <div className={`gk-cover ${className}`}>
-      {showImage ? (
+      <div className={`absolute inset-0 flex h-full w-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-tertiary)] ${canTryImage && !imageReady ? 'animate-pulse' : ''}`}>
+        {!canTryImage ? fallback : null}
+      </div>
+
+      {canTryImage && (
         <img
-          src={src || undefined}
+          src={normalizedSrc || undefined}
           alt={alt}
           loading="lazy"
           decoding="async"
-          onError={() => setImageFailed(true)}
+          className={`absolute inset-0 block h-full w-full object-cover transition-opacity duration-200 ${imageReady ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoadedSrc(normalizedSrc)}
+          onError={() => {
+            setImageFailed(true)
+            setLoadedSrc(null)
+          }}
         />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-[var(--text-tertiary)]">
-          {fallback}
-        </div>
       )}
 
       {resolvedTypeLabel && (

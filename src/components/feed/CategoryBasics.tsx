@@ -1,6 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
+import { useLocale } from '@/lib/locale'
 import {
   Dices,
   Film,
@@ -15,6 +16,39 @@ import {
 export const MACRO_CATEGORIES = [
   'Film', 'Serie TV', 'Videogiochi', 'Anime', 'Manga', 'Giochi da tavolo',
 ]
+
+
+export type CanonicalFeedCategory = typeof MACRO_CATEGORIES[number]
+
+const CATEGORY_DISPLAY_LABELS: Record<'it' | 'en', Record<string, string>> = {
+  it: {
+    Film: 'Film',
+    'Serie TV': 'Serie TV',
+    Videogiochi: 'Videogiochi',
+    Anime: 'Anime',
+    Manga: 'Manga',
+    'Giochi da tavolo': 'Giochi da tavolo',
+  },
+  en: {
+    Film: 'Movies',
+    'Serie TV': 'TV Shows',
+    Videogiochi: 'Games',
+    Anime: 'Anime',
+    Manga: 'Manga',
+    'Giochi da tavolo': 'Board Games',
+  },
+}
+
+export function getCategoryDisplayLabel(category: string | null | undefined, locale: 'it' | 'en') {
+  if (!category) return ''
+  return CATEGORY_DISPLAY_LABELS[locale]?.[category] || category
+}
+
+export function getCategoryFilterDisplayLabel(value: string | null | undefined, locale: 'it' | 'en') {
+  const parsed = parseCategoryString(value)
+  if (!parsed) return ''
+  return parsed.subcategory?.trim() || getCategoryDisplayLabel(parsed.category, locale)
+}
 
 const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   'Film': Film,
@@ -57,10 +91,11 @@ const CATEGORY_COLOR: Record<string, string> = {
 }
 
 export function CategoryBadge({ category, onClick }: { category: string | null | undefined; onClick?: () => void }) {
+  const { locale } = useLocale()
   if (!category) return null
   const parsed = parseCategoryString(category)
   if (!parsed) return null
-  const label = parsed.subcategory ? parsed.subcategory.trim() : parsed.category
+  const label = parsed.subcategory ? parsed.subcategory.trim() : getCategoryDisplayLabel(parsed.category, locale)
   const colorClass = CATEGORY_COLOR[parsed.category] || 'bg-zinc-600'
   return (
     <span

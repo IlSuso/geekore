@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { Star, Sparkles, X } from 'lucide-react'
 import { MediaTypeBadge } from '@/components/ui/MediaTypeBadge'
+import { useLocale } from '@/lib/locale'
+import { appCopy, typeLabel } from '@/lib/i18n/uiCopy'
 import { optimizeCover } from '@/lib/imageOptimizer'
 import { getMediaTypeColor } from '@/lib/mediaTypes'
 
@@ -30,6 +32,9 @@ function hasRealScore(score?: number | string | null): boolean {
 }
 
 export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose }: MediaDetailsHeroProps) {
+  const { locale } = useLocale()
+  const copy = appCopy[locale].drawer
+  const common = appCopy[locale].common
   const typeColor = getMediaTypeColor(media.type)
   const visibleScore = hasRealScore(media.score) ? media.score : null
 
@@ -72,15 +77,15 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
 
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-            <MediaTypeBadge type={media.type} size="xs" />
+            <MediaTypeBadge type={media.type} label={typeLabel(media.type, locale)} size="xs" />
             {media.isAwardWinner && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                <Star size={10} fill="currentColor" /> Acclamato
+                <Star size={10} fill="currentColor" /> {copy.awardWinner}
               </span>
             )}
             {media.matchScore != null && media.matchScore !== '' && (
               <span className="rounded-full border border-[rgba(230,255,61,0.25)] bg-[rgba(230,255,61,0.10)] px-2 py-0.5 font-mono-data text-[10px] font-black text-[var(--accent)]">
-                {media.matchScore}% match
+                {media.matchScore}% {common.match.toLowerCase()}
               </span>
             )}
           </div>
@@ -112,7 +117,7 @@ export function MediaDetailsHero({ media, fallbackIcon, meta, subtitle, onClose 
           data-no-swipe="true"
           onClick={onClose}
           className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-2xl border border-white/10 bg-black/50 text-white backdrop-blur-xl transition-colors hover:bg-white/10"
-          aria-label="Chiudi"
+          aria-label={common.close}
         >
           <X size={16} />
         </button>

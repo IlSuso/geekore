@@ -39,6 +39,10 @@ type TrendingItem = {
   cover_image?: string
   cover_image_en?: string
   cover_image_it?: string
+  description?: string
+  description_en?: string
+  description_it?: string
+  localized?: Record<string, any>
   year?: number
   genres?: string[]
   score?: number
@@ -76,6 +80,7 @@ query ($type: MediaType, $perPage: Int) {
       seasonYear
       genres
       averageScore
+      description(asHtml: false)
     }
   }
 }
@@ -249,6 +254,9 @@ async function fetchAniListTrending(type: 'anime' | 'manga'): Promise<TrendingIt
         year: m.seasonYear || undefined,
         genres: Array.isArray(m.genres) ? m.genres : [],
         score: typeof m.averageScore === 'number' ? m.averageScore : undefined,
+        description: cleanString(m.description),
+        description_en: cleanString(m.description),
+        localized: { en: { title, description: cleanString(m.description), coverImage: cover }, it: { title, description: cleanString(m.description), coverImage: cover } },
         source: 'anilist',
       } as TrendingItem
     }))
@@ -402,6 +410,9 @@ function mapIgdbGame(game: any): TrendingItem | null {
     year,
     genres,
     score,
+    description: cleanString(game?.summary) || cleanString(game?.storyline),
+    description_en: cleanString(game?.summary) || cleanString(game?.storyline),
+    localized: { en: { title, description: cleanString(game?.summary) || cleanString(game?.storyline), coverImage: cover }, it: { title, description: cleanString(game?.summary) || cleanString(game?.storyline), coverImage: cover } },
     source: 'igdb',
   }
 }
@@ -422,7 +433,7 @@ async function fetchIgdbCuratedFallback(): Promise<TrendingItem[]> {
     'God of War',
   ]
 
-  const fields = 'fields name, cover.image_id, first_release_date, genres.name, total_rating, aggregated_rating, rating, total_rating_count;'
+  const fields = 'fields name, summary, storyline, cover.image_id, first_release_date, genres.name, total_rating, aggregated_rating, rating, total_rating_count;'
   const settled = await Promise.allSettled(curatedNames.map((name) => {
     const body = `search "${escapeIgdbSearch(name)}"; ${fields} where cover != null; limit 3;`
     return igdbGamesRequest(body, `curated:${name}`)
@@ -448,7 +459,7 @@ async function fetchIgdbCuratedFallback(): Promise<TrendingItem[]> {
 async function fetchIgdbTrending(): Promise<TrendingItem[]> {
   resetIgdbDiagnostics()
 
-  const fields = 'fields name, cover.image_id, first_release_date, genres.name, total_rating, aggregated_rating, rating, total_rating_count, hypes;'
+  const fields = 'fields name, summary, storyline, cover.image_id, first_release_date, genres.name, total_rating, aggregated_rating, rating, total_rating_count, hypes;'
   const mainGameWithCover = 'where cover != null & category = 0'
   const queries = [
     `${fields} ${mainGameWithCover} & total_rating_count > 50; sort total_rating_count desc; limit 50;`,
@@ -602,6 +613,9 @@ async function fetchBggTrending(): Promise<TrendingItem[]> {
       year: yearValue ? Number(yearValue) || undefined : undefined,
       genres: [],
       score: average ? Math.round(Number(average) * 10) : undefined,
+      description: extractText(chunk, 'description') || undefined,
+      description_en: extractText(chunk, 'description') || undefined,
+      localized: { en: { title, description: extractText(chunk, 'description') || undefined, coverImage: cover }, it: { title, description: extractText(chunk, 'description') || undefined, coverImage: cover } },
       source: 'bgg',
     })
   }
@@ -641,6 +655,9 @@ async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale): Promi
         year: parseInt((r.release_date || r.first_air_date || '').slice(0, 4), 10) || undefined,
         genres: [],
         score: Math.round((Number(r.vote_average) || 0) * 10) || undefined,
+        description: cleanString(r.overview),
+        ...(locale === 'en' ? { description_en: cleanString(r.overview) } : { description_it: cleanString(r.overview) }),
+        localized: { [locale]: { title, description: cleanString(r.overview), coverImage: cover } },
         source: 'tmdb',
       } as TrendingItem
     }))

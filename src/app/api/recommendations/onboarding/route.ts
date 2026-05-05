@@ -111,7 +111,7 @@ async function fetchMangaQuick(): Promise<any[]> {
           year: m.startDate?.year,
           genres: m.genres || [],
           score: m.averageScore ? m.averageScore / 20 : undefined,
-          description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 300) : undefined,
+          description: m.description ? m.description.replace(/<[^>]*>/g, '') : undefined,
           why: 'Tra i manga più amati della community',
           matchScore: Math.round((m.popularity || 0) / 100),
         })
@@ -203,7 +203,7 @@ async function fetchGameQuick(clientId: string, secret: string): Promise<any[]> 
         if (!g.cover?.url) continue
         const coverUrl = g.cover.url.replace('t_thumb', 't_cover_big_2x')
         const year = g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : undefined
-        results.push({ id: `igdb-${g.id}`, title: g.name || 'Senza titolo', type: 'game', coverImage: coverUrl.startsWith('//') ? `https:${coverUrl}` : coverUrl, year, genres: (g.genres || []).map((gn: any) => gn.name).filter(Boolean), score: g.rating ? Math.min(g.rating / 20, 5) : undefined, description: g.summary ? g.summary.slice(0, 300) : undefined, why: 'Titolo acclamato dai giocatori', matchScore: Math.round((g.rating || 0)) })
+        results.push({ id: `igdb-${g.id}`, title: g.name || 'Senza titolo', type: 'game', coverImage: coverUrl.startsWith('//') ? `https:${coverUrl}` : coverUrl, year, genres: (g.genres || []).map((gn: any) => gn.name).filter(Boolean), score: g.rating ? Math.min(g.rating / 20, 5) : undefined, description: g.summary || undefined, why: 'Titolo acclamato dai giocatori', matchScore: Math.round((g.rating || 0)) })
       }
     } catch {}
   }))

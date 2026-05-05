@@ -13,6 +13,11 @@ function clean(value: unknown): string | undefined {
   return text
 }
 
+function stripHtml(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  return clean(value.replace(/<br\s*\/?>(\s*)/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').replace(/[ \t]{2,}/g, ' '))
+}
+
 function languageGuess(text: string): Locale | null {
   const sample = ` ${text.toLowerCase()} `
   const itHits = [' il ', ' lo ', ' la ', ' gli ', ' le ', ' un ', ' una ', ' che ', ' per ', ' con ', ' della ', ' dello ', ' degli ', ' sono ', ' viene ', ' nella ', ' questo ', ' questa ']
@@ -42,6 +47,23 @@ function isTmdbTitleType(item: MediaLike): boolean {
 function isGameType(item: MediaLike): boolean {
   const type = normalizeType(item.type || item.media_type)
   return type === 'game'
+}
+
+function isAnilistTitleType(item: MediaLike): boolean {
+  const type = normalizeType(item.type || item.media_type)
+  return type === 'anime' || type === 'manga' || type === 'novel'
+}
+
+function anilistId(item: MediaLike): number | null {
+  const candidates = [item.external_id, item.media_id, item.id, item.anilist_id]
+  for (const value of candidates) {
+    const raw = String(value || '').trim()
+    if (!raw) continue
+    const prefixed = raw.match(/anilist-(?:anime|manga|novel)-(\d+)/i)
+    if (prefixed?.[1]) return Number(prefixed[1])
+    if ((item.source === 'anilist' || item.provider === 'anilist') && /^\d+$/.test(raw)) return Number(raw)
+  }
+  return null
 }
 
 function tmdbEndpoint(item: MediaLike): 'movie' | 'tv' | null {
@@ -93,6 +115,73 @@ function igdbId(item: MediaLike): string | null {
   return null
 }
 
+function bggId(item: MediaLike): string | null {
+  const candidates = [item.external_id, item.media_id, item.id, item.bgg_id]
+  for (const value of candidates) {
+    const raw = String(value || '').trim()
+    if (!raw) continue
+    const prefixed = raw.match(/bgg[-:](\d+)/i)
+    if (prefixed?.[1]) return prefixed[1]
+    if ((item.source === 'bgg' || item.provider === 'bgg') && /^\d+$/.test(raw)) return raw
+  }
+  return null
+}
+
+function isBoardgameType(item: MediaLike): boolean {
+  return normalizeType(item.type || item.media_type) === 'boardgame'
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+}
+
+function xmlText(xml: string, tag: string): string | undefined {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
+  return match ? clean(decodeXmlEntities(match[1]).replace(/<[^>]+>/g, ' ')) : undefined
+}
+
+function bggPrimaryName(xml: string): string | undefined {
+  const primary = xml.match(/<name[^>]*type=["']primary["'][^>]*value=["']([^"']+)["'][^>]*\/?>/i)
+  if (primary?.[1]) return clean(decodeXmlEntities(primary[1]))
+  const any = xml.match(/<name[^>]*value=["']([^"']+)["'][^>]*\/?>/i)
+  return any?.[1] ? clean(decodeXmlEntities(any[1])) : undefined
+}
+
+async function fetchBggBoardgameAssets(
+  item: MediaLike,
+): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
+  const id = bggId(item)
+  if (!id) return {}
+
+  try {
+    const res = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(id)}&stats=1`, {
+      headers: { accept: 'application/xml,text/xml,*/*' },
+      signal: AbortSignal.timeout(6500),
+      next: { revalidate: 60 * 60 * 24 },
+    })
+    if (!res.ok) return {}
+    const xml = await res.text()
+    return {
+      title: bggPrimaryName(xml),
+      description: xmlText(xml, 'description'),
+      coverImage: xmlText(xml, 'image') || xmlText(xml, 'thumbnail'),
+      externalId: `bgg-${id}`,
+      descriptionLocale: 'en',
+    }
+  } catch {
+    return {}
+  }
+}
+
+
 function steamLanguage(locale: Locale): 'italian' | 'english' {
   return locale === 'it' ? 'italian' : 'english'
 }
@@ -100,7 +189,7 @@ function steamLanguage(locale: Locale): 'italian' | 'english' {
 async function fetchSteamGameLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
   const appId = steamAppId(item)
   if (!appId) return {}
 
@@ -120,9 +209,10 @@ async function fetchSteamGameLocaleAssets(
 
     return {
       title: clean(data.name),
-      description: clean(data.short_description) || clean(data.about_the_game?.replace(/<[^>]+>/g, ' ')),
+      description: stripHtml(data.about_the_game) || clean(data.short_description),
       coverImage: clean(data.header_image) || clean(data.capsule_image) || clean(data.capsule_imagev5),
       externalId: `steam-${appId}`,
+      descriptionLocale: locale,
     }
   } catch {
     return {}
@@ -165,7 +255,7 @@ function igdbCoverUrl(cover: any): string | undefined {
 
 async function fetchIgdbGameAssets(
   item: MediaLike,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
   const id = igdbId(item)
   if (!id) return {}
   const token = await getIgdbToken()
@@ -193,6 +283,7 @@ async function fetchIgdbGameAssets(
       description: clean(game.summary),
       coverImage: igdbCoverUrl(game.cover),
       externalId: `igdb-${id}`,
+      descriptionLocale: 'en',
     }
   } catch {
     return {}
@@ -202,7 +293,7 @@ async function fetchIgdbGameAssets(
 async function fetchOfficialGameLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }> {
   if (!isGameType(item)) return {}
 
   // Steam ha endpoint localizzato per lingua: usiamolo quando abbiamo appid Steam.
@@ -217,8 +308,8 @@ async function fetchOfficialGameLocaleAssets(
 async function fetchOfficialGameLocaleAssetsBatch(
   items: MediaLike[],
   locale: Locale,
-): Promise<Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string }>> {
-  const out = new Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string }>()
+): Promise<Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }>> {
+  const out = new Map<MediaLike, { title?: string; description?: string; coverImage?: string; externalId?: string; descriptionLocale?: Locale }>()
   const steamPairs = items
     .map(item => ({ item, id: steamAppId(item) }))
     .filter((entry): entry is { item: MediaLike; id: string } => Boolean(entry.id))
@@ -245,9 +336,10 @@ async function fetchOfficialGameLocaleAssetsBatch(
           if (!data) continue
           out.set(item, {
             title: clean(data.name),
-            description: clean(data.short_description) || clean(data.about_the_game?.replace(/<[^>]+>/g, ' ')),
+            description: stripHtml(data.about_the_game) || clean(data.short_description),
             coverImage: clean(data.header_image) || clean(data.capsule_image) || clean(data.capsule_imagev5),
             externalId: `steam-${id}`,
+            descriptionLocale: locale,
           })
         }
       }
@@ -286,6 +378,7 @@ async function fetchOfficialGameLocaleAssetsBatch(
               description: clean(game.summary),
               coverImage: igdbCoverUrl(game.cover),
               externalId: `igdb-${id}`,
+              descriptionLocale: 'en',
             })
           }
         }
@@ -417,7 +510,7 @@ async function fetchTmdbDetailsAndImages(
 async function fetchOfficialTmdbLocaleAssets(
   item: MediaLike,
   locale: Locale,
-): Promise<{ title?: string; coverImage?: string; tmdbExternalId?: string }> {
+): Promise<{ title?: string; description?: string; coverImage?: string; tmdbExternalId?: string }> {
   const token = process.env.TMDB_API_KEY
   const endpoint = tmdbEndpoint(item)
   if (!token || !endpoint) return {}
@@ -444,12 +537,68 @@ async function fetchOfficialTmdbLocaleAssets(
 
     return {
       title: clean(details?.title || details?.name),
+      description: clean(details?.overview),
       coverImage: pickPoster(images?.posters || [], locale) || tmdbImage(details?.poster_path),
       tmdbExternalId: `tmdb-${endpoint}-${id}`,
     }
   } catch {
     return {}
   }
+}
+
+async function fetchOfficialAniListAssetsBatch(
+  items: MediaLike[],
+): Promise<Map<MediaLike, { title?: string; titleOriginal?: string; descriptionEn?: string; coverImage?: string; externalId?: string }>> {
+  const out = new Map<MediaLike, { title?: string; titleOriginal?: string; descriptionEn?: string; coverImage?: string; externalId?: string }>()
+  const pairs = items
+    .map(item => ({ item, id: anilistId(item) }))
+    .filter((entry): entry is { item: MediaLike; id: number } => typeof entry.id === 'number' && Number.isFinite(entry.id) && entry.id > 0)
+    .slice(0, 80)
+
+  if (pairs.length === 0) return out
+
+  const query = `
+    query ($ids: [Int]) {
+      Page(page: 1, perPage: 80) {
+        media(id_in: $ids) {
+          id
+          type
+          title { romaji english native }
+          coverImage { extraLarge large }
+          description(asHtml: false)
+        }
+      }
+    }
+  `
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ query, variables: { ids: [...new Set(pairs.map(entry => entry.id))] } }),
+      signal: AbortSignal.timeout(4500),
+      next: { revalidate: 60 * 60 * 24 },
+    })
+    if (!res.ok) return out
+    const json = await res.json()
+    const rows = Array.isArray(json?.data?.Page?.media) ? json.data.Page.media : []
+    const byId = new Map<number, any>(rows.map((row: any) => [Number(row.id), row]))
+
+    for (const { item, id } of pairs) {
+      const row = byId.get(id)
+      if (!row) continue
+      const type = normalizeType(item.type || item.media_type)
+      out.set(item, {
+        title: clean(row.title?.english) || clean(row.title?.romaji) || clean(row.title?.native),
+        titleOriginal: clean(row.title?.romaji) || clean(row.title?.native),
+        descriptionEn: stripHtml(row.description),
+        coverImage: clean(row.coverImage?.extraLarge) || clean(row.coverImage?.large),
+        externalId: `anilist-${type === 'anime' ? 'anime' : 'manga'}-${id}`,
+      })
+    }
+  } catch {}
+
+  return out
 }
 
 function descriptionFor(item: MediaLike, locale: Locale): string | undefined {
@@ -513,57 +662,15 @@ export async function POST(request: NextRequest) {
     for (const result of results) {
       if (result.status !== 'fulfilled') continue
       const title = clean(result.value.title)
+      const description = clean(result.value.description)
       const coverImage = clean(result.value.coverImage)
       const tmdbExternalId = clean(result.value.tmdbExternalId)
-      if (!title && !coverImage) continue
+      if (!title && !description && !coverImage) continue
 
       const item = result.value.item
       if (tmdbExternalId) {
         item.external_id = item.external_id || tmdbExternalId
         item.id = item.id || tmdbExternalId
-      }
-      if (title) {
-        item[`title_${locale}`] = title
-        item.title = title
-        item.media_title = title
-      }
-      if (coverImage) {
-        item[`cover_image_${locale}`] = coverImage
-        item.coverImage = coverImage
-        item.cover_image = coverImage
-        item.media_cover = coverImage
-      }
-      item.localized = {
-        ...(item.localized || {}),
-        [locale]: {
-          ...(item.localized?.[locale] || {}),
-          ...(title ? { title } : {}),
-          ...(coverImage ? { coverImage } : {}),
-          ...(descriptionFor(item, locale) ? { description: descriptionFor(item, locale) } : {}),
-        },
-      }
-    }
-  }
-
-  const gameItems = out
-    .filter((item: MediaLike) => isGameType(item))
-    .slice(0, 80)
-
-  if (gameItems.length > 0) {
-    const assetsByItem = await fetchOfficialGameLocaleAssetsBatch(gameItems, locale)
-
-    for (const item of gameItems) {
-      const assets = assetsByItem.get(item)
-      if (!assets) continue
-      const title = clean(assets.title)
-      const description = clean(assets.description)
-      const coverImage = clean(assets.coverImage)
-      const externalId = clean(assets.externalId)
-      if (!title && !description && !coverImage) continue
-
-      if (externalId) {
-        item.external_id = externalId
-        item.id = externalId
       }
       if (title) {
         item[`title_${locale}`] = title
@@ -586,6 +693,172 @@ export async function POST(request: NextRequest) {
           ...(item.localized?.[locale] || {}),
           ...(title ? { title } : {}),
           ...(description ? { description } : {}),
+          ...(coverImage ? { coverImage } : {}),
+        },
+      }
+    }
+  }
+
+  const anilistItems = out
+    .filter((item: MediaLike) => isAnilistTitleType(item))
+    .slice(0, 80)
+
+  if (anilistItems.length > 0) {
+    const assetsByItem = await fetchOfficialAniListAssetsBatch(anilistItems)
+
+    for (const item of anilistItems) {
+      const assets = assetsByItem.get(item)
+      if (!assets) continue
+      const title = clean(assets.title)
+      const titleOriginal = clean(assets.titleOriginal)
+      const descriptionEn = clean(assets.descriptionEn)
+      const coverImage = clean(assets.coverImage)
+      const externalId = clean(assets.externalId)
+      if (!title && !descriptionEn && !coverImage) continue
+
+      if (externalId) {
+        item.external_id = item.external_id || externalId
+        item.id = item.id || externalId
+      }
+      if (title) {
+        item.title_en = title
+        if (locale === 'en') {
+          item.title = title
+          item.media_title = title
+        }
+      }
+      if (titleOriginal) item.title_original = item.title_original || titleOriginal
+      if (descriptionEn) {
+        item.description_en = descriptionEn
+        if (locale === 'en') item.description = descriptionEn
+      }
+      if (coverImage) {
+        item[`cover_image_${locale}`] = coverImage
+        item.coverImage = coverImage
+        item.cover_image = coverImage
+        item.media_cover = coverImage
+      }
+      item.localized = {
+        ...(item.localized || {}),
+        en: {
+          ...(item.localized?.en || {}),
+          ...(title ? { title } : {}),
+          ...(descriptionEn ? { description: descriptionEn } : {}),
+          ...(coverImage ? { coverImage } : {}),
+        },
+        [locale]: {
+          ...(item.localized?.[locale] || {}),
+          ...(locale === 'en' && title ? { title } : {}),
+          ...(locale === 'en' && descriptionEn ? { description: descriptionEn } : {}),
+          ...(coverImage ? { coverImage } : {}),
+        },
+      }
+    }
+  }
+
+  const gameItems = out
+    .filter((item: MediaLike) => isGameType(item))
+    .slice(0, 80)
+
+  if (gameItems.length > 0) {
+    const assetsByItem = await fetchOfficialGameLocaleAssetsBatch(gameItems, locale)
+
+    for (const item of gameItems) {
+      const assets = assetsByItem.get(item)
+      if (!assets) continue
+      const title = clean(assets.title)
+      const description = clean(assets.description)
+      const descriptionLocale = (assets.descriptionLocale || locale) as Locale
+      const coverImage = clean(assets.coverImage)
+      const externalId = clean(assets.externalId)
+      if (!title && !description && !coverImage) continue
+
+      if (externalId) {
+        item.external_id = externalId
+        item.id = externalId
+      }
+      if (title) {
+        item[`title_${locale}`] = title
+        item.title = title
+        item.media_title = title
+      }
+      if (description) {
+        item[`description_${descriptionLocale}`] = description
+        if (descriptionLocale === locale) item.description = description
+      }
+      if (coverImage) {
+        item[`cover_image_${locale}`] = coverImage
+        item.coverImage = coverImage
+        item.cover_image = coverImage
+        item.media_cover = coverImage
+      }
+      item.localized = {
+        ...(item.localized || {}),
+        [locale]: {
+          ...(item.localized?.[locale] || {}),
+          ...(title ? { title } : {}),
+          ...(description && descriptionLocale === locale ? { description } : {}),
+          ...(coverImage ? { coverImage } : {}),
+        },
+        ...(description && descriptionLocale !== locale ? {
+          [descriptionLocale]: {
+            ...(item.localized?.[descriptionLocale] || {}),
+            description,
+          },
+        } : {}),
+      }
+    }
+  }
+
+  const boardgameItems = out
+    .filter((item: MediaLike) => isBoardgameType(item))
+    .slice(0, 60)
+
+  if (boardgameItems.length > 0) {
+    const results = await Promise.allSettled(
+      boardgameItems.map(async (item: MediaLike) => ({ item, ...(await fetchBggBoardgameAssets(item)) })),
+    )
+
+    for (const result of results) {
+      if (result.status !== 'fulfilled') continue
+      const item = result.value.item
+      const title = clean(result.value.title)
+      const description = clean(result.value.description)
+      const coverImage = clean(result.value.coverImage)
+      const externalId = clean(result.value.externalId)
+      if (!title && !description && !coverImage) continue
+
+      if (externalId) {
+        item.external_id = externalId
+        item.id = externalId
+      }
+      if (title) {
+        item.title_en = title
+        item.title = title
+        item.media_title = title
+      }
+      if (description) {
+        item.description_en = description
+        if (locale === 'en') item.description = description
+      }
+      if (coverImage) {
+        item[`cover_image_${locale}`] = coverImage
+        item.coverImage = coverImage
+        item.cover_image = coverImage
+        item.media_cover = coverImage
+      }
+      item.localized = {
+        ...(item.localized || {}),
+        en: {
+          ...(item.localized?.en || {}),
+          ...(title ? { title } : {}),
+          ...(description ? { description } : {}),
+          ...(coverImage ? { coverImage } : {}),
+        },
+        [locale]: {
+          ...(item.localized?.[locale] || {}),
+          ...(locale === 'en' && title ? { title } : {}),
+          ...(locale === 'en' && description ? { description } : {}),
           ...(coverImage ? { coverImage } : {}),
         },
       }
@@ -630,7 +903,11 @@ export async function POST(request: NextRequest) {
   const localized = out.map((item: MediaLike) => {
     const title = titleFor(item, locale) || item.title || item.media_title
     const cover = coverFor(item, locale)
-    const description = descriptionFor(item, locale) || clean(item.description) || item.description
+    const genericDescription = clean(item.description)
+    const genericLocale = genericDescription ? languageGuess(genericDescription) : null
+    const description = descriptionFor(item, locale)
+      || (genericDescription && (!genericLocale || genericLocale === locale) ? genericDescription : undefined)
+
     return {
       ...item,
       title,

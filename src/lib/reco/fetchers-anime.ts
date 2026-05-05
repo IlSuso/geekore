@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
@@ -118,7 +117,7 @@ function normalizeAnimeMedia(
     genres: mGenres,
     tags: mTags,
     score: m.averageScore ? Math.min(m.averageScore / 20, 5) : undefined,
-    description: m.description ? truncateAtSentence(m.description.replace(/<[^>]+>/g, ''), 300) : undefined,
+    description: m.description ? m.description.replace(/<[^>]+>/g, '') : undefined,
     why: socialFriend
       ? `Il tuo amico con gusti simili ha adorato questo`
       : buildWhyV3(mGenres, recId, title, tasteProfile, matchScore, !!context.isDiscovery, {
@@ -428,7 +427,7 @@ export async function fetchAnimeRecs(
           year,
           genres: recGenres.length ? recGenres : ['Animation'],
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          description: m.overview || undefined,
           why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, true, {}),
           matchScore: Math.max(matchScore, 35),
           isDiscovery: true,

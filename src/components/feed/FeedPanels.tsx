@@ -2,8 +2,38 @@
 
 import { ArrowUp, Sparkles, X } from 'lucide-react'
 import { CategorySelector } from '@/components/feed/CategoryControls'
-import { parseCategoryString } from '@/components/feed/CategoryBasics'
+import { getCategoryDisplayLabel, getCategoryFilterDisplayLabel, parseCategoryString } from '@/components/feed/CategoryBasics'
+import { useLocale } from '@/lib/locale'
 import type { FeedFilter } from '@/components/feed/feedUtils'
+
+const FEED_PANELS_COPY = {
+  it: {
+    postEditor: 'Editor post', editPost: 'Modifica post', closePostEditor: 'Chiudi editor post', cancel: 'Annulla', save: 'Salva',
+    newPostSingular: '1 nuovo post', newPostPlural: 'nuovi post',
+    filters: { all: 'Tutti', following: 'Seguiti', trending: 'In tendenza' },
+    hints: { all: 'tutta la community', following: 'solo chi segui', trending: 'post più attivi' },
+    allChip: 'Tutto', homeFilterAria: 'Filtri tipo media Home',
+    emptyCategory: (label: string) => `Nessun post per "${label}"`,
+    emptyTrending: 'Nessun trend per ora', emptyDiscovery: 'Nessuna discovery disponibile',
+    hintCategory: 'Sii il primo a pubblicare in questa categoria!',
+    hintTrending: 'Quando i post ricevono like o commenti appariranno qui.',
+    hintDiscovery: 'Discovery mostra post fuori dalla tua rete quando sono disponibili.',
+    removeFilter: 'Rimuovi filtro',
+  },
+  en: {
+    postEditor: 'Post editor', editPost: 'Edit post', closePostEditor: 'Close post editor', cancel: 'Cancel', save: 'Save',
+    newPostSingular: '1 new post', newPostPlural: 'new posts',
+    filters: { all: 'All', following: 'Following', trending: 'Trending' },
+    hints: { all: 'the whole community', following: 'only people you follow', trending: 'most active posts' },
+    allChip: 'All', homeFilterAria: 'Home media type filters',
+    emptyCategory: (label: string) => `No posts for "${label}"`,
+    emptyTrending: 'No trends yet', emptyDiscovery: 'No discovery posts available',
+    hintCategory: 'Be the first to post in this category!',
+    hintTrending: 'Posts will appear here when they get likes or comments.',
+    hintDiscovery: 'Discovery shows posts outside your network when available.',
+    removeFilter: 'Remove filter',
+  },
+} as const
 
 export function EditPostModal({
   editContent,
@@ -16,6 +46,9 @@ export function EditPostModal({
   onClose: () => void
   onSave: () => void
 }) {
+  const { locale } = useLocale()
+  const copy = FEED_PANELS_COPY[locale]
+
   return (
     <div
       data-no-swipe="true"
@@ -31,10 +64,10 @@ export function EditPostModal({
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] bg-[rgba(230,255,61,0.04)] px-5 py-4">
           <div>
-            <p className="gk-label text-[var(--accent)]">Post editor</p>
-            <h3 className="gk-title text-[var(--text-primary)]">Modifica post</h3>
+            <p className="gk-label text-[var(--accent)]">{copy.postEditor}</p>
+            <h3 className="gk-title text-[var(--text-primary)]">{copy.editPost}</h3>
           </div>
-          <button type="button" data-no-swipe="true" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] text-[var(--text-muted)] transition hover:text-white" aria-label="Chiudi editor post">
+          <button type="button" data-no-swipe="true" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] text-[var(--text-muted)] transition hover:text-white" aria-label={copy.closePostEditor}>
             <X size={17} />
           </button>
         </div>
@@ -51,10 +84,10 @@ export function EditPostModal({
             <span className="gk-mono text-[var(--text-muted)]">{editContent.length}/2000</span>
             <div className="flex gap-2" data-no-swipe="true">
               <button type="button" data-no-swipe="true" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm font-bold text-[var(--text-secondary)] transition hover:text-white">
-                Annulla
+                {copy.cancel}
               </button>
               <button type="button" data-no-swipe="true" onClick={onSave} disabled={!editContent.trim()} className="rounded-2xl px-5 py-2.5 text-sm font-black transition disabled:opacity-40" style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
-                Salva
+                {copy.save}
               </button>
             </div>
           </div>
@@ -65,6 +98,8 @@ export function EditPostModal({
 }
 
 export function NewPostsBanner({ count, onShow }: { count: number; onShow: () => void }) {
+  const { locale } = useLocale()
+  const copy = FEED_PANELS_COPY[locale]
   if (count <= 0) return null
   return (
     <div className="sticky top-[52px] z-10 flex justify-center py-2 pointer-events-none" data-no-swipe="true">
@@ -76,7 +111,7 @@ export function NewPostsBanner({ count, onShow }: { count: number; onShow: () =>
         style={{ background: 'var(--accent)', color: '#0B0B0F', boxShadow: '0 4px 24px rgba(230,255,61,0.20)' }}
       >
         <ArrowUp size={14} />
-        {count === 1 ? '1 nuovo post' : `${count} nuovi post`}
+        {count === 1 ? copy.newPostSingular : `${count} ${copy.newPostPlural}`}
       </button>
     </div>
   )
@@ -89,10 +124,12 @@ export function FeedFilterTabs({
   feedFilter: FeedFilter
   onFilterChange: (filter: FeedFilter) => void
 }) {
+  const { locale } = useLocale()
+  const copy = FEED_PANELS_COPY[locale]
   const primaryFilters: Array<{ id: FeedFilter; label: string; hint: string }> = [
-    { id: 'all', label: 'Tutti', hint: 'tutta la community' },
-    { id: 'following', label: 'Seguiti', hint: 'solo chi segui' },
-    { id: 'trending', label: 'In tendenza', hint: 'post più attivi' },
+    { id: 'all', label: copy.filters.all, hint: copy.hints.all },
+    { id: 'following', label: copy.filters.following, hint: copy.hints.following },
+    { id: 'trending', label: copy.filters.trending, hint: copy.hints.trending },
   ]
 
   return (
@@ -122,19 +159,21 @@ export function MediumTypeChipRow({
   categoryFilter: string
   setCategoryFilter: (value: string) => void
 }) {
+  const { locale } = useLocale()
+  const copy = FEED_PANELS_COPY[locale]
   const chips = [
-    { label: 'Tutto', value: '', className: 'gk-chip-active' },
-    { label: 'Anime', value: 'Anime', className: 'gk-chip-anime' },
-    { label: 'Manga', value: 'Manga', className: 'gk-chip-manga' },
-    { label: 'Game', value: 'Videogiochi', className: 'gk-chip-game' },
+    { label: copy.allChip, value: '', className: 'gk-chip-active' },
+    { label: getCategoryDisplayLabel('Anime', locale), value: 'Anime', className: 'gk-chip-anime' },
+    { label: getCategoryDisplayLabel('Manga', locale), value: 'Manga', className: 'gk-chip-manga' },
+    { label: getCategoryDisplayLabel('Videogiochi', locale), value: 'Videogiochi', className: 'gk-chip-game' },
     { label: 'TV', value: 'Serie TV', className: 'gk-chip-tv' },
-    { label: 'Film', value: 'Film', className: 'gk-chip-movie' },
-    { label: 'Board', value: 'Giochi da tavolo', className: 'gk-chip-board' },
+    { label: getCategoryDisplayLabel('Film', locale), value: 'Film', className: 'gk-chip-movie' },
+    { label: locale === 'en' ? 'Board' : 'Board', value: 'Giochi da tavolo', className: 'gk-chip-board' },
   ]
 
   return (
     <div className="border-b border-[var(--border-subtle)] pb-3 pt-2 flex items-center gap-2" data-no-swipe="true">
-      <div className="flex flex-1 min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true" aria-label="Filtri tipo media Home">
+      <div className="flex flex-1 min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide" data-no-swipe="true" data-horizontal-scroll="true" aria-label={copy.homeFilterAria}>
         {chips.map(chip => {
           const parsedActive = parseCategoryString(categoryFilter)
           const isActive = chip.value === '' ? categoryFilter === '' : parsedActive?.category === chip.value
@@ -168,24 +207,27 @@ export function EmptyFeedState({
   labels: { noFollowingTitle: string; emptyTitle: string; noFollowingHint: string; emptyHint: string }
   clearCategoryFilter: () => void
 }) {
+  const { locale } = useLocale()
+  const copy = FEED_PANELS_COPY[locale]
+  const filterLabel = getCategoryFilterDisplayLabel(categoryFilter, locale)
   const title = categoryFilter
-    ? `Nessun post per "${parseCategoryString(categoryFilter)?.subcategory || categoryFilter}"`
+    ? copy.emptyCategory(filterLabel)
     : feedFilter === 'following'
       ? labels.noFollowingTitle
       : feedFilter === 'trending'
-        ? 'Nessun trend per ora'
+        ? copy.emptyTrending
         : feedFilter === 'discovery'
-          ? 'Nessuna discovery disponibile'
+          ? copy.emptyDiscovery
           : labels.emptyTitle
 
   const hint = categoryFilter
-    ? 'Sii il primo a pubblicare in questa categoria!'
+    ? copy.hintCategory
     : feedFilter === 'following'
       ? labels.noFollowingHint
       : feedFilter === 'trending'
-        ? 'Quando i post ricevono like o commenti appariranno qui.'
+        ? copy.hintTrending
         : feedFilter === 'discovery'
-          ? 'Discovery mostra post fuori dalla tua rete quando sono disponibili.'
+          ? copy.hintDiscovery
           : labels.emptyHint
 
   return (
@@ -200,7 +242,7 @@ export function EmptyFeedState({
           onClick={clearCategoryFilter}
           className="gk-btn gk-btn-secondary gk-focus-ring mt-3 h-10 px-5 text-[13px]"
         >
-          Rimuovi filtro
+          {copy.removeFilter}
         </button>
       )}
     </div>

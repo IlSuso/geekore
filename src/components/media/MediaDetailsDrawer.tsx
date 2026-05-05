@@ -35,6 +35,11 @@ import {
 import { optimizeCover } from "@/lib/imageOptimizer";
 import { useLocale } from "@/lib/locale";
 import {
+  getCachedLocalizedMediaRow,
+  hasCachedLocalizedMediaRow,
+  localizeMediaRows,
+} from "@/lib/i18n/clientMediaLocalization";
+import {
   appCopy,
   typeLabel,
   genreLabel,
@@ -47,6 +52,14 @@ export interface MediaDetails {
   id: string;
   title: string;
   title_en?: string;
+  title_it?: string;
+  description_en?: string;
+  description_it?: string;
+  cover_image?: string;
+  cover_image_en?: string;
+  cover_image_it?: string;
+  external_id?: string;
+  localized?: Record<string, any>;
   type: string;
   coverImage?: string;
   year?: number;
@@ -113,6 +126,87 @@ const IOS_DISMISS_THRESHOLD = 80; // px di dx per confermare chiusura
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+
+function cleanText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function guessDescriptionLocale(text: string): "it" | "en" | null {
+  const sample = ` ${text.toLowerCase()} `;
+  const itHits = [" il ", " lo ", " la ", " gli ", " le ", " un ", " una ", " che ", " per ", " con ", " della ", " dello ", " degli ", " sono ", " viene ", " nella ", " questo ", " questa "]
+    .filter(token => sample.includes(token)).length;
+  const enHits = [" the ", " and ", " with ", " for ", " from ", " this ", " that ", " into ", " your ", " their ", " story ", " game ", " players ", " season "]
+    .filter(token => sample.includes(token)).length;
+
+  if (itHits >= 2 && itHits > enHits) return "it";
+  if (enHits >= 2 && enHits > itHits) return "en";
+  return null;
+}
+
+function safeGenericDescription(media: MediaDetails, locale: "it" | "en"): string | undefined {
+  const value = cleanText((media as any).description);
+  if (!value) return undefined;
+
+  // Usiamo la description generica solo se sembra già nella lingua corrente oppure
+  // se non riusciamo a determinarla. Questo evita flicker IT→EN, ma non nasconde
+  // descrizioni già corrette arrivate dal payload della card.
+  const guessed = guessDescriptionLocale(value);
+  if (!guessed || guessed === locale) return value;
+  return undefined;
+}
+
+
+function pickLocalizedField(media: MediaDetails, locale: "it" | "en", field: "title" | "description" | "coverImage"): string | undefined {
+  const anyMedia = media as any;
+  const localized = anyMedia.localized && typeof anyMedia.localized === "object" ? anyMedia.localized : null;
+  const localeNode = localized?.[locale] && typeof localized[locale] === "object" ? localized[locale] : null;
+
+  if (field === "title") {
+    return cleanText(localeNode?.title)
+      || cleanText(anyMedia[`title_${locale}`])
+      || cleanText(locale === "en" ? anyMedia.title_en : anyMedia.title_it)
+      || cleanText(media.title);
+  }
+
+  if (field === "description") {
+    return cleanText(localeNode?.description)
+      || cleanText(anyMedia[`description_${locale}`])
+      || cleanText(locale === "en" ? anyMedia.description_en : anyMedia.description_it)
+      || cleanText(media.description);
+  }
+
+  return cleanText(localeNode?.coverImage)
+    || cleanText(localeNode?.cover_image)
+    || cleanText(anyMedia[`cover_image_${locale}`])
+    || cleanText(anyMedia[`coverImage_${locale}`])
+    || cleanText(media.coverImage);
+}
+
+function pickStrictLocalizedField(media: MediaDetails, locale: "it" | "en", field: "title" | "description" | "coverImage"): string | undefined {
+  const anyMedia = media as any;
+  const localized = anyMedia.localized && typeof anyMedia.localized === "object" ? anyMedia.localized : null;
+  const localeNode = localized?.[locale] && typeof localized[locale] === "object" ? localized[locale] : null;
+
+  if (field === "title") {
+    return cleanText(localeNode?.title)
+      || cleanText(anyMedia[`title_${locale}`])
+      || cleanText(locale === "en" ? anyMedia.title_en : anyMedia.title_it);
+  }
+
+  if (field === "description") {
+    return cleanText(localeNode?.description)
+      || cleanText(anyMedia[`description_${locale}`])
+      || cleanText(locale === "en" ? anyMedia.description_en : anyMedia.description_it);
+  }
+
+  return cleanText(localeNode?.coverImage)
+    || cleanText(localeNode?.cover_image)
+    || cleanText(anyMedia[`cover_image_${locale}`])
+    || cleanText(anyMedia[`coverImage_${locale}`]);
+}
+
 function buildExternalUrl(media: MediaDetails): string | undefined {
   if (media.externalUrl) return media.externalUrl;
   const id = media.id;
@@ -174,6 +268,14 @@ const RELATION_LABEL: Record<string, string> = {
   ALTERNATIVE: "Alternative",
 };
 
+const DRAWER_LOCALIZATION_OPTIONS = {
+  titleKeys: ["title"],
+  coverKeys: ["coverImage", "cover_image"],
+  idKeys: ["external_id", "id"],
+  typeKeys: ["type"],
+  descriptionKeys: ["description"],
+};
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function MediaDetailsDrawer({
@@ -200,6 +302,54 @@ export function MediaDetailsDrawer({
   const drawerUi = appCopy[locale].drawer;
   const ui = appCopy[locale].drawer;
   const commonUi = appCopy[locale].common;
+
+  const [localizedMedia, setLocalizedMedia] = useState<MediaDetails | null>(null);
+  const [localizingMedia, setLocalizingMedia] = useState(false);
+
+  useEffect(() => {
+    if (!media) {
+      setLocalizedMedia(null);
+      setLocalizingMedia(false);
+      return;
+    }
+
+    let cancelled = false;
+    const payload = {
+      ...media,
+      id: media.id,
+      external_id: (media as any).external_id || media.id,
+      title: media.title,
+      type: media.type,
+      coverImage: media.coverImage,
+      cover_image: (media as any).cover_image || media.coverImage,
+      description: media.description,
+    };
+
+    const cached = getCachedLocalizedMediaRow(payload, locale, DRAWER_LOCALIZATION_OPTIONS) as MediaDetails | null;
+    const hasCached = hasCachedLocalizedMediaRow(payload, locale, DRAWER_LOCALIZATION_OPTIONS);
+    const hasStrictDescription = Boolean(pickStrictLocalizedField(cached || media, locale, "description"));
+
+    setLocalizedMedia(cached ? ({ ...media, ...cached } as MediaDetails) : null);
+    setLocalizingMedia(!hasStrictDescription);
+
+    localizeMediaRows([payload], locale, DRAWER_LOCALIZATION_OPTIONS, { force: !hasStrictDescription })
+      .then((items) => {
+        if (cancelled) return;
+        const next = items?.[0];
+        setLocalizedMedia(next ? ({ ...media, ...next } as MediaDetails) : (cached ? ({ ...media, ...cached } as MediaDetails) : null));
+        setLocalizingMedia(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLocalizedMedia(cached ? ({ ...media, ...cached } as MediaDetails) : null);
+          setLocalizingMedia(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [media?.id, media?.external_id, media?.type, locale]);
 
   const historyPushedRef = useRef(false);
   const closingRef = useRef(false); // true while our own history.back() is in flight
@@ -634,6 +784,20 @@ export function MediaDetailsDrawer({
 
   if (!media || typeof document === "undefined") return null;
 
+  const localizedSource = localizedMedia || media;
+  const strictTitle = pickStrictLocalizedField(localizedSource, locale, "title");
+  const strictDescription = pickStrictLocalizedField(localizedSource, locale, "description");
+  const strictCoverImage = pickStrictLocalizedField(localizedSource, locale, "coverImage");
+  const displayTitle = strictTitle || pickLocalizedField(localizedSource, locale, "title") || media.title;
+  const displayDescription = strictDescription || safeGenericDescription(localizedSource, locale);
+  const displayCoverImage = strictCoverImage || pickLocalizedField(localizedSource, locale, "coverImage") || media.coverImage;
+  const displayMedia = {
+    ...localizedSource,
+    title: displayTitle,
+    description: displayDescription,
+    coverImage: displayCoverImage,
+  };
+
   const Icon = TYPE_ICON[media.type] || Film;
   const externalUrl = buildExternalUrl(media);
   const sourceLabel = buildSourceLabel(media);
@@ -700,7 +864,7 @@ export function MediaDetailsDrawer({
         className="fixed right-0 z-[80] flex flex-col shadow-[0_0_56px_rgba(0,0,0,0.50)]"
         role="dialog"
         aria-modal
-        aria-label={media.title}
+        aria-label={displayTitle}
         onMouseDown={(event) => event.stopPropagation()}
         style={{
           background: "var(--bg-primary)",
@@ -724,9 +888,9 @@ export function MediaDetailsDrawer({
       >
         <MediaDetailsHero
           media={{
-            title: media.title,
+            title: displayTitle,
             type: media.type,
-            coverImage: media.coverImage,
+            coverImage: displayCoverImage,
             year: media.year,
             score: media.score != null ? media.score.toFixed(1) : null,
             matchScore: media.matchScore,
@@ -746,7 +910,7 @@ export function MediaDetailsDrawer({
               {media.episodes != null && media.episodes > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
                   <Layers size={10} /> {media.episodes}{" "}
-                  {media.type === "manga" ? ui.capShort : ui.epShort}
+                  {media.type === "manga" ? "cap." : "ep."}
                 </span>
               )}
               {(media.min_players != null || media.max_players != null) && (
@@ -792,15 +956,6 @@ export function MediaDetailsDrawer({
               </MediaDetailsSection>
             )}
 
-            {/* Perché te lo consigliamo */}
-            {media.why && (
-              <MediaDetailsSection title={ui.why} icon={<Sparkles size={13} />}>
-                <p className="text-sm leading-relaxed text-[rgba(230,255,61,0.85)]">
-                  {media.why}
-                </p>
-              </MediaDetailsSection>
-            )}
-
             {/* Stats grid */}
             {(() => {
               const cells: React.ReactElement[] = [];
@@ -810,7 +965,7 @@ export function MediaDetailsDrawer({
                     key="match"
                     className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
                   >
-                    <p className="gk-label mb-1">{ui.match}</p>
+                    <p className="gk-label mb-1">Match</p>
                     <p
                       className="font-mono-data text-[18px] font-black"
                       style={{ color: "var(--accent)" }}
@@ -946,17 +1101,27 @@ export function MediaDetailsDrawer({
               );
             })()}
 
-            {/* Descrizione — testo completo, scrollabile, senza taglio */}
-            {media.description && (
+            {/* Descrizione — testo completo, scrollabile, senza taglio.
+                Se la localizzazione è in corso, non mostriamo per un istante
+                la descrizione nella lingua sbagliata: resta uno skeleton breve. */}
+            {(displayDescription || localizingMedia) && (
               <MediaDetailsSection
-                title={drawerUi?.description || ui.description}
+                title={drawerUi?.description || "Descrizione"}
                 icon={<FileText size={13} />}
               >
-                <div className="gk-description-scroll max-h-[260px] overflow-y-auto pr-2 md:max-h-[320px]">
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-                    {media.description}
-                  </p>
-                </div>
+                {displayDescription ? (
+                  <div className="gk-description-scroll max-h-[260px] overflow-y-auto pr-2 md:max-h-[320px]">
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+                      {displayDescription}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 py-1" aria-hidden="true">
+                    <div className="h-3.5 w-full animate-pulse rounded-full bg-white/8" />
+                    <div className="h-3.5 w-11/12 animate-pulse rounded-full bg-white/8" />
+                    <div className="h-3.5 w-8/12 animate-pulse rounded-full bg-white/8" />
+                  </div>
+                )}
               </MediaDetailsSection>
             )}
 
@@ -980,12 +1145,12 @@ export function MediaDetailsDrawer({
               </div>
             )}
 
-            {/* ── BOARDGAME: Meccaniche ─────────────────────────────── */}
+            {/* ── BOARDGAME: {ui.mechanics} ─────────────────────────────── */}
             {isBoardgame && media.mechanics && media.mechanics.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5 flex items-center gap-1">
                   <Dices size={10} />
-                  Meccaniche
+                  {ui.mechanics}
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.mechanics.slice(0, 10).map((m) => (
@@ -1003,7 +1168,7 @@ export function MediaDetailsDrawer({
             {/* ── BOARDGAME: Designer ───────────────────────────────── */}
             {isBoardgame && media.designers && media.designers.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">{ui.designers}</h3>
+                <h3 className="gk-label mb-2.5">Designer</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.designers.map((d) => (
                     <span
@@ -1017,7 +1182,7 @@ export function MediaDetailsDrawer({
               </div>
             )}
 
-            {/* Sviluppatori (games) */}
+            {/* {ui.developers} (games) */}
             {media.developers && media.developers.length > 0 && !isManga && (
               <div>
                 <h3 className="gk-label mb-2.5">{ui.developers}</h3>
@@ -1037,7 +1202,7 @@ export function MediaDetailsDrawer({
             {/* Cast */}
             {media.cast && media.cast.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">{ui.cast}</h3>
+                <h3 className="gk-label mb-2.5">Cast</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.cast.map((name) => (
                     <span
@@ -1051,12 +1216,12 @@ export function MediaDetailsDrawer({
               </div>
             )}
 
-            {/* Piattaforme (gaming) */}
+            {/* {ui.platforms} (gaming) */}
             {media.platforms && media.platforms.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5 flex items-center gap-1">
                   <Monitor size={10} />
-                  Piattaforme
+                  {ui.platforms}
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {media.platforms.slice(0, 8).map((p) => (
@@ -1071,7 +1236,7 @@ export function MediaDetailsDrawer({
               </div>
             )}
 
-            {/* Disponibile su */}
+            {/* {ui.availableOn} */}
             {media.watchProviders && media.watchProviders.length > 0 && (
               <div>
                 <h3 className="gk-label mb-2.5">{ui.availableOn}</h3>
@@ -1137,7 +1302,7 @@ export function MediaDetailsDrawer({
                           </div>
                         )}
                         <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
-                          {relationLabels[locale]?.[rel.relationType] || rel.relationType}
+                          {RELATION_LABEL[rel.relationType] || rel.relationType}
                         </div>
                       </div>
                       <p className="line-clamp-2 text-[10px] font-bold leading-tight text-[var(--text-secondary)]">
@@ -1182,7 +1347,7 @@ export function MediaDetailsDrawer({
                     return (
                       <div>
                         <p className="gk-label mb-1">
-                          {ui.season}{maxSeasons ? ` (max ${maxSeasons})` : ""}
+                          Stagione{maxSeasons ? ` (max ${maxSeasons})` : ""}
                         </p>
                         <input
                           data-no-swipe="true"
@@ -1197,9 +1362,9 @@ export function MediaDetailsDrawer({
                             setFormSeason(val);
                             const n = parseInt(val);
                             if (isNaN(n) || n < 1)
-                              setFormSeasonError(commonUi.minValue(1));
+                              setFormSeasonError(ui.minOne);
                             else if (maxSeasons && n > maxSeasons)
-                              setFormSeasonError(commonUi.maxValue(maxSeasons));
+                              setFormSeasonError(`${ui.maxValue} ${maxSeasons}`);
                             else setFormSeasonError(null);
                             setFormEpisode("0");
                             setFormEpisodeError(null);
@@ -1225,8 +1390,8 @@ export function MediaDetailsDrawer({
                       null;
                     const label =
                       media.type === "manga" || media.type === "novel"
-                        ? ui.currentChapter
-                        : ui.currentEpisode;
+                        ? "Capitolo corrente"
+                        : "Episodio corrente";
                     return (
                       <div>
                         <p className="gk-label mb-1">
@@ -1246,11 +1411,9 @@ export function MediaDetailsDrawer({
                             setFormEpisode(val);
                             const n = parseInt(val);
                             if (isNaN(n) || n < 0)
-                              setFormEpisodeError(
-                                commonUi.nonNegative,
-                              );
+                              setFormEpisodeError(ui.negativeValue);
                             else if (maxEp && n > maxEp)
-                              setFormEpisodeError(commonUi.maxValue(maxEp));
+                              setFormEpisodeError(`${ui.maxValue} ${maxEp}`);
                             else setFormEpisodeError(null);
                           }}
                           className="w-full bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[rgba(230,255,61,0.45)]"
@@ -1323,7 +1486,7 @@ export function MediaDetailsDrawer({
                 </button>
               ) : (
                 <div className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 py-2.5 text-center text-sm font-black text-emerald-300">
-                  <Check size={14} /> {ui.inYourCollection}
+                  <Check size={14} /> {ui.inCollection}
                 </div>
               )}
 
@@ -1343,7 +1506,7 @@ export function MediaDetailsDrawer({
                     size={12}
                     fill={inWishlist ? "currentColor" : "none"}
                   />
-                  {inWishlist ? ui.inWishlist : commonUi.wishlist}
+                  {inWishlist ? "In wishlist" : "Wishlist"}
                 </button>
 
                 {externalUrl && (

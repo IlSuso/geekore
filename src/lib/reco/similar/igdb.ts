@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import { IGDB_VALID, TAG_TO_IGDB_THEME } from './constants'
 import type { SimilarAdd, SimilarContext } from './types'
 
@@ -73,7 +72,7 @@ export async function fetchIgdbGames(ctx: SimilarContext, add: SimilarAdd) {
           tags: (g.themes || []).map((t: any) => t.name),
           keywords: (g.keywords || []).map((k: any) => k.name),
           score: g.rating ? Math.min(g.rating / 20, 5) : undefined,
-          description: g.summary ? truncateAtSentence(g.summary, 500) : undefined,
+          description: g.summary || undefined,
           matchScore: 55 + ctx.profileBoost(recGenres),
           why: ctx.whyText(recGenres), creatorBoost: developer, _pop: g.rating_count || 0,
         })

@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import type { Recommendation, TasteProfile } from './types'
 import type { GenreSlot } from './slots'
 import { buildWhyV3, computeMatchScore } from './profile'
@@ -125,7 +124,7 @@ export async function fetchTvRecs(
           genres: recGenres,
           keywords: kws,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          description: m.overview || undefined,
           why: socialFriend
             ? `Il tuo amico con gusti simili all'${socialFriend} ha adorato questo`
             : platformWhy
@@ -182,7 +181,7 @@ export async function fetchTvRecs(
           id: recId, title, type: 'tv',
           coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`, year, genres: recGenres,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          description: m.overview || undefined,
           why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, false, {}),
           matchScore, isAwardWinner: isAwardWorthy(m.vote_average, undefined, m.vote_count, 'tmdb'),
         })
@@ -229,7 +228,7 @@ export async function fetchTvRecs(
           year,
           genres: recGenres,
           score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
-          description: m.overview ? truncateAtSentence(m.overview, 300) : undefined,
+          description: m.overview || undefined,
           why: buildWhyV3(recGenres, recId, title, tasteProfile, matchScore, true, {}),
           matchScore: Math.max(matchScore, 35),
           isDiscovery: true,

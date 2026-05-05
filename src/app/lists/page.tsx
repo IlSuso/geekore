@@ -269,7 +269,7 @@ function ListCard({
               </span>
             </div>
             {list.description ? (
-              <p className="line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">
+              <p className="text-[12px] leading-5 text-[var(--text-muted)]">
                 {list.description}
               </p>
             ) : (

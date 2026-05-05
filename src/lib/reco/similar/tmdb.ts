@@ -1,4 +1,3 @@
-import { truncateAtSentence } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import {
   NICHE_LANGS,
@@ -118,7 +117,7 @@ export async function fetchTmdbAnime(ctx: SimilarContext, add: SimilarAdd) {
           coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
           year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
           genres: recGenres, tags: [],
-          description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
+          description: m.overview || undefined,
           score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
           matchScore: 50 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres), _pop: m.popularity || 0 })
       }
@@ -147,7 +146,7 @@ export async function fetchTmdbAnime(ctx: SimilarContext, add: SimilarAdd) {
             coverImage: `https://image.tmdb.org/t/p/w780${m.poster_path}`,
             year: m.first_air_date ? parseInt(m.first_air_date.slice(0, 4)) : undefined,
             genres: recGenres, tags: [],
-            description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
+            description: m.overview || undefined,
             score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
             matchScore: 58 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres), _pop: m.popularity || 0 })
         }
@@ -203,7 +202,7 @@ export async function fetchTmdbMovies(ctx: SimilarContext, add: SimilarAdd) {
         year: m.release_date ? new Date(m.release_date).getFullYear() : undefined,
         genres: recGenres, keywords: actualKws,
         score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-        description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
+        description: m.overview || undefined,
         matchScore: 50 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres),
         _foundByKeyword: kwIdSet.has(m.id), _pop: m.popularity || 0 })
     }
@@ -252,7 +251,7 @@ export async function fetchTmdbTv(ctx: SimilarContext, add: SimilarAdd) {
         year: m.first_air_date ? new Date(m.first_air_date).getFullYear() : undefined,
         genres: recGenres, keywords: actualKws,
         score: m.vote_average ? Math.min(m.vote_average / 2, 5) : undefined,
-        description: m.overview ? truncateAtSentence(m.overview, 500) : undefined,
+        description: m.overview || undefined,
         episodes: m.number_of_episodes ?? undefined,
         matchScore: 50 + ctx.profileBoost(recGenres), why: ctx.whyText(recGenres),
         _foundByKeyword: kwIdSetTv.has(m.id), _pop: m.popularity || 0 })

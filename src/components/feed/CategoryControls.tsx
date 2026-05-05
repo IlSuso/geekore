@@ -16,22 +16,46 @@ import { gestureState } from "@/hooks/gestureState";
 import {
   CategoryIcon,
   MACRO_CATEGORIES,
+  getCategoryDisplayLabel,
+  getCategoryFilterDisplayLabel,
   parseCategoryString,
 } from "@/components/feed/CategoryBasics";
 import { useLocale } from "@/lib/locale";
 
 const CATEGORY_CONTROLS_COPY = {
   it: {
-    mediumTitle: "Medium / titolo",
+    mediumTitle: "Media / titolo",
     chooseMedium: "Scegli medium",
     noResults: "Nessun risultato",
     filterByMedium: "Filtra per medium",
+    use: "Usa",
+    useOnlyMedium: (label: string) => `Usa solo medium “${label}”`,
+    placeholders: {
+      movie: "Cerca un film...",
+      tv: "Cerca una serie TV...",
+      game: "Cerca un videogioco...",
+      anime: "Cerca un anime...",
+      manga: "Cerca un manga...",
+      boardgame: "Cerca un gioco da tavolo...",
+      title: "Titolo specifico...",
+    },
   },
   en: {
-    mediumTitle: "Medium / title",
+    mediumTitle: "Media / title",
     chooseMedium: "Choose medium",
     noResults: "No results",
     filterByMedium: "Filter by medium",
+    use: "Use",
+    useOnlyMedium: (label: string) => `Use only “${label}”`,
+    placeholders: {
+      movie: "Search for a movie...",
+      tv: "Search for a TV show...",
+      game: "Search for a game...",
+      anime: "Search for an anime...",
+      manga: "Search for a manga...",
+      boardgame: "Search for a board game...",
+      title: "Specific title...",
+    },
   },
 } as const;
 
@@ -364,18 +388,18 @@ export function CategorySelector({
 
   const searchPlaceholder =
     selectedCat === "Film"
-      ? "Cerca un film..."
+      ? copy.placeholders.movie
       : selectedCat === "Serie TV"
-        ? "Cerca una serie..."
+        ? copy.placeholders.tv
         : selectedCat === "Videogiochi"
-          ? "Cerca un videogioco..."
+          ? copy.placeholders.game
           : selectedCat === "Anime"
-            ? "Cerca un anime..."
+            ? copy.placeholders.anime
             : selectedCat === "Manga"
-              ? "Cerca un manga..."
+              ? copy.placeholders.manga
               : selectedCat === "Giochi da tavolo"
-                ? "Cerca un boardgame..."
-                : "Cerca un titolo...";
+                ? copy.placeholders.boardgame
+                : copy.placeholders.title;
 
   return (
     <div ref={wrapRef} className="relative">
@@ -400,7 +424,7 @@ export function CategorySelector({
             <span className="truncate">
               {parsed?.subcategory
                 ? parsed.subcategory.trim()
-                : parsed?.category}
+                : getCategoryDisplayLabel(parsed?.category || "", locale)}
             </span>
             <X size={11} className="flex-shrink-0 ml-0.5" />
           </span>
@@ -458,7 +482,7 @@ export function CategorySelector({
                         className="text-zinc-400 group-hover:text-white transition-colors"
                       />
                       <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">
-                        {cat}
+                        {getCategoryDisplayLabel(cat, locale)}
                       </span>
                     </button>
                   ))}
@@ -477,7 +501,7 @@ export function CategorySelector({
                         className="text-zinc-400 group-hover:text-white transition-colors"
                       />
                       <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">
-                        {cat}
+                        {getCategoryDisplayLabel(cat, locale)}
                       </span>
                     </button>
                   ))}
@@ -506,7 +530,7 @@ export function CategorySelector({
                       style={{ color: "var(--accent)" }}
                     />
                     <span className="text-sm font-semibold text-white flex-1 truncate">
-                      {selectedCat}
+                      {getCategoryDisplayLabel(selectedCat, locale)}
                     </span>
                     <button
                       type="button"
@@ -532,7 +556,7 @@ export function CategorySelector({
                       placeholder={
                         hasApiSupport
                           ? searchPlaceholder
-                          : "Titolo specifico..."
+                          : copy.placeholders.title
                       }
                       className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
                     />
@@ -598,7 +622,7 @@ export function CategorySelector({
                       }}
                     >
                       <Check size={13} />
-                      Usa{" "}
+                      {copy.use}{" "}
                       <strong className="font-semibold">
                         "{subInput.trim()}"
                       </strong>
@@ -640,7 +664,9 @@ export function CategorySelector({
                     }}
                     className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1"
                   >
-                    Usa solo medium "{selectedCat}"
+                    {copy.useOnlyMedium(
+                      getCategoryDisplayLabel(selectedCat, locale),
+                    )}
                   </button>
                 );
                 return openAboveRef.current ? (
@@ -747,9 +773,7 @@ export function CategoryFilter({
 
   const parsed = parseCategoryString(activeFilter);
   const displayLabel = activeFilter
-    ? parsed?.subcategory
-      ? parsed.subcategory.trim()
-      : parsed?.category || copy.filterByMedium
+    ? getCategoryFilterDisplayLabel(activeFilter, locale) || activeFilter
     : copy.filterByMedium;
 
   return (
@@ -806,7 +830,7 @@ export function CategoryFilter({
                   }`}
                 >
                   <CategoryIcon category={cat} size={11} />
-                  {cat}
+                  {getCategoryDisplayLabel(cat, locale)}
                 </button>
               ))}
             </div>
@@ -822,7 +846,7 @@ export function CategoryFilter({
                   }`}
                 >
                   <CategoryIcon category={cat} size={11} />
-                  {cat}
+                  {getCategoryDisplayLabel(cat, locale)}
                 </button>
               ))}
             </div>

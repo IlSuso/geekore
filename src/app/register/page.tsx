@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { Eye, EyeOff, Zap, CheckCircle, Mail, Gamepad2, Layers, Tv, Film, Sparkles, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Zap, CheckCircle, Mail, Gamepad2, Swords, Layers, Tv, Film, Dices, ArrowRight } from 'lucide-react'
 import { useLocale } from '@/lib/locale'
 import { PrimitiveButton } from '@/components/ui/PrimitiveButton'
 
@@ -25,18 +25,20 @@ function LocaleToggle() {
 function registerBrandItems(locale: 'it' | 'en') {
   return locale === 'en'
     ? [
-      { icon: Gamepad2, label: 'Games & Steam', color: '#7C3AED' },
-      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Gamepad2, label: 'Games', color: '#7C3AED' },
+      { icon: Swords, label: 'Anime', color: '#E6FF3D' },
+      { icon: Layers, label: 'Manga', color: '#22C55E' },
       { icon: Tv, label: 'TV Shows', color: '#0EA5E9' },
-      { icon: Film, label: 'Movies & Letterboxd', color: '#F97316' },
-      { icon: Sparkles, label: 'AI recommendations', color: '#EC4899' },
+      { icon: Film, label: 'Movies', color: '#F97316' },
+      { icon: Dices, label: 'Board Games', color: '#F59E0B' },
     ]
     : [
-      { icon: Gamepad2, label: 'Videogiochi & Steam', color: '#7C3AED' },
-      { icon: Layers, label: 'Anime & Manga', color: '#E6FF3D' },
+      { icon: Gamepad2, label: 'Videogiochi', color: '#7C3AED' },
+      { icon: Swords, label: 'Anime', color: '#E6FF3D' },
+      { icon: Layers, label: 'Manga', color: '#22C55E' },
       { icon: Tv, label: 'Serie TV', color: '#0EA5E9' },
-      { icon: Film, label: 'Film & Letterboxd', color: '#F97316' },
-      { icon: Sparkles, label: 'Raccomandazioni AI', color: '#EC4899' },
+      { icon: Film, label: 'Film', color: '#F97316' },
+      { icon: Dices, label: 'Board Game', color: '#F59E0B' },
     ]
 }
 
@@ -179,7 +181,7 @@ export default function RegisterPage() {
       </div>
       <div>
         <label style={labelStyle}>{hero.username} <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>({hero.optional})</span></label>
-        <input type="text" value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="es. edo_geek" autoComplete="username"
+        <input type="text" value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder={locale === 'en' ? 'e.g. movie_fan' : 'es. cinefilo92'} autoComplete="username"
           className="auth-input w-full h-12 rounded-2xl px-4 text-sm font-medium outline-none" style={inputStyle} />
       </div>
       <div>
@@ -284,11 +286,7 @@ export default function RegisterPage() {
 
         {/* Right: form */}
         <div className="flex flex-1 flex-col overflow-y-auto">
-          <div className="flex h-14 items-center justify-between px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              {hero.haveAccount}{' '}
-              <Link href="/login" className="font-black" style={{ color: 'var(--accent)' }}>{hero.login}</Link>
-            </span>
+          <div className="flex h-14 items-center justify-end px-12 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <LocaleToggle />
           </div>
 
