@@ -51,8 +51,16 @@ function PageTitle({ title, icon }: PageTitleProps) {
   )
 }
 
-export function MobileHeader() {
-  const pathname = usePathname()
+interface MobileHeaderProps {
+  pathnameOverride?: string
+  embeddedInTabPanel?: boolean
+}
+
+const KEEP_ALIVE_MOBILE_HEADER_ROUTES = new Set(['/home', '/for-you', '/swipe', '/discover', '/friends'])
+
+export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: MobileHeaderProps = {}) {
+  const realPathname = usePathname()
+  const pathname = pathnameOverride ?? realPathname
   const { t, locale } = useLocale()
   const copy = appCopy(locale)
   const [unread, setUnread] = useState(false)
@@ -83,6 +91,11 @@ export function MobileHeader() {
   }, [authUser, pathname]) // eslint-disable-line
 
   if (pathname === '/' || AUTH_PATHS.some(p => pathname.startsWith(p))) return null
+
+  // Sulle tab keep-alive l'header mobile viene renderizzato dentro ogni panel.
+  // Così durante lo swipe orizzontale header e pagina scorrono insieme, senza
+  // dover fare spazio a un header globale fisso.
+  if (!embeddedInTabPanel && KEEP_ALIVE_MOBILE_HEADER_ROUTES.has(pathname)) return null
 
   const isFeed = pathname === '/home'
   const isOwnProfile = mounted && (pathname === '/profile/me' || (username && pathname === `/profile/${username}`))
@@ -190,7 +203,7 @@ export function MobileHeader() {
     <>
       <header
         data-no-swipe="true"
-        className="swipe-header fixed left-0 right-0 top-0 z-[99] border-b border-[var(--border)] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl md:hidden"
+        className={`${embeddedInTabPanel ? 'gk-panel-mobile-header' : 'gk-mobile-header swipe-header'} fixed left-0 right-0 top-0 z-[99] border-b border-[var(--border)] bg-[rgba(11,11,15,0.92)] backdrop-blur-2xl md:hidden`}
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           visibility: isSwipePage ? 'hidden' : 'visible',
@@ -198,11 +211,11 @@ export function MobileHeader() {
         }}
         aria-hidden={isSwipePage}
       >
-        <div className="flex h-[52px] items-center justify-between px-3">
-          <div className="flex min-w-0 flex-1 items-center">
+        <div className="flex h-[52px] w-full items-center gap-2 px-3">
+          <div className="flex min-w-0 flex-1 items-center justify-start">
             {renderLeft()}
           </div>
-          <div className="flex flex-shrink-0 items-center gap-0.5">
+          <div className="ml-auto flex flex-shrink-0 items-center justify-end gap-0.5">
             {renderRight()}
           </div>
         </div>

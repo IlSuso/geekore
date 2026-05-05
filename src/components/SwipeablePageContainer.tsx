@@ -17,37 +17,17 @@ const VEL_THRESHOLD = 0.5
 const MIN_DIST_VEL = 30
 const EDGE = 20
 
-const INTERACTIVE_ROLES = new Set([
-  'button', 'link', 'checkbox', 'switch', 'tab', 'radio', 'menuitem',
-  'option', 'slider', 'spinbutton', 'textbox', 'combobox', 'searchbox',
-])
 
-const INTERACTIVE_SELECTOR = [
-  'a[href]', 'button', 'input', 'textarea', 'select', 'label', 'summary',
-  '[contenteditable="true"]', '[role="button"]', '[role="link"]',
-  '[role="checkbox"]', '[role="switch"]', '[role="tab"]', '[role="radio"]',
+const HARD_BLOCK_SELECTOR = [
+  'input', 'textarea', 'select', '[contenteditable="true"]',
   '[role="slider"]', '[role="spinbutton"]', '[role="textbox"]', '[role="combobox"]',
-  '[data-no-swipe="true"]', '[data-interactive="true"]', '[data-drawer="true"]',
-  '[data-modal="true"]', '[aria-modal="true"]', '[aria-disabled="true"]',
+  'form', 'fieldset', 'dialog', '[data-drawer="true"]', '[data-modal="true"]', '[aria-modal="true"]',
 ].join(',')
 
-function isInteractiveTarget(target: EventTarget | null): boolean {
+function isHardBlockTarget(target: EventTarget | null): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
-    const tag = node.tagName.toLowerCase()
-    const role = node.getAttribute('role')
-    if (
-      node.matches?.(INTERACTIVE_SELECTOR) ||
-      INTERACTIVE_ROLES.has(role || '') ||
-      tag === 'form' || tag === 'fieldset' || tag === 'dialog' ||
-      node.isContentEditable ||
-      node.dataset?.noSwipe === 'true' ||
-      node.dataset?.interactive === 'true' ||
-      node.dataset?.drawer === 'true' ||
-      node.dataset?.modal === 'true'
-    ) {
-      return true
-    }
+    if (node.matches?.(HARD_BLOCK_SELECTOR) || node.isContentEditable) return true
     node = node.parentElement
   }
   return false
@@ -60,21 +40,30 @@ function isScrollableOnAxis(node: HTMLElement, axis: 'x' | 'y'): boolean {
   return axis === 'x' ? node.scrollWidth > node.clientWidth : node.scrollHeight > node.clientHeight
 }
 
-function isHorizontalScroller(target: EventTarget | null, dx: number): boolean {
+function canScrollableConsumeHorizontal(node: HTMLElement, dx: number): boolean {
+  if (!isScrollableOnAxis(node, 'x')) return false
+  const { scrollLeft, scrollWidth, clientWidth } = node
+  const atStart = scrollLeft <= 0
+  const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
+  // dx > 0 = dito verso destra: il contenuto può ancora andare verso sinistra solo se non è già all'inizio.
+  // dx < 0 = dito verso sinistra: il contenuto può ancora andare verso destra solo se non è già alla fine.
+  return dx > 0 ? !atStart : !atEnd
+}
+
+function isHorizontalGestureConsumedInside(target: EventTarget | null, dx: number): boolean {
   let node = target as HTMLElement | null
   while (node && node.tagName !== 'BODY') {
-    if (node.dataset && 'noSwipe' in node.dataset) return true
-    if (node.dataset?.horizontalScroll === 'true') return true
+    // La card Swipe ha priorità assoluta sul cambio pagina. Quando SwipeMode decide
+    // esplicitamente che il gesto è "page" imposta gestureState.pageSwipeZone=true,
+    // quindi questo blocco viene bypassato dal caller.
+    if (node.dataset?.swipeCard === 'true') return true
 
-    if (isScrollableOnAxis(node, 'x')) {
-      const { scrollLeft, scrollWidth, clientWidth } = node
-      const atStart = scrollLeft <= 0
-      const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
-      if (dx > 0 ? !atStart : !atEnd) return true
+    // Pills/carousel/scroller hanno priorità SOLO se possono davvero scrollare nella
+    // direzione del gesto. Se sono già a inizio/fine, il gesto passa al cambio pagina.
+    if (node.dataset?.horizontalScroll === 'true' || isScrollableOnAxis(node, 'x')) {
+      if (canScrollableConsumeHorizontal(node, dx)) return true
     }
 
-    // Se un blocco scrolla verticalmente ed è dentro un dialog/drawer, lasciamo
-    // priorità allo scroll interno: evita swipe accidentali mentre si legge o si compila.
     if (isScrollableOnAxis(node, 'y') && (node.closest('[role="dialog"], [aria-modal="true"], [data-drawer="true"], [data-modal="true"]'))) {
       return true
     }
@@ -150,7 +139,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
 
       if (first) {
         const w = window.innerWidth
-        if (x <= EDGE || x >= w - EDGE || isInteractiveTarget(target)) {
+        if (x <= EDGE || x >= w - EDGE || isHardBlockTarget(target)) {
           cancel()
           return memo
         }
@@ -172,7 +161,7 @@ export function SwipeablePageContainer({ children }: { children: ReactNode }) {
       }
       if (memoState.locked === 'y') return memoState
 
-      if (!gestureState.pageSwipeZone && (isHorizontalScroller(target, mx) || isInteractiveTarget(target))) {
+      if (!gestureState.pageSwipeZone && isHorizontalGestureConsumedInside(target, mx)) {
         cancel()
         return memoState
       }

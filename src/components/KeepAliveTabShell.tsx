@@ -20,15 +20,22 @@ import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 import { useLocale } from '@/lib/locale'
+import { MobileHeader } from '@/components/MobileHeader'
 
 type KATab = 'feed' | 'for-you' | 'swipe' | 'discover' | 'friends'
 
 const ALL_TABS: KATab[] = ['feed', 'for-you', 'swipe', 'discover', 'friends']
 const TAB_IDX_TO_KA: Array<KATab | null> = ['feed', 'for-you', 'swipe', 'discover', 'friends']
+const KA_TO_PATH: Record<KATab, string> = {
+  feed: '/home',
+  'for-you': '/for-you',
+  swipe: '/swipe',
+  discover: '/discover',
+  friends: '/friends',
+}
 
 const HEADER_H_PX  = 53
 const HEADER_TOP   = `calc(env(safe-area-inset-top, 0px) + ${HEADER_H_PX}px)`
-const PANEL_HEIGHT = `calc(100dvh - env(safe-area-inset-top, 0px) - ${HEADER_H_PX}px)`
 
 const SPRING_NAV = {
   type: 'spring' as const,
@@ -56,14 +63,19 @@ function getKATab(pathname: string): KATab | null {
   return null
 }
 
-function panelBaseStyle(): CSSProperties {
+function panelBaseStyle(panelTab: KATab): CSSProperties {
+  const isSwipePanel = panelTab === 'swipe'
+
   return {
     position:  'fixed',
-    top:       HEADER_TOP,
+    // Tutti i panel partono da top=0. L'header mobile ora vive dentro
+    // il panel stesso, quindi durante lo swipe orizzontale si muove insieme
+    // alla pagina e non forza più un reflow/abbassamento del contenuto.
+    top:       0,
     left:      0,
     width:     '100%',
-    height:    PANEL_HEIGHT,
-    overflowY: 'auto',
+    height:    '100dvh',
+    overflowY: isSwipePanel ? 'hidden' : 'auto',
     overflowX: 'hidden',
     touchAction: 'pan-y',
     overscrollBehavior: 'contain',
@@ -73,11 +85,12 @@ function panelBaseStyle(): CSSProperties {
 }
 
 function PanelWrapper({
-  divRef, style, isActive, children,
+  divRef, style, isActive, panelTab, children,
 }: {
   divRef: MutableRefObject<HTMLDivElement | null>
   style: CSSProperties
   isActive: boolean
+  panelTab: KATab
   children: ReactNode
 }) {
   const scrollToTop = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -90,11 +103,18 @@ function PanelWrapper({
     current: divRef.current,
   }), [divRef, scrollToTop])
 
+  const isSwipePanel = panelTab === 'swipe'
+
   return (
     <TabActiveContext.Provider value={isActive}>
       <ScrollPanelContext.Provider value={scrollContextValue}>
-        <div ref={divRef} style={style} className="gk-tab-panel">
-          {children}
+        <div ref={divRef} style={style} className={`gk-tab-panel gk-tab-panel-${panelTab}`}>
+          {!isSwipePanel && (
+            <MobileHeader pathnameOverride={KA_TO_PATH[panelTab]} embeddedInTabPanel />
+          )}
+          <div style={isSwipePanel ? undefined : { paddingTop: HEADER_TOP }}>
+            {children}
+          </div>
         </div>
       </ScrollPanelContext.Provider>
     </TabActiveContext.Provider>
@@ -350,7 +370,7 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   }, [tab])
 
   const getPanelStyle = useCallback((panelTab: KATab): CSSProperties => {
-    const base = panelBaseStyle()
+    const base = panelBaseStyle(panelTab)
     if (tab === panelTab && pathnameTab) {
       return { ...base, zIndex: 2, pointerEvents: 'auto', visibility: 'visible' }
     }
@@ -396,31 +416,31 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Activity mode={activityMode('feed')}>
-        <PanelWrapper divRef={panelRefs.current.feed} isActive={pathnameTab === 'feed'} style={getPanelStyle('feed')}>
+        <PanelWrapper divRef={panelRefs.current.feed} panelTab="feed" isActive={pathnameTab === 'feed'} style={getPanelStyle('feed')}>
           {shouldMount('feed') && <FeedPage key={`feed-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('for-you')}>
-        <PanelWrapper divRef={panelRefs.current['for-you']} isActive={pathnameTab === 'for-you'} style={getPanelStyle('for-you')}>
+        <PanelWrapper divRef={panelRefs.current['for-you']} panelTab="for-you" isActive={pathnameTab === 'for-you'} style={getPanelStyle('for-you')}>
           {shouldMount('for-you') && <ForYouPage key={`for-you-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('swipe')}>
-        <PanelWrapper divRef={panelRefs.current.swipe} isActive={pathnameTab === 'swipe'} style={getPanelStyle('swipe')}>
+        <PanelWrapper divRef={panelRefs.current.swipe} panelTab="swipe" isActive={pathnameTab === 'swipe'} style={getPanelStyle('swipe')}>
           {shouldMount('swipe') && <SwipePage key={`swipe-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('discover')}>
-        <PanelWrapper divRef={panelRefs.current.discover} isActive={pathnameTab === 'discover'} style={getPanelStyle('discover')}>
+        <PanelWrapper divRef={panelRefs.current.discover} panelTab="discover" isActive={pathnameTab === 'discover'} style={getPanelStyle('discover')}>
           {shouldMount('discover') && <DiscoverPage key={`discover-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>
 
       <Activity mode={activityMode('friends')}>
-        <PanelWrapper divRef={panelRefs.current.friends} isActive={pathnameTab === 'friends'} style={getPanelStyle('friends')}>
+        <PanelWrapper divRef={panelRefs.current.friends} panelTab="friends" isActive={pathnameTab === 'friends'} style={getPanelStyle('friends')}>
           {shouldMount('friends') && <FriendsPage key={`friends-${localeEpoch}`} />}
         </PanelWrapper>
       </Activity>

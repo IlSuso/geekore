@@ -228,87 +228,17 @@ function localizedDescriptionForSwipe(item: SwipeItem, locale: "it" | "en"): str
     || cleanDescriptionForDisplay(locale === "it" ? item.description_en : item.description_it);
 }
 
-const MIXED_SWIPE_TYPES: SwipeMediaType[] = [
-  "anime",
-  "manga",
-  "movie",
-  "tv",
-  "game",
-  "boardgame",
-];
-
-function rotateTypesAfter(lastType?: SwipeMediaType): SwipeMediaType[] {
-  if (!lastType) return MIXED_SWIPE_TYPES;
-  const index = MIXED_SWIPE_TYPES.indexOf(lastType);
-  if (index < 0) return MIXED_SWIPE_TYPES;
-  return [
-    ...MIXED_SWIPE_TYPES.slice(index + 1),
-    ...MIXED_SWIPE_TYPES.slice(0, index + 1),
-  ];
+// L'ordine della Swipe NON viene più rimescolato nel client.
+// Il mixing di "Tutti" deve essere deciso a monte quando la queue viene scritta
+// in Supabase; qui preserviamo esattamente l'ordine ricevuto.
+function preserveQueueOrder(items: SwipeItem[]): SwipeItem[] {
+  return items;
 }
 
-// Mix massimo per filtro "Tutti".
-// Non preserva l'ordine dell'API/queue, perché spesso arriva già raggruppato
-// tipo anime/anime/manga/manga. Qui trattiamo ogni categoria come una corsia
-// e peschiamo ciclicamente da tutte le corsie disponibili.
-function maximallyMixAllTypes(
-  items: SwipeItem[],
-  previousType?: SwipeMediaType,
-): SwipeItem[] {
-  if (items.length <= 1) return items;
-
-  const buckets = new Map<SwipeMediaType, SwipeItem[]>();
-  for (const type of MIXED_SWIPE_TYPES) buckets.set(type, []);
-  for (const item of items) {
-    const bucket = buckets.get(item.type);
-    if (bucket) bucket.push(item);
-  }
-
-  const out: SwipeItem[] = [];
-  let order = rotateTypesAfter(previousType);
-  let guard = 0;
-
-  while (out.length < items.length && guard < items.length * MIXED_SWIPE_TYPES.length) {
-    guard += 1;
-    let pushedThisRound = false;
-
-    for (const type of order) {
-      const bucket = buckets.get(type);
-      if (!bucket?.length) continue;
-
-      // Se possibile evita due card consecutive dello stesso tipo anche al confine
-      // tra queue vecchia e append nuovo. Se è rimasto solo quel tipo, allora lo consente.
-      const lastType = out[out.length - 1]?.type ?? previousType;
-      const hasAlternative = order.some((candidate) => {
-        if (candidate === lastType) return false;
-        return (buckets.get(candidate)?.length ?? 0) > 0;
-      });
-      if (hasAlternative && type === lastType) continue;
-
-      out.push(bucket.shift()!);
-      pushedThisRound = true;
-    }
-
-    if (!pushedThisRound) break;
-
-    // Ruota ogni giro: così non si crea sempre la sequenza fissa
-    // anime→manga→movie→tv→game→boardgame.
-    order = [...order.slice(1), order[0]];
-  }
-
-  // Fallback di sicurezza: se qualche item resta fuori per casi patologici, appendilo.
-  for (const type of MIXED_SWIPE_TYPES) {
-    const bucket = buckets.get(type) || [];
-    while (bucket.length) out.push(bucket.shift()!);
-  }
-
-  return out;
-}
-
-function appendQueueInPersistedOrder(
+function appendMixedQueue(
   current: SwipeItem[],
   incoming: SwipeItem[],
-  _filter: CategoryFilter,
+  filter: CategoryFilter,
 ): SwipeItem[] {
   if (incoming.length === 0) return current;
 
@@ -316,9 +246,11 @@ function appendQueueInPersistedOrder(
   const uniqueIncoming = incoming.filter((item) => !existingIds.has(item.id));
   if (uniqueIncoming.length === 0) return current;
 
-  // Non mischiare mai qui: l'ordine valido è quello persistito/ritornato da Supabase.
-  // Per "Tutti" il round-robin tra categorie viene deciso quando la queue viene scritta.
-  return [...current, ...uniqueIncoming];
+  void filter;
+  return [
+    ...current,
+    ...uniqueIncoming,
+  ];
 }
 
 function removeFromQueueById(queue: SwipeItem[], id: string): SwipeItem[] {
@@ -1203,14 +1135,15 @@ export function SwipeMode({
     setCurrentRating(r);
   }, []);
 
-  // La queue deve rispettare l'ordine persistito a monte in Supabase.
-// Niente mixing lato UI: se rientri nella Swipe page, lo stesso payload deve dare lo stesso deck.
+  // La queue parte nell'ordine ricevuto da Supabase; il client non rimescola mai.
   const initialPayloadKeyRef = useRef<string>(
     `${locale}:${initialItems.map((item) => item.id).join("|")}`,
   );
   const lastAppliedPayloadKeyRef = useRef(initialPayloadKeyRef.current);
 
-  const [queue, setQueue] = useState<SwipeItem[]>(() => initialItems);
+  const [queue, setQueue] = useState<SwipeItem[]>(() =>
+    preserveQueueOrder(initialItems),
+  );
   const [seenIds] = useState<Set<string>>(
     () => new Set(initialItems.map((i) => i.id)),
   );
@@ -1257,8 +1190,7 @@ export function SwipeMode({
     load();
   }, []); // eslint-disable-line
 
-  // filteredQueue: 'all' usa la queue così com'è arrivata da Supabase.
-  // Il mixing di "Tutti" va fatto a monte quando si scrive la queue, non qui.
+  // filteredQueue: 'all' uses queue directly (already interleaved at write-time).
   // Category filters just slice — no reordering.
   const filteredQueue =
     activeFilter === "all"
@@ -1317,7 +1249,7 @@ export function SwipeMode({
         setQueue((prev) => {
           const existingIds = new Set(prev.map((i) => i.id));
           const newItems = cachedFresh.filter((i) => !existingIds.has(i.id));
-          return appendQueueInPersistedOrder(prev, newItems, filter);
+          return appendMixedQueue(prev, newItems, filter);
         });
         cachedFresh.forEach((i) => seen.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1335,7 +1267,7 @@ export function SwipeMode({
           (i) => !seen.has(i.id) && !skipped.has(i.id),
         );
         if (fresh.length) {
-          setQueue((prev) => appendQueueInPersistedOrder(prev, fresh, filter));
+          setQueue((prev) => appendMixedQueue(prev, fresh, filter));
           fresh.forEach((i) => seen.add(i.id));
         } else {
           // Tutti già visti: svuota seenIds e riprova
@@ -1343,7 +1275,7 @@ export function SwipeMode({
           const retryItems = await onRequestMore(filter);
           const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
           if (retryFresh.length) {
-            setQueue((prev) => appendQueueInPersistedOrder(prev, retryFresh, filter));
+            setQueue((prev) => appendMixedQueue(prev, retryFresh, filter));
             retryFresh.forEach((i) => seen.add(i.id));
           }
         }
@@ -1389,7 +1321,7 @@ export function SwipeMode({
           const newItems = preloaded.filter(
             (i) => !existingIds.has(i.id) && !skipped.has(i.id),
           );
-          return appendQueueInPersistedOrder(prev, newItems, filter);
+          return appendMixedQueue(prev, newItems, filter);
         });
         preloaded.forEach((i) => seenIdsRef.current.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1543,7 +1475,8 @@ export function SwipeMode({
     lastAppliedPayloadKeyRef.current = payloadKey;
 
     if (isLocaleChange || hasNoCurrentQueue) {
-      setQueue(initialItems);
+      const freshQueue = preserveQueueOrder(initialItems);
+      setQueue(freshQueue);
       seenIdsRef.current = new Set(initialItems.map((i) => i.id));
       categoryQueues.current = {};
       categoryLoading.current = {};
@@ -1563,7 +1496,7 @@ export function SwipeMode({
     const removedCurrent = queueRef.current.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id));
 
     if (appendOnly.length > 0) {
-      setQueue((prev) => appendQueueInPersistedOrder(prev, appendOnly, "all"));
+      setQueue((prev) => appendMixedQueue(prev, appendOnly, "all"));
       appendOnly.forEach((item) => seenIdsRef.current.add(item.id));
     } else if (removedCurrent.length !== queueRef.current.length) {
       setQueue((prev) => prev.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id)));
@@ -1822,6 +1755,7 @@ export function SwipeMode({
                       : "min-w-0 flex-1 overflow-x-auto rounded-[24px] border border-white/5 bg-black/18 p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.18)] scrollbar-hide md:h-full md:overflow-y-auto md:overflow-x-hidden"
               }
               data-testid="swipe-filter-bar"
+              data-horizontal-scroll="true"
             >
               <div
                 className={
