@@ -1,0 +1,177 @@
+/* Swipe mobile — fast queue + sane loading.
+   Importare dopo tutti gli altri CSS mobile.
+*/
+
+@media (max-width: 767px) {
+  body:has(.gk-swipe-loading-shell) .mobile-nav,
+  body:has(.gk-swipe-mode) .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+    z-index: 120 !important;
+  }
+
+  body:has(.gk-swipe-loading-shell) .gk-mobile-header,
+  body:has(.gk-swipe-loading-shell) header.swipe-header,
+  body:has(.gk-swipe-mode) .gk-mobile-header,
+  body:has(.gk-swipe-mode) header.swipe-header {
+    display: none !important;
+  }
+
+  .gk-swipe-loading-shell {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background:
+      radial-gradient(720px 480px at 50% -18%, rgba(230,255,61,0.09), transparent 58%),
+      radial-gradient(520px 420px at 72% 22%, rgba(82,116,255,0.10), transparent 60%),
+      var(--bg-primary);
+    padding:
+      max(12px, env(safe-area-inset-top, 0px))
+      14px
+      calc(78px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .gk-swipe-loading-filters {
+    width: 100%;
+    max-width: 430px;
+    display: flex;
+    gap: 8px;
+    overflow: hidden;
+    padding: 4px 0 14px;
+  }
+
+  .gk-swipe-loading-filters span {
+    flex: 0 0 auto;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 18px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.48);
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .gk-swipe-loading-filters span.is-active {
+    background: var(--accent);
+    color: #08090d;
+  }
+
+  .gk-swipe-loading-card {
+    position: relative;
+    width: min(91vw, 390px);
+    height: min(61dvh, 540px);
+    min-height: 430px;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 178px);
+    overflow: hidden;
+    border-radius: 32px;
+    border: 1px solid rgba(255,255,255,0.09);
+    background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
+    box-shadow: 0 24px 70px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .gk-swipe-loading-poster {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.08) 42%, transparent 76%),
+      radial-gradient(circle at 50% 22%, rgba(230,255,61,0.13), transparent 34%),
+      linear-gradient(160deg, rgba(32,36,52,0.92), rgba(8,9,14,0.96));
+    background-size: 220% 100%, 100% 100%, 100% 100%;
+    animation: gk-swipe-skeleton 1.25s ease-in-out infinite;
+  }
+
+  .gk-swipe-loading-gradient {
+    position: absolute;
+    inset: 38% 0 0;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.78));
+  }
+
+  .gk-swipe-loading-content {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 22px;
+  }
+
+  .gk-swipe-loading-pill,
+  .gk-swipe-loading-title,
+  .gk-swipe-loading-line {
+    border-radius: 999px;
+    background: rgba(255,255,255,0.13);
+  }
+
+  .gk-swipe-loading-pill {
+    width: 92px;
+    height: 24px;
+    margin-bottom: 14px;
+  }
+
+  .gk-swipe-loading-title {
+    width: 78%;
+    height: 34px;
+    margin-bottom: 12px;
+  }
+
+  .gk-swipe-loading-line {
+    width: 100%;
+    height: 13px;
+    margin-top: 8px;
+  }
+
+  .gk-swipe-loading-line.short {
+    width: 58%;
+  }
+
+  .gk-swipe-mode {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-card-stack'] {
+    width: min(91vw, 390px) !important;
+    max-width: min(91vw, 390px) !important;
+    height: min(60dvh, 540px) !important;
+    min-height: 430px !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 178px) !important;
+    overflow: visible !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-card-stack']::before,
+  .gk-swipe-mode [data-testid='swipe-card-stack']::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-card-stack'] * {
+    border-color: inherit;
+  }
+
+  @keyframes gk-swipe-skeleton {
+    0% { background-position: 160% 0, 0 0, 0 0; }
+    100% { background-position: -60% 0, 0 0, 0 0; }
+  }
+
+  @media (max-height: 690px) {
+    .gk-swipe-loading-card,
+    .gk-swipe-mode [data-testid='swipe-card-stack'] {
+      height: min(56dvh, 450px) !important;
+      min-height: 360px !important;
+      max-height: calc(100dvh - 154px) !important;
+      border-radius: 28px;
+    }
+
+    .gk-swipe-loading-filters span {
+      height: 38px;
+      padding: 0 14px;
+      font-size: 12px;
+    }
+  }
+}

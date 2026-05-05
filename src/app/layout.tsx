@@ -10,7 +10,9 @@ import './full-wireframe.css'
 import './media-drawer-final.css'
 import './notifications-final.css'
 import './ui-polish-fixes.css'
-import './mobile-polish.css'
+import './swipe-fast-mobile-fix.css'
+import './headbar-swipe-scope-fix.css'
+import './mobile-nav-absolute-final.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>

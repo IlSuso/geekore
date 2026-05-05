@@ -145,7 +145,7 @@ function PulseCard({ currentUserId }: { currentUserId: string | null }) {
     Promise.all([
       supabase
         .from("follows")
-        .select("id", { count: "exact", head: true })
+        .select("following_id", { count: "exact", head: true })
         .eq("follower_id", currentUserId),
       supabase
         .from("posts")

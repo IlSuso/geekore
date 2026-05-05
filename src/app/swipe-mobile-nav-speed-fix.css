@@ -1,0 +1,75 @@
+/* Swipe mobile navbar + perceived speed fix.
+   Importato dopo i fix mobile precedenti.
+*/
+
+@media (max-width: 767px) {
+  /* La navbar deve restare visibile anche in Swipe. */
+  body:has(.gk-swipe-mode) .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+    z-index: 120 !important;
+  }
+
+  body:has(.gk-swipe-mode) .gk-mobile-header,
+  body:has(.gk-swipe-mode) header.swipe-header {
+    display: none !important;
+  }
+
+  .gk-swipe-page-shell {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--bg-primary);
+  }
+
+  .gk-swipe-mode {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-card-stack'] {
+    height: min(61dvh, 540px) !important;
+    min-height: min(58dvh, 470px) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 176px) !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-filter-bar'] {
+    margin-top: max(10px, env(safe-area-inset-top, 0px)) !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-details'] {
+    display: flex !important;
+  }
+
+  .gk-swipe-mode [data-testid='swipe-card-stack'] [data-placeholder-card],
+  .gk-swipe-mode [data-testid='swipe-card-stack'] img[src=''],
+  .gk-swipe-mode [data-testid='swipe-card-stack'] img:not([src]) {
+    background:
+      linear-gradient(135deg, rgba(230,255,61,0.16), rgba(255,255,255,0.04)),
+      var(--bg-secondary) !important;
+  }
+
+  @media (max-height: 700px) {
+    .gk-swipe-mode [data-testid='swipe-card-stack'] {
+      height: min(58dvh, 470px) !important;
+      min-height: 390px !important;
+      max-height: calc(100dvh - 160px) !important;
+    }
+  }
+
+  @media (max-height: 630px) {
+    .gk-swipe-mode [data-testid='swipe-card-stack'] {
+      height: min(54dvh, 400px) !important;
+      min-height: 340px !important;
+      max-height: calc(100dvh - 148px) !important;
+    }
+
+    .gk-swipe-mode [data-testid='swipe-filter-bar'] button {
+      height: 32px !important;
+      min-height: 32px !important;
+      font-size: 11px !important;
+    }
+  }
+}

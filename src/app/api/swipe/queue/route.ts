@@ -49,6 +49,65 @@ function toQueueRow(row: any, userId: string) {
 
 type QueueRow = NonNullable<ReturnType<typeof toQueueRow>>
 
+function compactQueueRow(row: QueueRow) {
+  // Versione compatibile con schema queue vecchio/minimo.
+  // Serve quando Supabase non ha ancora colonne nuove tipo localized/title_en/description_en.
+  return {
+    user_id: row.user_id,
+    external_id: row.external_id,
+    title: row.title,
+    type: row.type,
+    cover_image: row.cover_image,
+    genres: row.genres,
+    year: row.year,
+    score: row.score,
+    episodes: row.episodes,
+    match_score: row.match_score,
+    why: row.why,
+    source: row.source,
+    inserted_at: (row as any).inserted_at,
+  }
+}
+
+function queueErrorPayload(error: any) {
+  return {
+    message: error?.message || null,
+    code: error?.code || null,
+    details: error?.details || null,
+    hint: error?.hint || null,
+  }
+}
+
+async function upsertQueueRows(supabase: Awaited<ReturnType<typeof createClient>>, table: string, rows: QueueRow[]) {
+  if (rows.length === 0) return { inserted: 0, degraded: false, error: null as any }
+
+  const full = await supabase
+    .from(table)
+    .upsert(rows, { onConflict: 'user_id,external_id' })
+
+  if (!full.error) return { inserted: rows.length, degraded: false, error: null as any }
+
+  // Se lo schema queue non contiene ancora alcune colonne nuove, proviamo con
+  // un payload minimo invece di far fallire tutta Swipe con HTTP 500.
+  const compactRows = rows.map(compactQueueRow)
+  const compact = await supabase
+    .from(table)
+    .upsert(compactRows, { onConflict: 'user_id,external_id' })
+
+  if (!compact.error) {
+    console.warn('[swipe/queue] full upsert failed, compact upsert used', table, queueErrorPayload(full.error))
+    return { inserted: compactRows.length, degraded: true, error: full.error }
+  }
+
+  console.warn('[swipe/queue] queue upsert skipped after errors', table, {
+    full: queueErrorPayload(full.error),
+    compact: queueErrorPayload(compact.error),
+  })
+
+  // La queue è solo cache/preload: non deve mai bloccare la Swipe page.
+  return { inserted: 0, degraded: true, error: compact.error }
+}
+
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:queue' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
@@ -71,21 +130,26 @@ export async function POST(request: NextRequest) {
     .slice(0, 100)
   if (rows.length === 0) return NextResponse.json({ success: true, inserted: 0 }, { headers: rl.headers })
 
-  const { error } = await supabase
-    .from(queueTable(queue))
-    .upsert(rows, { onConflict: 'user_id,external_id' })
-
-  if (error) return NextResponse.json({ error: 'queue non aggiornata' }, { status: 500, headers: rl.headers })
+  const primary = await upsertQueueRows(supabase, queueTable(queue), rows)
+  let mirrorDegraded = false
 
   if (body?.mirrorByType === true) {
     const types = [...new Set(rows.map(row => row.type))]
       .filter(type => cleanMediaType(type) !== null)
 
-    await Promise.all(types.map(type => {
+    const mirrors = await Promise.allSettled(types.map(async (type) => {
       const typedRows = rows.filter((row: any) => row.type === type)
-      return supabase.from(queueTable(type)).upsert(typedRows, { onConflict: 'user_id,external_id' })
+      return upsertQueueRows(supabase, queueTable(type), typedRows)
     }))
+
+    mirrorDegraded = mirrors.some(result =>
+      result.status === 'rejected' || result.value.degraded,
+    )
   }
 
-  return NextResponse.json({ success: true, inserted: rows.length }, { headers: rl.headers })
+  return NextResponse.json({
+    success: true,
+    inserted: primary.inserted,
+    degraded: primary.degraded || mirrorDegraded,
+  }, { headers: rl.headers })
 }

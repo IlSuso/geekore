@@ -297,8 +297,12 @@ export default function Navbar() {
         </div>
       </aside>
 
-      <nav className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]" data-no-swipe="true" style={{ paddingBottom: 'env(safe-area-inset-bottom)', background: 'rgba(11,11,15,0.97)' }}>
-        <div className="flex h-[58px] items-stretch px-1">
+      <nav
+        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
+        data-no-swipe="true"
+        aria-label={locale === 'it' ? 'Navigazione mobile' : 'Mobile navigation'}
+      >
+        <div className="mobile-nav-inner">
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab
@@ -306,22 +310,22 @@ export default function Navbar() {
               : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
 
             return (
-              <button key={item.href}
+              <button
+                key={item.href}
                 type="button"
                 data-no-swipe="true"
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className="relative flex flex-1 flex-col items-center justify-center gap-[3px] border-0 bg-transparent py-2"
+                className={`mobile-nav-item ${isActive ? 'is-active' : ''}`}
                 onClick={() => navigateToTab(item.href)}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {isActive && <span className="absolute top-0 left-1/2 h-[2px] w-7 -translate-x-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_rgba(230,255,61,0.45)]" />}
                 <item.icon
-                  size={21}
-                  strokeWidth={isActive ? 2.35 : 1.65}
+                  className="mobile-nav-icon"
+                  size={18}
+                  strokeWidth={isActive ? 2.35 : 1.75}
                   style={{ color: isActive ? 'var(--accent)' : undefined, fill: isActive ? 'var(--accent)' : 'none' }}
-                  className={isActive ? 'drop-shadow-[0_0_10px_rgba(230,255,61,0.18)]' : 'text-zinc-500'}
                 />
-                <span className={`text-[11px] leading-none font-bold tracking-[-0.01em] ${isActive ? '' : 'text-zinc-500'}`} style={{ color: isActive ? 'var(--accent)' : undefined }}>
+                <span className="mobile-nav-label" style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>

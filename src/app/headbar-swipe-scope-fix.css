@@ -1,0 +1,43 @@
+/* Headbar scope fix.
+   Il problema era body:has(.gk-swipe-mode): con KeepAlive, Swipe resta nel DOM
+   anche quando non è la tab attiva, quindi la mobile headbar veniva nascosta ovunque.
+*/
+
+@media (max-width: 767px) {
+  /* Ripristino default: la headbar NON deve essere nascosta solo perché Swipe esiste nel DOM. */
+  body:not(.gk-swipe-route-active) .gk-mobile-header {
+    display: flex !important;
+  }
+
+  body:not(.gk-swipe-route-active) header.swipe-header {
+    display: flex !important;
+  }
+
+  body:not(.gk-swipe-route-active) .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+  }
+
+  /* Nascondi header solo quando la Swipe tab è davvero attiva. */
+  body.gk-swipe-route-active .gk-mobile-header,
+  body.gk-swipe-route-active header.swipe-header {
+    display: none !important;
+  }
+
+  body.gk-swipe-route-active .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+    z-index: 120 !important;
+  }
+
+  /* Neutralizza vecchi selector :has importati prima. */
+  body:has(.gk-swipe-mode):not(.gk-swipe-route-active) .gk-mobile-header {
+    display: flex !important;
+  }
+
+  body:has(.gk-swipe-mode):not(.gk-swipe-route-active) header.swipe-header {
+    display: flex !important;
+  }
+}

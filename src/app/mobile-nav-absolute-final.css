@@ -1,0 +1,206 @@
+/* Geekore mobile nav absolute final
+   Questo file deve essere importato DOPO tutti gli altri CSS.
+   Neutralizza tutte le vecchie regole `.mobile-nav` e ricostruisce una navbar bassa.
+*/
+
+@media (max-width: 767px) {
+  :root {
+    --gk-mobile-nav-content-h: 44px;
+    --gk-mobile-nav-total-h: calc(var(--gk-mobile-nav-content-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  html body:not(.no-mobile-nav):not(.gk-swipe-route-active) {
+    padding-bottom: var(--gk-mobile-nav-total-h) !important;
+  }
+
+  html body.gk-swipe-route-active {
+    padding-bottom: 0 !important;
+  }
+
+  html body .mobile-nav.mobile-nav {
+    position: fixed !important;
+    inset-inline: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    z-index: 2147483000 !important;
+
+    display: block !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    height: var(--gk-mobile-nav-total-h) !important;
+    min-height: var(--gk-mobile-nav-total-h) !important;
+    max-height: var(--gk-mobile-nav-total-h) !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding:
+      0
+      env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px) !important;
+
+    overflow: hidden !important;
+    border: 0 !important;
+    border-top: 0 !important;
+    border-radius: 0 !important;
+    outline: 0 !important;
+
+    background: rgb(7 7 10 / 0.99) !important;
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.20) !important;
+    backdrop-filter: blur(12px) saturate(130%) !important;
+    transform: translate3d(0,0,0) !important;
+  }
+
+  html body .mobile-nav.mobile-nav::before,
+  html body .mobile-nav.mobile-nav::after,
+  html body .mobile-nav.mobile-nav button::before,
+  html body .mobile-nav.mobile-nav button::after,
+  html body .mobile-nav.mobile-nav [aria-current='page']::before,
+  html body .mobile-nav.mobile-nav [aria-current='page']::after,
+  html body .mobile-nav.mobile-nav span.absolute,
+  html body .mobile-nav.mobile-nav .mobile-nav-active-bg {
+    display: none !important;
+    content: none !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-inner {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: start !important;
+
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: var(--gk-mobile-nav-content-h) !important;
+    min-height: var(--gk-mobile-nav-content-h) !important;
+    max-height: var(--gk-mobile-nav-content-h) !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 1px 6px 0 !important;
+    gap: 0 !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-item,
+  html body .mobile-nav.mobile-nav button.mobile-nav-item {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: var(--gk-mobile-nav-content-h) !important;
+    min-height: var(--gk-mobile-nav-content-h) !important;
+    max-height: var(--gk-mobile-nav-content-h) !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 4px 0 0 !important;
+    gap: 1px !important;
+
+    color: rgb(113 113 122) !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    line-height: 1 !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-item.is-active {
+    color: var(--accent) !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-icon {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    max-width: 18px !important;
+    max-height: 18px !important;
+    flex: 0 0 18px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-item.is-active .mobile-nav-icon {
+    filter: drop-shadow(0 0 6px rgb(230 255 61 / 0.20)) !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-label {
+    display: block !important;
+    width: 100% !important;
+    max-width: 56px !important;
+    min-width: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+
+    color: rgb(113 113 122) !important;
+    text-align: center !important;
+    font-family: inherit !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    line-height: 10px !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  html body .mobile-nav.mobile-nav .mobile-nav-item.is-active .mobile-nav-label {
+    color: var(--accent) !important;
+  }
+
+  html body.no-mobile-nav .mobile-nav.mobile-nav {
+    display: none !important;
+  }
+
+  html body.gk-swipe-route-active .mobile-nav.mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+  }
+
+  @media (max-width: 374px) {
+    :root {
+      --gk-mobile-nav-content-h: 42px;
+    }
+
+    html body .mobile-nav.mobile-nav .mobile-nav-inner {
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+    }
+
+    html body .mobile-nav.mobile-nav .mobile-nav-item,
+    html body .mobile-nav.mobile-nav button.mobile-nav-item {
+      padding-top: 3px !important;
+    }
+
+    html body .mobile-nav.mobile-nav .mobile-nav-icon {
+      width: 17px !important;
+      height: 17px !important;
+      min-width: 17px !important;
+      min-height: 17px !important;
+      flex-basis: 17px !important;
+    }
+
+    html body .mobile-nav.mobile-nav .mobile-nav-label {
+      max-width: 48px !important;
+      font-size: 8.5px !important;
+      line-height: 9px !important;
+    }
+  }
+}

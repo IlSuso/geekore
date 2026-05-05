@@ -1,0 +1,86 @@
+/* Mobile nav vertical compact fix
+   Riduce lo spazio nero sopra le icone: navbar più compatta e contenuto alzato/centrato.
+   Importare dopo mobile-nav-sober.css.
+*/
+
+@media (max-width: 767px) {
+  :root {
+    --gk-mobile-nav-h: 46px;
+    --gk-mobile-nav-total-h: calc(var(--gk-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  body:not(.no-mobile-nav):not(.gk-swipe-route-active) {
+    padding-bottom: var(--gk-mobile-nav-total-h) !important;
+  }
+
+  .mobile-nav {
+    height: var(--gk-mobile-nav-total-h) !important;
+    min-height: var(--gk-mobile-nav-total-h) !important;
+    max-height: var(--gk-mobile-nav-total-h) !important;
+    background: rgba(8, 8, 12, 0.985) !important;
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.16) !important;
+  }
+
+  .mobile-nav-inner {
+    height: var(--gk-mobile-nav-h) !important;
+    min-height: var(--gk-mobile-nav-h) !important;
+    max-height: var(--gk-mobile-nav-h) !important;
+    padding: 0 7px 2px !important;
+    align-items: center !important;
+  }
+
+  .mobile-nav-item {
+    height: 43px !important;
+    min-height: 43px !important;
+    max-height: 43px !important;
+    padding: 1px 1px 2px !important;
+    gap: 1px !important;
+    justify-content: center !important;
+  }
+
+  .mobile-nav-item svg {
+    width: 18px !important;
+    height: 18px !important;
+    margin-top: 0 !important;
+    margin-bottom: 1px !important;
+  }
+
+  .mobile-nav-label {
+    font-size: 9px !important;
+    line-height: 1 !important;
+    max-width: 56px !important;
+  }
+
+  body.gk-swipe-route-active .mobile-nav {
+    height: var(--gk-mobile-nav-total-h) !important;
+    min-height: var(--gk-mobile-nav-total-h) !important;
+    max-height: var(--gk-mobile-nav-total-h) !important;
+  }
+
+  @media (max-width: 374px) {
+    :root {
+      --gk-mobile-nav-h: 44px;
+    }
+
+    .mobile-nav-inner {
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+    }
+
+    .mobile-nav-item {
+      height: 41px !important;
+      min-height: 41px !important;
+      max-height: 41px !important;
+    }
+
+    .mobile-nav-item svg {
+      width: 17px !important;
+      height: 17px !important;
+    }
+
+    .mobile-nav-label {
+      font-size: 8.5px !important;
+      max-width: 48px !important;
+    }
+  }
+}

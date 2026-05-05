@@ -1,0 +1,357 @@
+/* Geekore Swipe Mobile Refined
+   Obiettivo: niente header, card più alta, meno vuoto sopra, filtri compatti, navbar sotto visibile.
+   Nessun body:has(.gk-swipe-mode): con KeepAlive romperebbe altre pagine.
+*/
+
+@media (max-width: 767px) {
+  :root {
+    --gk-swipe-nav-space: calc(70px + env(safe-area-inset-bottom, 0px));
+    --gk-swipe-top: max(8px, env(safe-area-inset-top, 0px));
+    --gk-swipe-filter-h: 46px;
+    --gk-swipe-gap: 8px;
+    --gk-swipe-card-w: min(92vw, 396px);
+    --gk-swipe-card-max-h: calc(100dvh - var(--gk-swipe-nav-space) - var(--gk-swipe-top) - var(--gk-swipe-filter-h) - var(--gk-swipe-gap) - 12px);
+  }
+
+  body.gk-swipe-route-active .gk-mobile-header,
+  body.gk-swipe-route-active header.swipe-header {
+    display: none !important;
+  }
+
+  body.gk-swipe-route-active .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+    z-index: 120 !important;
+  }
+
+  body:not(.gk-swipe-route-active) .gk-mobile-header {
+    display: flex !important;
+  }
+
+  body:not(.gk-swipe-route-active) .mobile-nav {
+    display: block !important;
+    pointer-events: auto !important;
+    transform: translateZ(0) !important;
+  }
+
+  .gk-swipe-mode.gk-swipe-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding: 0 0 var(--gk-swipe-nav-space) !important;
+    background:
+      radial-gradient(700px 430px at 50% -16%, rgba(230,255,61,0.065), transparent 58%),
+      radial-gradient(560px 470px at 72% 26%, rgba(37,99,235,0.10), transparent 62%),
+      #050507 !important;
+  }
+
+  .gk-swipe-filter-region {
+    position: absolute !important;
+    top: var(--gk-swipe-top) !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    height: var(--gk-swipe-filter-h) !important;
+    z-index: 40 !important;
+  }
+
+  .gk-swipe-filter-region [data-testid="swipe-filter-bar"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: var(--gk-swipe-filter-h) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,0.055) !important;
+    background: rgba(0,0,0,0.30) !important;
+    padding: 4px !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.22) !important;
+    backdrop-filter: blur(14px) saturate(145%);
+    scrollbar-width: none;
+  }
+
+  .gk-swipe-filter-region [data-testid="swipe-filter-bar"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gk-swipe-filter-region [data-testid="swipe-filter-bar"] > div {
+    justify-content: flex-start !important;
+    min-width: max-content !important;
+    gap: 6px !important;
+  }
+
+  .gk-swipe-filter-region button {
+    height: 38px !important;
+    min-height: 38px !important;
+    flex: 0 0 auto !important;
+    padding: 0 15px !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+  }
+
+  .gk-swipe-stage-area {
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding:
+      calc(var(--gk-swipe-top) + var(--gk-swipe-filter-h) + var(--gk-swipe-gap))
+      0
+      8px !important;
+    box-sizing: border-box !important;
+  }
+
+  .gk-swipe-stage-area > div,
+  .gk-swipe-card-stack {
+    width: var(--gk-swipe-card-w) !important;
+    min-width: var(--gk-swipe-card-w) !important;
+    max-width: var(--gk-swipe-card-w) !important;
+  }
+
+  .gk-swipe-card-stack {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    align-self: flex-start !important;
+    height: min(70dvh, 610px) !important;
+    min-height: min(68dvh, 520px) !important;
+    max-height: var(--gk-swipe-card-max-h) !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .gk-swipe-card-layer,
+  .gk-swipe-card {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .gk-swipe-card-layer {
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+  }
+
+  .gk-swipe-card {
+    display: block !important;
+    border-radius: 30px !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    box-shadow: 0 20px 56px rgba(0,0,0,0.48) !important;
+    overflow: hidden !important;
+  }
+
+  .gk-swipe-card img {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .gk-swipe-card h2 {
+    font-size: clamp(23px, 7.3vw, 32px) !important;
+    line-height: 0.96 !important;
+    letter-spacing: -0.045em !important;
+  }
+
+  .gk-swipe-card [data-testid="swipe-skip"],
+  .gk-swipe-card [data-testid="swipe-seen"] {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .gk-swipe-card [data-testid="swipe-undo"],
+  .gk-swipe-card [data-testid="swipe-wishlist"],
+  .gk-swipe-card [data-testid="swipe-details"] {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .gk-swipe-card [data-testid="swipe-details"] {
+    display: flex !important;
+  }
+
+  .gk-swipe-mode aside {
+    display: none !important;
+  }
+
+  .gk-swipe-loading-shell {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background:
+      radial-gradient(700px 430px at 50% -16%, rgba(230,255,61,0.065), transparent 58%),
+      radial-gradient(560px 470px at 72% 26%, rgba(37,99,235,0.10), transparent 62%),
+      #050507;
+    padding:
+      var(--gk-swipe-top)
+      10px
+      var(--gk-swipe-nav-space);
+    box-sizing: border-box;
+  }
+
+  .gk-swipe-loading-filters {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    height: var(--gk-swipe-filter-h);
+    display: flex;
+    gap: 8px;
+    overflow: hidden;
+    padding: 4px 0;
+  }
+
+  .gk-swipe-loading-filters span {
+    flex: 0 0 auto;
+    width: 74px;
+    height: 38px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+  }
+
+  .gk-swipe-loading-filters span.is-active {
+    width: 58px;
+    background: var(--accent);
+  }
+
+  .gk-swipe-loading-card {
+    position: relative;
+    width: var(--gk-swipe-card-w);
+    min-width: var(--gk-swipe-card-w);
+    max-width: var(--gk-swipe-card-w);
+    height: min(70dvh, 610px);
+    min-height: min(68dvh, 520px);
+    max-height: var(--gk-swipe-card-max-h);
+    margin-top: var(--gk-swipe-gap);
+    overflow: hidden;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.09);
+    background: linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
+    box-shadow: 0 20px 56px rgba(0,0,0,0.48);
+  }
+
+  .gk-swipe-loading-poster {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.08) 42%, transparent 76%),
+      radial-gradient(circle at 50% 22%, rgba(230,255,61,0.13), transparent 34%),
+      linear-gradient(160deg, rgba(32,36,52,0.92), rgba(8,9,14,0.96));
+    background-size: 220% 100%, 100% 100%, 100% 100%;
+    animation: gk-swipe-skeleton 1.25s ease-in-out infinite;
+  }
+
+  .gk-swipe-loading-gradient {
+    position: absolute;
+    inset: 38% 0 0;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.78));
+  }
+
+  .gk-swipe-loading-content {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 22px;
+  }
+
+  .gk-swipe-loading-pill,
+  .gk-swipe-loading-title,
+  .gk-swipe-loading-line {
+    border-radius: 999px;
+    background: rgba(255,255,255,0.13);
+  }
+
+  .gk-swipe-loading-pill {
+    width: 92px;
+    height: 24px;
+    margin-bottom: 14px;
+  }
+
+  .gk-swipe-loading-title {
+    width: 78%;
+    height: 34px;
+    margin-bottom: 12px;
+  }
+
+  .gk-swipe-loading-line {
+    width: 100%;
+    height: 13px;
+    margin-top: 8px;
+  }
+
+  .gk-swipe-loading-line.short {
+    width: 58%;
+  }
+
+  @keyframes gk-swipe-skeleton {
+    0% { background-position: 160% 0, 0 0, 0 0; }
+    100% { background-position: -60% 0, 0 0, 0 0; }
+  }
+
+  @media (max-height: 740px) {
+    :root {
+      --gk-swipe-gap: 7px;
+      --gk-swipe-filter-h: 42px;
+    }
+
+    .gk-swipe-filter-region button {
+      height: 34px !important;
+      min-height: 34px !important;
+      font-size: 12px !important;
+      padding: 0 13px !important;
+    }
+
+    .gk-swipe-card-stack,
+    .gk-swipe-loading-card {
+      height: min(66dvh, 520px) !important;
+      min-height: 420px !important;
+    }
+
+    .gk-swipe-card h2 {
+      font-size: clamp(21px, 6.6vw, 29px) !important;
+    }
+  }
+
+  @media (max-height: 670px) {
+    .gk-swipe-card-stack,
+    .gk-swipe-loading-card {
+      height: min(61dvh, 450px) !important;
+      min-height: 360px !important;
+    }
+
+    .gk-swipe-card [data-testid="swipe-skip"],
+    .gk-swipe-card [data-testid="swipe-seen"] {
+      width: 48px !important;
+      height: 48px !important;
+    }
+
+    .gk-swipe-card [data-testid="swipe-undo"],
+    .gk-swipe-card [data-testid="swipe-wishlist"],
+    .gk-swipe-card [data-testid="swipe-details"] {
+      width: 39px !important;
+      height: 39px !important;
+    }
+  }
+}

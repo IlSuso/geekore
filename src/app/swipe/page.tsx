@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Shuffle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SwipeMode } from "@/components/for-you/SwipeMode";
 import type { SwipeItem } from "@/components/for-you/SwipeMode";
@@ -21,60 +20,6 @@ const SWIPE_PAGE_COPY = {
     loadingBest: "Finding the best titles for you…",
   },
 } as const;
-
-type SwipePageCache = {
-  locale: "it" | "en" | null;
-  userId: string | null;
-  items: SwipeItem[];
-  ts: number;
-};
-
-const SWIPE_CACHE_TTL_MS = 1000 * 60 * 20;
-
-const swipePageCache: SwipePageCache = {
-  locale: null,
-  userId: null,
-  items: [],
-  ts: 0,
-};
-
-function isSwipeCacheFresh(locale: "it" | "en", userId?: string | null): boolean {
-  if (swipePageCache.locale !== locale) return false;
-  if (userId && swipePageCache.userId && swipePageCache.userId !== userId) return false;
-  if (!Array.isArray(swipePageCache.items) || swipePageCache.items.length === 0) return false;
-  return Date.now() - swipePageCache.ts < SWIPE_CACHE_TTL_MS;
-}
-
-function writeSwipeCache(locale: "it" | "en", userId: string | null, items: SwipeItem[]) {
-  if (!Array.isArray(items)) return;
-  swipePageCache.locale = locale;
-  swipePageCache.userId = userId;
-  swipePageCache.items = items;
-  swipePageCache.ts = Date.now();
-}
-
-function removeSwipeCacheItem(id: string) {
-  if (!id) return;
-  swipePageCache.items = swipePageCache.items.filter((item) => item.id !== id);
-  swipePageCache.ts = Date.now();
-}
-
-function appendSwipeCacheItems(locale: "it" | "en", userId: string | null, items: SwipeItem[]) {
-  if (!Array.isArray(items) || items.length === 0) return;
-  if (swipePageCache.locale !== locale || (userId && swipePageCache.userId && swipePageCache.userId !== userId)) {
-    writeSwipeCache(locale, userId, items);
-    return;
-  }
-
-  const seen = new Set(swipePageCache.items.map((item) => item.id));
-  const next = [...swipePageCache.items];
-  for (const item of items) {
-    if (!item?.id || seen.has(item.id)) continue;
-    seen.add(item.id);
-    next.push(item);
-  }
-  writeSwipeCache(locale, userId, next);
-}
 
 function triggerTasteDelta(options: {
   action: "rating" | "status_change" | "wishlist_add" | "rewatch" | "progress";
@@ -240,7 +185,7 @@ async function localizeSwipeItems(
   const res = await fetch(`/api/media/localize?lang=${locale}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items, mode: "full" }),
+    body: JSON.stringify({ items, mode: "basic" }),
   }).catch(() => null);
   if (!res?.ok) return items;
   const json = await res.json().catch(() => null);
@@ -266,24 +211,22 @@ export default function SwipePage() {
   const addedIdsRef = useRef<Set<string>>(new Set());
   const requestSeqRef = useRef(0);
   const userIdRef = useRef<string | null>(null);
-  const initialCachedItems = isSwipeCacheFresh(locale) ? swipePageCache.items : [];
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>(initialCachedItems);
-  const [loading, setLoading] = useState(initialCachedItems.length === 0);
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isTabActive && initialItems.length > 0) return;
+    document.body.classList.toggle("gk-swipe-route-active", isTabActive);
+    return () => {
+      document.body.classList.remove("gk-swipe-route-active");
+    };
+  }, [isTabActive]);
+
+  useEffect(() => {
+    if (!isTabActive) return;
 
     async function init() {
       const requestSeq = ++requestSeqRef.current;
-      const hasFreshCacheBeforeAuth = isSwipeCacheFresh(locale);
-
-      if (hasFreshCacheBeforeAuth) {
-        setInitialItems(swipePageCache.items);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
-
+      if (initialItems.length === 0) setLoading(true);
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -294,18 +237,25 @@ export default function SwipePage() {
       }
       userIdRef.current = user.id;
 
-      if (isSwipeCacheFresh(locale, user.id)) {
-        setInitialItems(swipePageCache.items);
-        setLoading(false);
-        return;
-      }
-
       addedTitlesRef.current = new Set();
       addedIdsRef.current = new Set();
-      const { data: entries } = await supabase
-        .from("user_media_entries")
-        .select("external_id, title")
-        .eq("user_id", user.id);
+
+      const [{ data: entries }, { data: skippedRows }, { data: queueRows }] = await Promise.all([
+        supabase
+          .from("user_media_entries")
+          .select("external_id, title")
+          .eq("user_id", user.id),
+        supabase
+          .from("swipe_skipped")
+          .select("external_id")
+          .eq("user_id", user.id),
+        supabase
+          .from("swipe_queue_all")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("inserted_at", { ascending: true }),
+      ]);
+
       for (const e of entries || []) {
         if (e.title)
           addedTitlesRef.current.add((e.title as string).toLowerCase());
@@ -313,36 +263,44 @@ export default function SwipePage() {
           addedIdsRef.current.add(String((e as any).external_id));
       }
 
-      const { data: skippedRows } = await supabase
-        .from("swipe_skipped")
-        .select("external_id")
-        .eq("user_id", user.id);
       const skippedSet = new Set(
         (skippedRows || []).map((r: any) => r.external_id as string),
       );
 
-      const { data: queueRows } = await supabase
-        .from("swipe_queue_all")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("inserted_at", { ascending: true });
-
       const existingRows = (queueRows || []).filter(
-        (r: any) => !skippedSet.has(r.external_id),
+        (r: any) =>
+          !skippedSet.has(r.external_id) &&
+          !addedIdsRef.current.has(String(r.external_id)) &&
+          !addedTitlesRef.current.has(String(r.title || "").toLowerCase()),
       );
+
+      const existingItems = existingRows.map((row: any) => rowToSwipeItem(row, locale));
+
+      // Fast path vero: mostra subito quello che è già in Supabase.
+      // Non aspettare recommendations, queue POST o localizzazione full.
+      if (existingItems.length > 0) {
+        if (requestSeq !== requestSeqRef.current) return;
+        setInitialItems(existingItems);
+        setLoading(false);
+
+        // Localizzazione basic opportunistica in background, senza bloccare apertura Swipe.
+        localizeSwipeItems(existingItems.slice(0, 40), locale)
+          .then((localized) => {
+            if (requestSeq !== requestSeqRef.current || localized.length === 0) return;
+            setInitialItems((prev) => {
+              const byId = new Map(localized.map((item) => [item.id, item]));
+              return prev.map((item) => byId.get(item.id) || item);
+            });
+          })
+          .catch(() => {});
+      }
 
       const existingDiversity = typeDiversity(existingRows);
       const allQueueIsDiverseEnough = existingDiversity >= 4;
 
-      if (existingRows.length >= 10 && allQueueIsDiverseEnough) {
-        const localized = await localizeSwipeItems(
-          existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-          locale,
-        );
-        if (requestSeq !== requestSeqRef.current) return;
-        setInitialItems(localized);
-        writeSwipeCache(locale, user.id, localized);
-        setLoading(false);
+      // Refill solo in background se la queue è scarsa o poco mista.
+      if (existingRows.length >= 18 && allQueueIsDiverseEnough) {
+        if (requestSeq === requestSeqRef.current) setLoading(false);
         return;
       }
 
@@ -380,47 +338,51 @@ export default function SwipePage() {
 
           if (newRecs.length > 0) {
             const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
-            await fetch("/api/swipe/queue", {
+            fetch("/api/swipe/queue", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ queue: "all", rows, mirrorByType: true }),
             }).catch(() => null);
           }
 
-          const localized = await localizeSwipeItems(
-            [
-              ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-              ...newRecs.map((r: any) => ({
-                id: r.id,
-                title: r.title,
-                type: r.type as SwipeItem["type"],
-                coverImage: r.coverImage,
-                year: r.year,
-                genres: r.genres || [],
-                score: r.score,
-                description: r.description,
-                why: r.why,
-                matchScore: r.matchScore || 0,
-                episodes: r.episodes,
-                authors: r.authors,
-                developers: r.developers,
-                platforms: r.platforms,
-                isAwardWinner: r.isAwardWinner,
-                title_original: r.title_original,
-                title_en: r.title_en,
-                title_it: r.title_it,
-                description_en: r.description_en,
-                description_it: r.description_it,
-                localized: r.localized,
-                isDiscovery: r.isDiscovery,
-                source: r.source,
-              })),
-            ],
-            locale,
-          );
+          const freshItems = newRecs.map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            type: r.type as SwipeItem["type"],
+            coverImage: r.coverImage,
+            year: r.year,
+            genres: r.genres || [],
+            score: r.score,
+            description: r.description,
+            why: r.why,
+            matchScore: r.matchScore || 0,
+            episodes: r.episodes,
+            authors: r.authors,
+            developers: r.developers,
+            platforms: r.platforms,
+            isAwardWinner: r.isAwardWinner,
+            title_original: r.title_original,
+            title_en: r.title_en,
+            title_it: r.title_it,
+            description_en: r.description_en,
+            description_it: r.description_it,
+            localized: r.localized,
+            isDiscovery: r.isDiscovery,
+            source: r.source,
+          }));
+
           if (requestSeq !== requestSeqRef.current) return;
-          setInitialItems(localized);
-          writeSwipeCache(locale, user.id, localized);
+          setInitialItems((prev) => {
+            const seen = new Set(prev.map((item) => item.id));
+            const merged = [...prev];
+            for (const item of freshItems) {
+              if (!seen.has(item.id)) {
+                seen.add(item.id);
+                merged.push(item);
+              }
+            }
+            return merged;
+          });
         }
       } catch {}
 
@@ -447,20 +409,7 @@ export default function SwipePage() {
       const uid = userIdRef.current;
       if (!uid) return;
 
-      removeSwipeCacheItem(item.id);
-      setInitialItems((prev) => {
-        const next = prev.filter((cached) => cached.id !== item.id);
-        writeSwipeCache(locale, uid, next);
-        return next;
-      });
-
       if (skipPersist) {
-        removeSwipeCacheItem(item.id);
-        setInitialItems((prev) => {
-          const next = prev.filter((cached) => cached.id !== item.id);
-          writeSwipeCache(locale, uid, next);
-          return next;
-        });
         removeFromPool(uid, item.id);
         fetch("/api/recommendations/feedback", {
           method: "POST",
@@ -515,7 +464,6 @@ export default function SwipePage() {
           if (res.ok) {
             addedTitlesRef.current.add(item.title.toLowerCase());
             addedIdsRef.current.add(String(item.id));
-            removeSwipeCacheItem(item.id);
           }
           fetch("/api/recommendations/feedback", {
             method: "POST",
@@ -557,15 +505,7 @@ export default function SwipePage() {
     [removeFromPool],
   );
 
-  const handleSwipeSkip = useCallback((item: SwipeItem) => {
-    const uid = userIdRef.current;
-    removeSwipeCacheItem(item.id);
-    setInitialItems((prev) => {
-      const next = prev.filter((cached) => cached.id !== item.id);
-      writeSwipeCache(locale, uid, next);
-      return next;
-    });
-  }, [locale]);
+  const handleSwipeSkip = useCallback((_item: SwipeItem) => {}, []);
 
   const handleSwipeUndo = useCallback(async (item: SwipeItem) => {
     if (!addedTitlesRef.current.has(item.title.toLowerCase())) return;
@@ -680,7 +620,7 @@ export default function SwipePage() {
           }).catch(() => null);
         }
 
-        const moreItems = await localizeSwipeItems(
+        return localizeSwipeItems(
           [
             ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
             ...newRecs.map((r: any) => ({
@@ -711,8 +651,6 @@ export default function SwipePage() {
           ],
           locale,
         );
-        appendSwipeCacheItems(locale, user.id, moreItems);
-        return moreItems;
       } catch {
         return localizeSwipeItems(existingRows.map((row: any) => rowToSwipeItem(row, locale)), locale);
       }
@@ -720,25 +658,24 @@ export default function SwipePage() {
     [supabase, locale],
   );
 
-  if (loading) {
+  if (loading && initialItems.length === 0) {
     return (
-      <div className="fixed inset-0 md:pt-16 bg-black flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center gap-5 text-center">
-          <div className="relative">
-            <div
-              className="absolute inset-0 w-16 h-16 rounded-3xl blur-xl"
-              style={{ background: "rgba(230,255,61,0.2)" }}
-            />
-            <div
-              className="relative w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl"
-              style={{ background: "var(--accent)" }}
-            >
-              <Shuffle size={28} className="text-black" />
-            </div>
-          </div>
-          <div>
-            <p className="text-white font-semibold">{copy.preparing}</p>
-            <p className="text-zinc-500 text-sm mt-1">{copy.loadingBest}</p>
+      <div className="gk-swipe-loading-shell" data-no-swipe="true">
+        <div className="gk-swipe-loading-filters" aria-hidden="true">
+          <span className="is-active">All</span>
+          <span>Anime</span>
+          <span>Manga</span>
+          <span>Movie</span>
+          <span>TV</span>
+        </div>
+        <div className="gk-swipe-loading-card" aria-hidden="true">
+          <div className="gk-swipe-loading-poster" />
+          <div className="gk-swipe-loading-gradient" />
+          <div className="gk-swipe-loading-content">
+            <div className="gk-swipe-loading-pill" />
+            <div className="gk-swipe-loading-title" />
+            <div className="gk-swipe-loading-line short" />
+            <div className="gk-swipe-loading-line" />
           </div>
         </div>
       </div>
