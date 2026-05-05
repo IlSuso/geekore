@@ -68,6 +68,28 @@ type OnlinePayload = {
 
 const ONLINE_EVENT = "geekore:presence-users";
 
+const FRIENDS_CACHE_TTL = 3 * 60_000;
+
+const friendsPageCache: {
+  userId: string | null;
+  ts: number;
+  profiles: ProfileRow[];
+  activities: FriendActivity[];
+  followingIds: Set<string>;
+} = {
+  userId: null,
+  ts: 0,
+  profiles: [],
+  activities: [],
+  followingIds: new Set(),
+};
+
+function isFriendsCacheFresh(userId: string | null | undefined) {
+  return friendsPageCache.userId === (userId || null)
+    && friendsPageCache.ts > 0
+    && Date.now() - friendsPageCache.ts < FRIENDS_CACHE_TTL;
+}
+
 const FRIENDS_COPY = {
   it: {
     activeNow: "Stato amici",
@@ -509,12 +531,13 @@ export default function FriendsPage() {
   const copy = FRIENDS_COPY[locale];
   const authUser = useUser();
   const isActive = useTabActive();
-  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
-  const [activities, setActivities] = useState<FriendActivity[]>([]);
-  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const hasFreshFriendsCache = isFriendsCacheFresh(authUser?.id);
+  const [profiles, setProfiles] = useState<ProfileRow[]>(hasFreshFriendsCache ? friendsPageCache.profiles : []);
+  const [activities, setActivities] = useState<FriendActivity[]>(hasFreshFriendsCache ? friendsPageCache.activities : []);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(hasFreshFriendsCache ? new Set(friendsPageCache.followingIds) : new Set());
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [pendingFollowId, setPendingFollowId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasFreshFriendsCache);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FriendsTab>("activity");
   const localizedActivities = useLocalizedMediaRows(activities, {
@@ -544,6 +567,14 @@ export default function FriendsPage() {
 
     let cancelled = false;
     async function load() {
+      if (isFriendsCacheFresh(authUser?.id)) {
+        setProfiles(friendsPageCache.profiles);
+        setActivities(friendsPageCache.activities);
+        setFollowingIds(new Set(friendsPageCache.followingIds));
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       const [{ data: profilesData }, { data: followsData }] = await Promise.all(
         [
@@ -580,6 +611,11 @@ export default function FriendsPage() {
         nextActivities = (activityData || []) as unknown as FriendActivity[];
       }
       if (cancelled) return;
+      friendsPageCache.userId = authUser?.id || null;
+      friendsPageCache.ts = Date.now();
+      friendsPageCache.profiles = nextProfiles;
+      friendsPageCache.followingIds = new Set(nextFollowing);
+      friendsPageCache.activities = nextActivities;
       setProfiles(nextProfiles);
       setFollowingIds(nextFollowing);
       setActivities(nextActivities);

@@ -79,6 +79,60 @@ type TrendingItem = {
   source: string
 }
 
+const DISCOVER_TRENDING_CACHE_TTL = 10 * 60_000
+const DISCOVER_USER_CACHE_TTL = 2 * 60_000
+
+type DiscoverTrendingCache = {
+  locale: 'it' | 'en' | null
+  ts: number
+  anime: TrendingItem[]
+  movies: TrendingItem[]
+  tv: TrendingItem[]
+  games: TrendingItem[]
+  boardgames: TrendingItem[]
+  manga: TrendingItem[]
+}
+
+type DiscoverUserCache = {
+  userId: string | null
+  ts: number
+  wishlistIds: string[]
+  alreadyAdded: string[]
+}
+
+const discoverTrendingCache: DiscoverTrendingCache = {
+  locale: null,
+  ts: 0,
+  anime: [],
+  movies: [],
+  tv: [],
+  games: [],
+  boardgames: [],
+  manga: [],
+}
+
+const discoverUserCache: DiscoverUserCache = {
+  userId: null,
+  ts: 0,
+  wishlistIds: [],
+  alreadyAdded: [],
+}
+
+function isFresh(ts: number, ttl: number) {
+  return ts > 0 && Date.now() - ts < ttl
+}
+
+function hydrateDiscoverTrendingCache(data: any, locale: 'it' | 'en') {
+  discoverTrendingCache.locale = locale
+  discoverTrendingCache.ts = Date.now()
+  discoverTrendingCache.anime = Array.isArray(data?.anime) ? data.anime : []
+  discoverTrendingCache.movies = Array.isArray(data?.movie) ? data.movie : []
+  discoverTrendingCache.tv = Array.isArray(data?.tv) ? data.tv : []
+  discoverTrendingCache.games = Array.isArray(data?.game) ? data.game : []
+  discoverTrendingCache.boardgames = Array.isArray(data?.boardgame) ? data.boardgame : []
+  discoverTrendingCache.manga = Array.isArray(data?.manga) ? data.manga : []
+}
+
 const DEBOUNCE_MS = 350
 const VALID_DISCOVER_TYPES = new Set(['all', 'anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
 
@@ -340,15 +394,18 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [alreadyAdded, setAlreadyAdded] = useState<string[]>([])
-  const [wishlistIds, setWishlistIds] = useState<string[]>([])
+  const hasFreshUserCache = !!authUser?.id && discoverUserCache.userId === authUser.id && isFresh(discoverUserCache.ts, DISCOVER_USER_CACHE_TTL)
+  const hasFreshTrendingCache = discoverTrendingCache.locale === locale && isFresh(discoverTrendingCache.ts, DISCOVER_TRENDING_CACHE_TTL)
+
+  const [alreadyAdded, setAlreadyAdded] = useState<string[]>(hasFreshUserCache ? discoverUserCache.alreadyAdded : [])
+  const [wishlistIds, setWishlistIds] = useState<string[]>(hasFreshUserCache ? discoverUserCache.wishlistIds : [])
   const [drawerMedia, setDrawerMedia] = useState<MediaDetails | null>(null)
-  const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>([])
-  const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>([])
-  const [trendingTV, setTrendingTV] = useState<TrendingItem[]>([])
-  const [trendingGames, setTrendingGames] = useState<TrendingItem[]>([])
-  const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>([])
-  const [trendingManga, setTrendingManga] = useState<TrendingItem[]>([])
+  const [trendingAnime, setTrendingAnime] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.anime : [])
+  const [trendingMovies, setTrendingMovies] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.movies : [])
+  const [trendingTV, setTrendingTV] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.tv : [])
+  const [trendingGames, setTrendingGames] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.games : [])
+  const [trendingBoardgames, setTrendingBoardgames] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.boardgames : [])
+  const [trendingManga, setTrendingManga] = useState<TrendingItem[]>(hasFreshTrendingCache ? discoverTrendingCache.manga : [])
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -376,8 +433,18 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     // PERF: Discover è una delle API più costose perché chiama tutte le sezioni trending.
-    // Se il panel è solo pre-montato/nascosto per swipe, non deve partire.
+    // Se rientri nella tab e abbiamo già i dati freschi, non rifacciamo la fetch.
     if (!isActive) return
+
+    if (discoverTrendingCache.locale === locale && isFresh(discoverTrendingCache.ts, DISCOVER_TRENDING_CACHE_TTL)) {
+      setTrendingAnime(discoverTrendingCache.anime)
+      setTrendingMovies(discoverTrendingCache.movies)
+      setTrendingTV(discoverTrendingCache.tv)
+      setTrendingGames(discoverTrendingCache.games)
+      setTrendingBoardgames(discoverTrendingCache.boardgames)
+      setTrendingManga(discoverTrendingCache.manga)
+      return
+    }
 
     let cancelled = false
     const controller = new AbortController()
@@ -386,12 +453,13 @@ export default function DiscoverPage() {
       .then(r => r.ok ? r.json() : null)
       .then((data) => {
         if (cancelled || !data) return
-        setTrendingAnime(Array.isArray(data.anime) ? data.anime : [])
-        setTrendingMovies(Array.isArray(data.movie) ? data.movie : [])
-        setTrendingTV(Array.isArray(data.tv) ? data.tv : [])
-        setTrendingGames(Array.isArray(data.game) ? data.game : [])
-        setTrendingBoardgames(Array.isArray(data.boardgame) ? data.boardgame : [])
-        setTrendingManga(Array.isArray(data.manga) ? data.manga : [])
+        hydrateDiscoverTrendingCache(data, locale)
+        setTrendingAnime(discoverTrendingCache.anime)
+        setTrendingMovies(discoverTrendingCache.movies)
+        setTrendingTV(discoverTrendingCache.tv)
+        setTrendingGames(discoverTrendingCache.games)
+        setTrendingBoardgames(discoverTrendingCache.boardgames)
+        setTrendingManga(discoverTrendingCache.manga)
       })
       .catch(() => {
         if (cancelled) return
@@ -411,11 +479,31 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     if (!isActive || !authUser) return
-    supabase.from('wishlist').select('external_id').eq('user_id', authUser.id)
-      .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)) })
-    supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id)
-      .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)) })
-  }, [authUser, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (discoverUserCache.userId === authUser.id && isFresh(discoverUserCache.ts, DISCOVER_USER_CACHE_TTL)) {
+      setWishlistIds(discoverUserCache.wishlistIds)
+      setAlreadyAdded(discoverUserCache.alreadyAdded)
+      return
+    }
+
+    let cancelled = false
+    Promise.all([
+      supabase.from('wishlist').select('external_id').eq('user_id', authUser.id),
+      supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id),
+    ]).then(([{ data: wish }, { data: entries }]) => {
+      if (cancelled) return
+      const nextWish = (wish || []).map((w: any) => w.external_id).filter(Boolean)
+      const nextAdded = (entries || []).map((e: any) => e.external_id).filter(Boolean)
+      discoverUserCache.userId = authUser.id
+      discoverUserCache.ts = Date.now()
+      discoverUserCache.wishlistIds = nextWish
+      discoverUserCache.alreadyAdded = nextAdded
+      setWishlistIds(nextWish)
+      setAlreadyAdded(nextAdded)
+    }).catch(() => {})
+
+    return () => { cancelled = true }
+  }, [authUser?.id, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const search = useCallback(async (term: string, type: string, lang: string) => {

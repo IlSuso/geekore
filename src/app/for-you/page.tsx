@@ -1011,7 +1011,7 @@ async function localizeRails(
 
 async function localizeForYouPayload(
   payload: any,
-  locale: 'it' | 'en',
+  _locale: 'it' | 'en',
 ): Promise<{
   recommendations: Record<string, Recommendation[]>
   rails: RecommendationRail[]
@@ -1024,11 +1024,11 @@ async function localizeForYouPayload(
     merged[type] = items as Recommendation[]
   }
 
-  const localizedRecommendations = await localizeRecommendationMap(merged, locale).catch(() => merged)
+  // PERF CRITICO: il backend /api/recommendations riceve già lang=it/en.
+  // Non bloccare il primo render con un secondo POST client-side a /api/media/localize
+  // per decine/centinaia di card. La localizzazione full resta nel drawer, on-demand.
   const rawRails = Array.isArray(payload?.rails) ? payload.rails as RecommendationRail[] : []
-  const localizedRails = await localizeRails(rawRails, locale).catch(() => rawRails)
-
-  return { recommendations: localizedRecommendations, rails: localizedRails }
+  return { recommendations: merged, rails: rawRails }
 }
 
 function resetForYouCacheForLocale(locale: 'it' | 'en') {
@@ -1068,7 +1068,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
           matchScore: r.match_score || 0, episodes: r.episodes,
           source: r.source,
         }))
-        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { mode: 'basic' }).catch(() => rawItems)
         setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         setLoading(false)
         return
@@ -1086,7 +1086,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
             matchScore: r.matchScore || 0, episodes: r.episodes,
             source: r.source,
           }))
-          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { mode: 'basic' }).catch(() => rawItems)
           setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         }
       } catch { }

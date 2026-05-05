@@ -22,10 +22,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient()
+    let cancelled = false
 
-    // Caricamento iniziale — una sola volta per tutta l'app
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
+    // PERF CRITICO: getUser() fa round-trip verso Supabase e bloccava il primo caricamento
+    // di tutte le tab protette. Usiamo subito la sessione locale per sbloccare la UI,
+    // poi verifichiamo l'utente in background. Le API/server restano comunque protette.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return
+      setUser(session?.user ?? null)
+      setLoading(false)
+
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (cancelled) return
+        setUser(user)
+      }).catch(() => {
+        if (cancelled) return
+        setUser(null)
+      })
+    }).catch(() => {
+      if (cancelled) return
+      setUser(null)
       setLoading(false)
     })
 
@@ -35,7 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   return (

@@ -6,21 +6,28 @@
 // devono renderizzare i children reali, non riusare il pannello cached della tab primaria.
 
 import { Activity } from 'react'
+import dynamic from 'next/dynamic'
 import { animate } from 'motion/react'
 import { usePathname } from 'next/navigation'
 import { useActiveTab } from '@/context/ActiveTabContext'
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import type { ReactNode, CSSProperties, MutableRefObject } from 'react'
-import FeedPage     from '@/app/home/page'
-import DiscoverPage from '@/app/discover/page'
-import ForYouPage   from '@/app/for-you/page'
-import SwipePage    from '@/app/swipe/page'
-import FriendsPage  from '@/app/friends/page'
 import { swipeNavBridge } from '@/hooks/swipeNavBridge'
 import { ScrollPanelContext } from '@/context/ScrollPanelContext'
 import { TabActiveContext } from '@/context/TabActiveContext'
 import { useLocale } from '@/lib/locale'
 import { MobileHeader } from '@/components/MobileHeader'
+
+
+// PERF CRITICO: non importare staticamente tutte le tab.
+// Con import statici, entrare in UNA tab costringeva il browser a scaricare/valutare
+// anche Home + For You + Swipe + Discover + Friends. Il keep-alive protegge il remount,
+// ma non il peso del bundle iniziale. Dynamic import = carica solo la pagina montata.
+const FeedPage = dynamic(() => import('@/app/home/page'), { ssr: false, loading: () => null })
+const DiscoverPage = dynamic(() => import('@/app/discover/page'), { ssr: false, loading: () => null })
+const ForYouPage = dynamic(() => import('@/app/for-you/page'), { ssr: false, loading: () => null })
+const SwipePage = dynamic(() => import('@/app/swipe/page'), { ssr: false, loading: () => null })
+const FriendsPage = dynamic(() => import('@/app/friends/page'), { ssr: false, loading: () => null })
 
 type KATab = 'feed' | 'for-you' | 'swipe' | 'discover' | 'friends'
 
