@@ -136,10 +136,8 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   const visited = useRef<Set<KATab>>(new Set())
   if (tab && pathnameTab) visited.current.add(tab)
 
-  const [neighborReady, setNeighborReady] = useState(0)
   const [localeEpoch, setLocaleEpoch] = useState(0)
   const previousLocaleRef = useRef(locale)
-  const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (previousLocaleRef.current === locale) return
@@ -154,26 +152,9 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
     setLocaleEpoch(epoch => epoch + 1)
   }, [locale, pathnameTab])
 
-  useEffect(() => {
-    if (!tab || !pathnameTab) return
-    if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current)
-    preloadTimerRef.current = setTimeout(() => {
-      const idx = TAB_IDX_TO_KA.indexOf(tab)
-      let changed = false
-      if (idx > 0) {
-        const prev = TAB_IDX_TO_KA[idx - 1] as KATab
-        if (!visited.current.has(prev)) { visited.current.add(prev); changed = true }
-      }
-      if (idx < TAB_IDX_TO_KA.length - 1) {
-        const next = TAB_IDX_TO_KA[idx + 1] as KATab
-        if (!visited.current.has(next)) { visited.current.add(next); changed = true }
-      }
-      if (changed) setNeighborReady(n => n + 1)
-    }, 350)
-    return () => { if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current) }
-  }, [tab, pathnameTab])
-
-  void neighborReady
+  // PERF: non montiamo/carichiamo più automaticamente le tab vicine quando entri in una pagina.
+  // Le tab adiacenti vengono montate solo quando parte davvero uno swipe orizzontale.
+  // Questo evita che entrando in /swipe partano anche For You/Discover con fetch pesanti.
 
   useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
@@ -203,8 +184,15 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
       (prevIdx, nextIdx) => {
         const pk = prevIdx != null ? TAB_IDX_TO_KA[prevIdx] : null
         const nk = nextIdx != null ? TAB_IDX_TO_KA[nextIdx] : null
-        const newLeft  = pk && visited.current.has(pk) ? pk : null
-        const newRight = nk && visited.current.has(nk) ? nk : null
+
+        // Monta just-in-time i panel vicini SOLO quando l'utente inizia lo swipe.
+        // Prima venivano pre-montati dopo 350ms a ogni ingresso pagina, facendo partire
+        // caricamenti immensi anche su pagine che l'utente non aveva aperto.
+        if (pk) visited.current.add(pk)
+        if (nk) visited.current.add(nk)
+
+        const newLeft  = pk || null
+        const newRight = nk || null
         adjLeftRef.current  = newLeft
         adjRightRef.current = newRight
         setAdjLeft(newLeft)

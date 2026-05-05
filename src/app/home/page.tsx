@@ -108,6 +108,7 @@ export default function FeedPage() {
   const { user: authUser, loading: authLoading } = useAuth()
   const { locale, t } = useLocale()
   const f = t.feed
+  const isActive = useTabActive()
 
   useEffect(() => {
     let cancelled = false
@@ -136,6 +137,10 @@ export default function FeedPage() {
   })
 
   useEffect(() => {
+    // PERF: se la pagina è stata montata come panel nascosto per lo swipe,
+    // non deve partire nessun fetch. Carica solo quando diventa la tab attiva.
+    if (!isActive) return
+
     const init = async (user: import('@supabase/supabase-js').User | null) => {
       setCurrentUser(user)
       if (user) {
@@ -153,9 +158,8 @@ export default function FeedPage() {
     }
     if (authLoading) return // aspetta che l'auth sia risolto — evita il doppio render
     init(authUser)
-  }, [authUser, authLoading]) // eslint-disable-line
+  }, [authUser, authLoading, isActive]) // eslint-disable-line
 
-  const isActive = useTabActive()
 
   // Realtime: si iscrive solo quando il tab è visibile.
   // Quando l'utente swippa su un altro tab, il canale viene rimosso.

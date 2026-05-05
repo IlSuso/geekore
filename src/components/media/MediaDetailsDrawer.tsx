@@ -940,7 +940,7 @@ export function MediaDetailsDrawer({
 
         {/* ── CONTENUTO SCORREVOLE ───────────────────────────────────── */}
         <div
-          className="flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]"
+          className="gk-media-details-body flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]"
           data-no-swipe="true"
         >
           <div className="grid gap-2.5 p-3 md:grid-cols-1">
@@ -1111,7 +1111,7 @@ export function MediaDetailsDrawer({
                 icon={<FileText size={13} />}
               >
                 {displayDescription ? (
-                  <div className="gk-description-scroll max-h-[260px] overflow-y-auto pr-2 md:max-h-[320px]">
+                  <div className="gk-description-full">
                     <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
                       {displayDescription}
                     </p>

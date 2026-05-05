@@ -1,6 +1,7 @@
-/* Home mobile top gap fix
-   Rimuove lo spazio vuoto tra MobileHeader e il composer della Home.
-   Il pannello KeepAlive parte già sotto l'header, quindi il vecchio pt-14 era doppio.
+/* Home + Discover mobile top gap fix
+   Il pannello KeepAlive inserisce già lo spazio dell'header mobile.
+   Queste pagine avevano anche padding top interno Tailwind, quindi nasceva
+   il buco vuoto tra header e primo box.
 */
 
 @media (max-width: 767px) {
@@ -19,5 +20,20 @@
   .gk-home-page .flex.items-start.min-h-screen > .flex-1 > div {
     padding-left: 12px !important;
     padding-right: 12px !important;
+  }
+
+  /* Discover: rimuove il doppio offset creato da pt-14.
+     L'header è già compensato dal wrapper del tab panel, quindi qui resta
+     solo il respiro visivo minimo prima del box ricerca/filtri. */
+  .gk-discover-page {
+    padding-top: 0 !important;
+  }
+
+  .gk-discover-page > div.mx-auto {
+    padding-top: 12px !important;
+  }
+
+  .gk-discover-page section:first-of-type {
+    margin-top: 0 !important;
   }
 }

@@ -8,6 +8,7 @@ import type { SwipeItem } from "@/components/for-you/SwipeMode";
 import { profileInvalidateBridge } from "@/hooks/profileInvalidateBridge";
 import { useLocale } from "@/lib/locale";
 import { useTabActive } from "@/context/TabActiveContext";
+import { useAuth } from "@/context/AuthContext";
 import { cleanDescriptionForDisplay } from "@/lib/text/descriptionCleanup";
 
 const SWIPE_PAGE_COPY = {
@@ -206,6 +207,7 @@ export default function SwipePage() {
   const router = useRouter();
   const { locale } = useLocale();
   const isTabActive = useTabActive();
+  const { user: authUser, loading: authLoading } = useAuth();
   const copy = SWIPE_PAGE_COPY[locale];
   const addedTitlesRef = useRef<Set<string>>(new Set());
   const addedIdsRef = useRef<Set<string>>(new Set());
@@ -227,14 +229,13 @@ export default function SwipePage() {
     async function init() {
       const requestSeq = ++requestSeqRef.current;
       if (initialItems.length === 0) setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (authLoading) return;
       if (requestSeq !== requestSeqRef.current) return;
-      if (!user) {
+      if (!authUser) {
         router.push("/login");
         return;
       }
+      const user = authUser;
       userIdRef.current = user.id;
 
       addedTitlesRef.current = new Set();
@@ -253,8 +254,7 @@ export default function SwipePage() {
           .from("swipe_queue_all")
           .select("*")
           .eq("user_id", user.id)
-          .order("inserted_at", { ascending: true })
-          .order("external_id", { ascending: true }),
+          .order("inserted_at", { ascending: true }),
       ]);
 
       for (const e of entries || []) {
@@ -390,7 +390,7 @@ export default function SwipePage() {
       if (requestSeq === requestSeqRef.current) setLoading(false);
     }
     init();
-  }, [locale, isTabActive]); // eslint-disable-line
+  }, [locale, isTabActive, authUser?.id, authLoading]); // eslint-disable-line
 
   const removeFromPool = useCallback(
     async (_userId: string, _externalId: string) => {
@@ -545,8 +545,7 @@ export default function SwipePage() {
         .from(table)
         .select("*")
         .eq("user_id", user.id)
-        .order("inserted_at", { ascending: true })
-        .order("external_id", { ascending: true });
+        .order("inserted_at", { ascending: true });
       const existingRows = (queueRows || []).filter(
         (r: any) => !skippedSet.has(r.external_id),
       );

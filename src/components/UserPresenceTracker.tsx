@@ -100,10 +100,20 @@ export function UserPresenceTracker() {
         });
     }
 
-    start();
+    // PERF: la presenza non deve competere con il primo caricamento pagina.
+    // Parte dopo un breve idle; se l'utente cambia tab/route prima, non apre canali inutili.
+    const startPresence = () => { if (!cancelled) start(); };
+    let idleId: number | null = null;
+    const timer = window.setTimeout(() => {
+      const ric = (window as any).requestIdleCallback as ((cb: () => void, opts?: { timeout?: number }) => number) | undefined;
+      if (ric) idleId = ric(startPresence, { timeout: 2500 });
+      else startPresence();
+    }, 1200);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
+      if (idleId != null && (window as any).cancelIdleCallback) (window as any).cancelIdleCallback(idleId);
       trackedRef.current = false;
       publishPresence({ userIds: [], onlineUsers: [] });
       supabase.removeChannel(channel);

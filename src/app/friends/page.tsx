@@ -25,6 +25,7 @@ import { PageScaffold } from "@/components/ui/PageScaffold";
 import { useLocalizedMediaRows } from "@/lib/i18n/clientMediaLocalization";
 import { typeLabel } from "@/lib/i18n/uiCopy";
 import { useLocale } from "@/lib/locale";
+import { useTabActive } from "@/context/TabActiveContext";
 
 type FriendsTab = "activity" | "common" | "suggested";
 
@@ -507,6 +508,7 @@ export default function FriendsPage() {
   const { locale } = useLocale();
   const copy = FRIENDS_COPY[locale];
   const authUser = useUser();
+  const isActive = useTabActive();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [activities, setActivities] = useState<FriendActivity[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
@@ -537,6 +539,9 @@ export default function FriendsPage() {
   }, []);
 
   useEffect(() => {
+    // PERF: non caricare profili/attività se Friends è solo un panel nascosto.
+    if (!isActive) return;
+
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -584,7 +589,7 @@ export default function FriendsPage() {
     return () => {
       cancelled = true;
     };
-  }, [authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authUser?.id, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredProfiles = useMemo(() => {
     const q = normalize(query);

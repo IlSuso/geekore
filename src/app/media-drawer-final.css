@@ -119,6 +119,30 @@ body:has(div[role='dialog'][aria-modal='true'] .gk-media-details-hero) > div.fix
   .gk-media-details-hero { min-height: auto; }
 }
 
+
+/* Drawer description: il box mostra sempre tutto il testo.
+   Lo scroll verticale resta solo sul corpo del drawer, sotto l'hero/titolo fisso. */
+div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-media-details-body {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-description-full,
+div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-description-scroll {
+  max-height: none !important;
+  overflow: visible !important;
+  padding-right: 0 !important;
+  scrollbar-width: auto;
+  scrollbar-gutter: auto;
+}
+
+div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-description-full::-webkit-scrollbar,
+div[role='dialog'][aria-modal='true']:has(.gk-media-details-hero) .gk-description-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Descrizioni lunghe: scrollbar sottile stile Swipe Mode.
    Con overflow-y: auto resta invisibile quando il testo non deve scorrere. */
 .gk-description-scroll {

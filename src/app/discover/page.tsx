@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/context/AuthContext'
 import { useLocale } from '@/lib/locale'
+import { useTabActive } from '@/context/TabActiveContext'
 import { appCopy, discoverFilterLabel, typeLabel } from '@/lib/i18n/uiCopy'
 import { MediaDetailsDrawer } from '@/components/media/MediaDetailsDrawer'
 import type { MediaDetails } from '@/components/media/MediaDetailsDrawer'
@@ -329,6 +330,7 @@ export default function DiscoverPage() {
   const supabase = createClient()
   const authUser = useUser()
   const { locale } = useLocale()
+  const isActive = useTabActive()
   const ui = appCopy[locale]
   const d = ui.discover
 
@@ -373,6 +375,10 @@ export default function DiscoverPage() {
   }, [urlQuery, urlType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // PERF: Discover è una delle API più costose perché chiama tutte le sezioni trending.
+    // Se il panel è solo pre-montato/nascosto per swipe, non deve partire.
+    if (!isActive) return
+
     let cancelled = false
     const controller = new AbortController()
 
@@ -401,15 +407,15 @@ export default function DiscoverPage() {
       cancelled = true
       controller.abort()
     }
-  }, [locale])
+  }, [locale, isActive])
 
   useEffect(() => {
-    if (!authUser) return
+    if (!isActive || !authUser) return
     supabase.from('wishlist').select('external_id').eq('user_id', authUser.id)
       .then(({ data }) => { if (data) setWishlistIds(data.map((w: any) => w.external_id)) })
     supabase.from('user_media_entries').select('external_id').eq('user_id', authUser.id)
       .then(({ data }) => { if (data) setAlreadyAdded(data.map((e: any) => e.external_id)) })
-  }, [authUser]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authUser, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const search = useCallback(async (term: string, type: string, lang: string) => {

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, memo, useRef, type ReactNode } from 'react'
 import { useScrollPanel } from '@/context/ScrollPanelContext'
 import { useTabActive } from '@/context/TabActiveContext'
+import { useAuth } from '@/context/AuthContext'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -1044,6 +1045,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
   const { locale } = useLocale()
   const supabase = createClient()
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [items, setItems] = useState<SwipeItem[]>([])
   const [loading, setLoading] = useState(true)
   const userIdRef = useRef<string | null>(null)
@@ -1051,7 +1053,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
+      if (authLoading) return
       if (!user) { router.push('/login'); return }
       userIdRef.current = user.id
       // Try queue first
@@ -1091,7 +1093,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
       setLoading(false)
     }
     init()
-  }, [locale]) // eslint-disable-line
+  }, [locale, user?.id, authLoading]) // eslint-disable-line
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -1187,6 +1189,7 @@ export default function ForYouPage() {
   const { scrollToTop } = useScrollPanel()
   const isActive = useTabActive()
   const supabase = createClient(); const router = useRouter()
+  const { user: authUser, loading: authLoading } = useAuth()
   const { t, locale } = useLocale()
   const fy = t.forYou
   const hasCachedData = forYouCache.recommendations !== null && forYouCache.locale === locale
@@ -1212,8 +1215,8 @@ export default function ForYouPage() {
   const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
 
   const fetchRecommendations = useCallback(async (force = false) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    if (authLoading) return
+    if (!authUser) { router.push('/login'); return }
     const res = await fetch(`/api/recommendations?type=all&lang=${locale}${force ? '&refresh=1' : ''}`)
     if (!res.ok) return
     const json = await res.json()
@@ -1330,9 +1333,10 @@ export default function ForYouPage() {
     let profileChannel: ReturnType<typeof supabase.channel> | null = null
 
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || cancelled) { if (!user) router.push('/login'); return }
-      const userId = user.id
+      // PERF: i panel montati ma nascosti non devono caricare raccomandazioni.
+      if (!isActive || authLoading) return
+      if (!authUser || cancelled) { if (!authUser) router.push('/login'); return }
+      const userId = authUser.id
 
       // Realtime: aggiorna entry_count solo se il panel è attivo.
       // Controlla getChannels() per evitare doppia subscribe (StrictMode).
@@ -1437,7 +1441,7 @@ export default function ForYouPage() {
       cancelled = true
       if (profileChannel) supabase.removeChannel(profileChannel)
     }
-  }, [locale]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [locale, isActive, authUser?.id, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (forYouCache.recommendations === null && Object.keys(recommendations).length === 0) return
@@ -1462,7 +1466,7 @@ export default function ForYouPage() {
   const handleRefresh = async () => {
     setRefreshing(true)
     setShowNewRecsBadge(false)
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = authUser
     const [lightJson] = await Promise.all([
       fetch(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)

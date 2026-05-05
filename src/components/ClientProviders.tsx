@@ -11,7 +11,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { androidBack } from '@/hooks/androidBack'
 import { PushNotificationsBanner } from '@/components/notifications/PushNotificationsBanner'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { UserPresenceTracker } from '@/components/UserPresenceTracker'
 
 const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/privacy', '/terms', '/cookies', '/auth']
@@ -19,25 +19,44 @@ const ONBOARDING_EXEMPT_PATHS = ['/onboarding', '/login', '/register', '/forgot-
 function OnboardingGuard() {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, loading } = useAuth()
+
   useEffect(() => {
-    const check = async () => {
-      const isExempt = ONBOARDING_EXEMPT_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+    if (loading) return
+    const isExempt = ONBOARDING_EXEMPT_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+    if (!user) return
+
+    // Fast path: se il cookie locale dice già completato, non fare nessuna query Supabase a ogni cambio pagina.
+    const cookieDone = document.cookie.includes('geekore_onboarding_done=1')
+    if (cookieDone) {
+      if (pathname === '/onboarding') router.replace('/home')
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const cookieDone = document.cookie.includes('geekore_onboarding_done=1')
-      if (cookieDone) { if (pathname === '/onboarding') router.replace('/home'); return }
-      const { data: profile } = await supabase.from('profiles').select('onboarding_done').eq('id', user.id).single()
-      if (!profile) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_done')
+        .eq('id', user.id)
+        .single()
+
+      if (cancelled || !profile) return
       if (profile.onboarding_done === true) {
         document.cookie = 'geekore_onboarding_done=1; path=/; max-age=31536000; SameSite=Lax'
         if (pathname === '/onboarding') router.replace('/home')
-      } else { if (!isExempt) router.replace('/onboarding') }
-    }
-    check()
-  }, [pathname]) // eslint-disable-line
+      } else if (!isExempt) {
+        router.replace('/onboarding')
+      }
+    }, isExempt ? 0 : 600)
+
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [pathname, router, user, loading])
+
   return null
 }
+
 
 
 function ThemeColorEnforcer() {
