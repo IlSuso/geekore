@@ -327,22 +327,14 @@ p, .text-wrap-pretty { text-wrap: pretty; }
 html, body { background-color: var(--bg-primary); }
 
 @media (max-width: 767px) {
-  nav.mobile-nav {
-    background-color: rgba(11, 11, 15, 0.97) !important;
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px) !important;
-    border-top: 1px solid var(--border);
-    transform: translateZ(0);
-  }
+  /*
+   * Legacy bottom-nav overlay disabled.
+   * Era il rettangolo nero che restava dietro/sopra la navbar.
+   * La bottom nav è gestita da gk-bottom-nav-raised-pill.css.
+   */
   body:not(.no-mobile-nav)::before {
-    content: '';
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: calc(env(safe-area-inset-bottom, 0px) + 68px);
-    background: var(--bg-primary);
-    z-index: 98;
-    pointer-events: none;
+    display: none !important;
+    content: none !important;
   }
 }
 

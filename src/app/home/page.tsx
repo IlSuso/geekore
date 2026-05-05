@@ -613,7 +613,7 @@ export default function FeedPage() {
         <div className="flex items-start min-h-screen">
 
           {/* ── Colonna principale ─────────────────────────────────── */}
-          <div className="flex-1 min-w-0 flex justify-center pt-14 md:pt-4">
+          <div className="flex-1 min-w-0 flex justify-center pt-3 md:pt-4">
           <div className="w-full max-w-[720px] px-4">
 
             {/* Composer — barra statica non invasiva, modal fullscreen al tap */}

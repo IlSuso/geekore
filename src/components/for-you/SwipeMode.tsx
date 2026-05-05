@@ -305,10 +305,10 @@ function maximallyMixAllTypes(
   return out;
 }
 
-function appendMixedQueue(
+function appendQueueInPersistedOrder(
   current: SwipeItem[],
   incoming: SwipeItem[],
-  filter: CategoryFilter,
+  _filter: CategoryFilter,
 ): SwipeItem[] {
   if (incoming.length === 0) return current;
 
@@ -316,17 +316,9 @@ function appendMixedQueue(
   const uniqueIncoming = incoming.filter((item) => !existingIds.has(item.id));
   if (uniqueIncoming.length === 0) return current;
 
-  const candidate = [
-    ...current,
-    ...(filter === "all"
-      ? maximallyMixAllTypes(uniqueIncoming, current[current.length - 1]?.type)
-      : uniqueIncoming),
-  ];
-
-  // Per "Tutti" rimescoliamo tutta la coda rimanente ogni volta che entra nuovo materiale.
-  // Così non resta un blocco anime/manga davanti e film/tv/game dietro.
-  if (filter !== "all") return candidate;
-  return maximallyMixAllTypes(candidate);
+  // Non mischiare mai qui: l'ordine valido è quello persistito/ritornato da Supabase.
+  // Per "Tutti" il round-robin tra categorie viene deciso quando la queue viene scritta.
+  return [...current, ...uniqueIncoming];
 }
 
 function removeFromQueueById(queue: SwipeItem[], id: string): SwipeItem[] {
@@ -1211,15 +1203,14 @@ export function SwipeMode({
     setCurrentRating(r);
   }, []);
 
-  // La queue parte già interleaved — l'ordine non cambia mai a runtime, solo in append.
+  // La queue deve rispettare l'ordine persistito a monte in Supabase.
+// Niente mixing lato UI: se rientri nella Swipe page, lo stesso payload deve dare lo stesso deck.
   const initialPayloadKeyRef = useRef<string>(
     `${locale}:${initialItems.map((item) => item.id).join("|")}`,
   );
   const lastAppliedPayloadKeyRef = useRef(initialPayloadKeyRef.current);
 
-  const [queue, setQueue] = useState<SwipeItem[]>(() =>
-    maximallyMixAllTypes(initialItems),
-  );
+  const [queue, setQueue] = useState<SwipeItem[]>(() => initialItems);
   const [seenIds] = useState<Set<string>>(
     () => new Set(initialItems.map((i) => i.id)),
   );
@@ -1266,7 +1257,8 @@ export function SwipeMode({
     load();
   }, []); // eslint-disable-line
 
-  // filteredQueue: 'all' uses queue directly (already interleaved at write-time).
+  // filteredQueue: 'all' usa la queue così com'è arrivata da Supabase.
+  // Il mixing di "Tutti" va fatto a monte quando si scrive la queue, non qui.
   // Category filters just slice — no reordering.
   const filteredQueue =
     activeFilter === "all"
@@ -1325,7 +1317,7 @@ export function SwipeMode({
         setQueue((prev) => {
           const existingIds = new Set(prev.map((i) => i.id));
           const newItems = cachedFresh.filter((i) => !existingIds.has(i.id));
-          return appendMixedQueue(prev, newItems, filter);
+          return appendQueueInPersistedOrder(prev, newItems, filter);
         });
         cachedFresh.forEach((i) => seen.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1343,7 +1335,7 @@ export function SwipeMode({
           (i) => !seen.has(i.id) && !skipped.has(i.id),
         );
         if (fresh.length) {
-          setQueue((prev) => appendMixedQueue(prev, fresh, filter));
+          setQueue((prev) => appendQueueInPersistedOrder(prev, fresh, filter));
           fresh.forEach((i) => seen.add(i.id));
         } else {
           // Tutti già visti: svuota seenIds e riprova
@@ -1351,7 +1343,7 @@ export function SwipeMode({
           const retryItems = await onRequestMore(filter);
           const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
           if (retryFresh.length) {
-            setQueue((prev) => appendMixedQueue(prev, retryFresh, filter));
+            setQueue((prev) => appendQueueInPersistedOrder(prev, retryFresh, filter));
             retryFresh.forEach((i) => seen.add(i.id));
           }
         }
@@ -1397,7 +1389,7 @@ export function SwipeMode({
           const newItems = preloaded.filter(
             (i) => !existingIds.has(i.id) && !skipped.has(i.id),
           );
-          return appendMixedQueue(prev, newItems, filter);
+          return appendQueueInPersistedOrder(prev, newItems, filter);
         });
         preloaded.forEach((i) => seenIdsRef.current.add(i.id));
         categoryQueues.current[filter] = [];
@@ -1551,8 +1543,7 @@ export function SwipeMode({
     lastAppliedPayloadKeyRef.current = payloadKey;
 
     if (isLocaleChange || hasNoCurrentQueue) {
-      const freshQueue = maximallyMixAllTypes(initialItems);
-      setQueue(freshQueue);
+      setQueue(initialItems);
       seenIdsRef.current = new Set(initialItems.map((i) => i.id));
       categoryQueues.current = {};
       categoryLoading.current = {};
@@ -1572,7 +1563,7 @@ export function SwipeMode({
     const removedCurrent = queueRef.current.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id));
 
     if (appendOnly.length > 0) {
-      setQueue((prev) => appendMixedQueue(prev, appendOnly, "all"));
+      setQueue((prev) => appendQueueInPersistedOrder(prev, appendOnly, "all"));
       appendOnly.forEach((item) => seenIdsRef.current.add(item.id));
     } else if (removedCurrent.length !== queueRef.current.length) {
       setQueue((prev) => prev.filter((item) => incomingIds.has(item.id) || skippedIdsRef.current.has(item.id)));

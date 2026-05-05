@@ -1,0 +1,144 @@
+/* Swipe mobile definitive fit
+   La card deve usare lo spazio reale disponibile tra filtri e bottom nav.
+   Il vecchio cap 64dvh lasciava un buco enorme sotto sui telefoni alti.
+   Da importare dopo swipe-mobile-evolved.css.
+*/
+
+@media (max-width: 767px) {
+  body.gk-swipe-route-active {
+    --gk-swipe-nav-space: calc(56px + env(safe-area-inset-bottom, 0px));
+    --gk-swipe-top: max(8px, env(safe-area-inset-top, 0px));
+    --gk-swipe-filter-h: 46px;
+    --gk-swipe-gap: 8px;
+    --gk-swipe-bottom-gap: 12px;
+    --gk-swipe-card-w: min(92vw, 396px);
+
+    /*
+      Altezza definitiva mobile.
+      NON usare più 60/64dvh: su 390x776 produce ~496px e lascia
+      circa 150px di vuoto sotto la card. Qui la card prende tutto lo
+      spazio disponibile, fermandosi solo a un cap desktop-like per non
+      diventare assurda su viewport molto alti.
+    */
+    --gk-swipe-available-h: calc(
+      100dvh
+      - var(--gk-swipe-nav-space)
+      - var(--gk-swipe-top)
+      - var(--gk-swipe-filter-h)
+      - var(--gk-swipe-gap)
+      - var(--gk-swipe-bottom-gap)
+    );
+    --gk-swipe-card-h: min(720px, var(--gk-swipe-available-h));
+  }
+
+  .gk-swipe-stage-area {
+    height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    min-height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    max-height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    padding:
+      calc(var(--gk-swipe-top) + var(--gk-swipe-filter-h) + var(--gk-swipe-gap))
+      0
+      var(--gk-swipe-bottom-gap) !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  .gk-swipe-stage-area > div,
+  .gk-swipe-card-stack {
+    width: var(--gk-swipe-card-w) !important;
+    min-width: var(--gk-swipe-card-w) !important;
+    max-width: var(--gk-swipe-card-w) !important;
+    height: var(--gk-swipe-card-h) !important;
+    min-height: var(--gk-swipe-card-h) !important;
+    max-height: var(--gk-swipe-card-h) !important;
+  }
+
+  .gk-swipe-card-stack {
+    margin: 0 auto !important;
+    align-self: flex-start !important;
+    overflow: visible !important;
+  }
+
+  .gk-swipe-card-layer,
+  .gk-swipe-card {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .gk-swipe-card {
+    border-radius: 30px !important;
+  }
+
+  /* Vinco contro vecchie classi Tailwind arbitrarie senza stirare troppo. */
+  .gk-swipe-card-stack[class*="h-[min("],
+  .gk-swipe-stage-area [class*="h-[min("],
+  .gk-swipe-stage-area [class*="calc(100dvh"],
+  .gk-swipe-stage-area [class*="min-h-"] {
+    height: var(--gk-swipe-card-h) !important;
+    min-height: var(--gk-swipe-card-h) !important;
+    max-height: var(--gk-swipe-card-h) !important;
+  }
+
+  /* Assicura che il blocco azioni non finisca gigante/sparso quando la card cambia altezza. */
+  .gk-swipe-card [data-testid="swipe-skip"],
+  .gk-swipe-card [data-testid="swipe-seen"] {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .gk-swipe-card [data-testid="swipe-undo"],
+  .gk-swipe-card [data-testid="swipe-wishlist"],
+  .gk-swipe-card [data-testid="swipe-details"] {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  @media (max-height: 740px) {
+    body.gk-swipe-route-active {
+      --gk-swipe-filter-h: 42px;
+      --gk-swipe-gap: 7px;
+      --gk-swipe-bottom-gap: 10px;
+      --gk-swipe-available-h: calc(
+        100dvh
+        - var(--gk-swipe-nav-space)
+        - var(--gk-swipe-top)
+        - var(--gk-swipe-filter-h)
+        - var(--gk-swipe-gap)
+        - var(--gk-swipe-bottom-gap)
+      );
+      --gk-swipe-card-h: min(680px, var(--gk-swipe-available-h));
+    }
+  }
+
+  @media (max-height: 670px) {
+    body.gk-swipe-route-active {
+      --gk-swipe-filter-h: 38px;
+      --gk-swipe-gap: 6px;
+      --gk-swipe-bottom-gap: 8px;
+      --gk-swipe-available-h: calc(
+        100dvh
+        - var(--gk-swipe-nav-space)
+        - var(--gk-swipe-top)
+        - var(--gk-swipe-filter-h)
+        - var(--gk-swipe-gap)
+        - var(--gk-swipe-bottom-gap)
+      );
+      --gk-swipe-card-h: var(--gk-swipe-available-h);
+    }
+
+    .gk-swipe-card [data-testid="swipe-skip"],
+    .gk-swipe-card [data-testid="swipe-seen"] {
+      width: 48px !important;
+      height: 48px !important;
+    }
+
+    .gk-swipe-card [data-testid="swipe-undo"],
+    .gk-swipe-card [data-testid="swipe-wishlist"],
+    .gk-swipe-card [data-testid="swipe-details"] {
+      width: 39px !important;
+      height: 39px !important;
+    }
+  }
+}

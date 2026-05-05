@@ -298,11 +298,11 @@ export default function Navbar() {
       </aside>
 
       <nav
-        className="mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-[100]"
+        className="gk-bottom-nav-raised md:hidden"
         data-no-swipe="true"
         aria-label={locale === 'it' ? 'Navigazione mobile' : 'Mobile navigation'}
       >
-        <div className="mobile-nav-inner">
+        <div className="gk-bottom-nav-raised-inner">
           {NAV_ITEMS.map((item) => {
             const itemTab = pathnameToTab(item.href)
             const isActive = activeTab
@@ -315,17 +315,18 @@ export default function Navbar() {
                 type="button"
                 data-no-swipe="true"
                 data-testid={`nav-mobile-${item.href.replace('/', '')}`}
-                className={`mobile-nav-item ${isActive ? 'is-active' : ''}`}
+                className={`gk-bottom-nav-raised-item ${isActive ? 'is-active' : ''}`}
                 onClick={() => navigateToTab(item.href)}
                 aria-current={isActive ? 'page' : undefined}
               >
+                <span className="gk-bottom-nav-raised-pill" aria-hidden="true" />
                 <item.icon
-                  className="mobile-nav-icon"
-                  size={18}
-                  strokeWidth={isActive ? 2.35 : 1.75}
+                  className="gk-bottom-nav-raised-icon"
+                  size={19}
+                  strokeWidth={isActive ? 2.4 : 1.75}
                   style={{ color: isActive ? 'var(--accent)' : undefined, fill: isActive ? 'var(--accent)' : 'none' }}
                 />
-                <span className="mobile-nav-label" style={{ color: isActive ? 'var(--accent)' : undefined }}>
+                <span className="gk-bottom-nav-raised-label" style={{ color: isActive ? 'var(--accent)' : undefined }}>
                   {item.label}
                 </span>
               </button>

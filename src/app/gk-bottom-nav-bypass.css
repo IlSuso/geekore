@@ -1,0 +1,191 @@
+/* GK bottom nav bypass
+   Navbar mobile nuova, senza usare .mobile-nav.
+   Serve a evitare vecchi CSS legacy su .mobile-nav.
+*/
+
+@media (max-width: 767px) {
+  :root {
+    --gk-bottom-nav-bypass-h: 44px;
+    --gk-bottom-nav-bypass-total-h: calc(var(--gk-bottom-nav-bypass-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  body:not(.no-mobile-nav):not(.gk-swipe-route-active) {
+    padding-bottom: var(--gk-bottom-nav-bypass-total-h) !important;
+  }
+
+  body.gk-swipe-route-active {
+    padding-bottom: 0 !important;
+  }
+
+  body:not(.no-mobile-nav)::before {
+    display: none !important;
+    content: none !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  .mobile-nav,
+  nav.mobile-nav {
+    display: none !important;
+  }
+
+  .gk-bottom-nav-bypass {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2147483000;
+
+    display: block;
+    width: 100vw;
+    height: var(--gk-bottom-nav-bypass-total-h);
+
+    margin: 0;
+    padding: 0 0 env(safe-area-inset-bottom, 0px) 0;
+    box-sizing: border-box;
+
+    overflow: hidden;
+    background: rgb(7 7 10 / 0.99);
+    border: 0;
+    outline: 0;
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 0.12);
+    backdrop-filter: blur(12px) saturate(130%);
+  }
+
+  .gk-bottom-nav-bypass::before,
+  .gk-bottom-nav-bypass::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .gk-bottom-nav-bypass-inner {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: start;
+
+    width: 100%;
+    height: var(--gk-bottom-nav-bypass-h);
+
+    margin: 0;
+    padding: 1px 6px 0;
+    gap: 0;
+    box-sizing: border-box;
+  }
+
+  .gk-bottom-nav-bypass-item {
+    appearance: none;
+    -webkit-appearance: none;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+
+    width: 100%;
+    height: var(--gk-bottom-nav-bypass-h);
+
+    margin: 0;
+    padding: 4px 0 0;
+    gap: 1px;
+
+    box-sizing: border-box;
+    border: 0;
+    outline: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(113 113 122);
+    box-shadow: none;
+    cursor: pointer;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gk-bottom-nav-bypass-item::before,
+  .gk-bottom-nav-bypass-item::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .gk-bottom-nav-bypass-item.is-active {
+    color: var(--accent);
+  }
+
+  .gk-bottom-nav-bypass-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    max-width: 18px;
+    max-height: 18px;
+    flex: 0 0 18px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .gk-bottom-nav-bypass-item.is-active .gk-bottom-nav-bypass-icon {
+    filter: drop-shadow(0 0 6px rgb(230 255 61 / 0.20));
+  }
+
+  .gk-bottom-nav-bypass-label {
+    display: block;
+    width: 100%;
+    max-width: 56px;
+
+    margin: 0;
+    padding: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: rgb(113 113 122);
+    text-align: center;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .gk-bottom-nav-bypass-item.is-active .gk-bottom-nav-bypass-label {
+    color: var(--accent);
+  }
+
+  body.no-mobile-nav .gk-bottom-nav-bypass {
+    display: none;
+  }
+
+  body.gk-swipe-route-active .gk-bottom-nav-bypass {
+    display: block;
+    pointer-events: auto;
+  }
+
+  @media (max-width: 374px) {
+    :root {
+      --gk-bottom-nav-bypass-h: 42px;
+    }
+
+    .gk-bottom-nav-bypass-inner {
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+
+    .gk-bottom-nav-bypass-item {
+      padding-top: 3px;
+    }
+
+    .gk-bottom-nav-bypass-icon {
+      width: 17px;
+      height: 17px;
+      min-width: 17px;
+      min-height: 17px;
+      flex-basis: 17px;
+    }
+
+    .gk-bottom-nav-bypass-label {
+      max-width: 48px;
+      font-size: 8.5px;
+      line-height: 9px;
+    }
+  }
+}

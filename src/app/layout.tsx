@@ -12,7 +12,10 @@ import './notifications-final.css'
 import './ui-polish-fixes.css'
 import './swipe-fast-mobile-fix.css'
 import './headbar-swipe-scope-fix.css'
-import './mobile-nav-absolute-final.css'
+import './gk-bottom-nav-raised-pill.css'
+import './swipe-mobile-evolved.css'
+import './swipe-mobile-balanced.css'
+import './home-mobile-top-gap-fix.css'
 import Navbar from '@/components/Navbar'
 
 // Manteniamo next/font come fallback self-hosted e usiamo i link nel <head>

@@ -253,7 +253,8 @@ export default function SwipePage() {
           .from("swipe_queue_all")
           .select("*")
           .eq("user_id", user.id)
-          .order("inserted_at", { ascending: true }),
+          .order("inserted_at", { ascending: true })
+          .order("external_id", { ascending: true }),
       ]);
 
       for (const e of entries || []) {
@@ -544,7 +545,8 @@ export default function SwipePage() {
         .from(table)
         .select("*")
         .eq("user_id", user.id)
-        .order("inserted_at", { ascending: true });
+        .order("inserted_at", { ascending: true })
+        .order("external_id", { ascending: true });
       const existingRows = (queueRows || []).filter(
         (r: any) => !skippedSet.has(r.external_id),
       );

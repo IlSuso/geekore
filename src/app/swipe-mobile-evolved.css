@@ -1,16 +1,25 @@
-/* Geekore Swipe Mobile Refined
-   Obiettivo: niente header, card più alta, meno vuoto sopra, filtri compatti, navbar sotto visibile.
-   Nessun body:has(.gk-swipe-mode): con KeepAlive romperebbe altre pagine.
+/* Geekore Swipe Mobile Evolved
+   Ripristina la Swipe mobile evoluta in un solo file pulito.
+   Non usa body:has(.gk-swipe-mode), perché KeepAlive tiene Swipe nel DOM.
 */
 
 @media (max-width: 767px) {
-  :root {
-    --gk-swipe-nav-space: calc(70px + env(safe-area-inset-bottom, 0px));
+  body.gk-swipe-route-active {
+    --gk-swipe-nav-space: calc(56px + env(safe-area-inset-bottom, 0px));
     --gk-swipe-top: max(8px, env(safe-area-inset-top, 0px));
     --gk-swipe-filter-h: 46px;
-    --gk-swipe-gap: 8px;
+    --gk-swipe-gap: 7px;
+    --gk-swipe-bottom-gap: 8px;
     --gk-swipe-card-w: min(92vw, 396px);
-    --gk-swipe-card-max-h: calc(100dvh - var(--gk-swipe-nav-space) - var(--gk-swipe-top) - var(--gk-swipe-filter-h) - var(--gk-swipe-gap) - 12px);
+    --gk-swipe-card-h: calc(
+      100dvh
+      - var(--gk-swipe-nav-space)
+      - var(--gk-swipe-top)
+      - var(--gk-swipe-filter-h)
+      - var(--gk-swipe-gap)
+      - var(--gk-swipe-bottom-gap)
+    );
+    overflow: hidden !important;
   }
 
   body.gk-swipe-route-active .gk-mobile-header,
@@ -18,21 +27,11 @@
     display: none !important;
   }
 
-  body.gk-swipe-route-active .mobile-nav {
+  body.gk-swipe-route-active .gk-bottom-nav-raised,
+  body.gk-swipe-route-active .gk-bottom-nav-bypass {
     display: block !important;
     pointer-events: auto !important;
-    transform: translateZ(0) !important;
-    z-index: 120 !important;
-  }
-
-  body:not(.gk-swipe-route-active) .gk-mobile-header {
-    display: flex !important;
-  }
-
-  body:not(.gk-swipe-route-active) .mobile-nav {
-    display: block !important;
-    pointer-events: auto !important;
-    transform: translateZ(0) !important;
+    z-index: 2147483000 !important;
   }
 
   .gk-swipe-mode.gk-swipe-fullscreen {
@@ -111,7 +110,7 @@
     padding:
       calc(var(--gk-swipe-top) + var(--gk-swipe-filter-h) + var(--gk-swipe-gap))
       0
-      8px !important;
+      var(--gk-swipe-bottom-gap) !important;
     box-sizing: border-box !important;
   }
 
@@ -126,9 +125,9 @@
     position: relative !important;
     flex: 0 0 auto !important;
     align-self: flex-start !important;
-    height: min(70dvh, 610px) !important;
-    min-height: min(68dvh, 520px) !important;
-    max-height: var(--gk-swipe-card-max-h) !important;
+    height: var(--gk-swipe-card-h) !important;
+    min-height: 0 !important;
+    max-height: var(--gk-swipe-card-h) !important;
     margin: 0 auto !important;
     overflow: visible !important;
     transform: none !important;
@@ -241,9 +240,9 @@
     width: var(--gk-swipe-card-w);
     min-width: var(--gk-swipe-card-w);
     max-width: var(--gk-swipe-card-w);
-    height: min(70dvh, 610px);
-    min-height: min(68dvh, 520px);
-    max-height: var(--gk-swipe-card-max-h);
+    height: var(--gk-swipe-card-h);
+    min-height: 0;
+    max-height: var(--gk-swipe-card-h);
     margin-top: var(--gk-swipe-gap);
     overflow: hidden;
     border-radius: 30px;
@@ -311,9 +310,10 @@
   }
 
   @media (max-height: 740px) {
-    :root {
-      --gk-swipe-gap: 7px;
+    body.gk-swipe-route-active {
       --gk-swipe-filter-h: 42px;
+      --gk-swipe-gap: 6px;
+      --gk-swipe-bottom-gap: 7px;
     }
 
     .gk-swipe-filter-region button {
@@ -323,22 +323,16 @@
       padding: 0 13px !important;
     }
 
-    .gk-swipe-card-stack,
-    .gk-swipe-loading-card {
-      height: min(66dvh, 520px) !important;
-      min-height: 420px !important;
-    }
-
     .gk-swipe-card h2 {
       font-size: clamp(21px, 6.6vw, 29px) !important;
     }
   }
 
   @media (max-height: 670px) {
-    .gk-swipe-card-stack,
-    .gk-swipe-loading-card {
-      height: min(61dvh, 450px) !important;
-      min-height: 360px !important;
+    body.gk-swipe-route-active {
+      --gk-swipe-filter-h: 38px;
+      --gk-swipe-gap: 5px;
+      --gk-swipe-bottom-gap: 6px;
     }
 
     .gk-swipe-card [data-testid="swipe-skip"],

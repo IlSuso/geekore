@@ -1,0 +1,103 @@
+/* Swipe mobile bottom fill
+   Fix specifico per il grosso vuoto sotto la card.
+   Da importare dopo swipe-mobile-evolved.css.
+*/
+
+@media (max-width: 767px) {
+  body.gk-swipe-route-active {
+    --gk-swipe-nav-space: calc(56px + env(safe-area-inset-bottom, 0px));
+    --gk-swipe-top: max(8px, env(safe-area-inset-top, 0px));
+    --gk-swipe-filter-h: 46px;
+    --gk-swipe-gap: 7px;
+    --gk-swipe-bottom-gap: 6px;
+    --gk-swipe-card-w: min(92vw, 396px);
+    --gk-swipe-available-h: calc(
+      100dvh
+      - var(--gk-swipe-nav-space)
+      - var(--gk-swipe-top)
+      - var(--gk-swipe-filter-h)
+      - var(--gk-swipe-gap)
+      - var(--gk-swipe-bottom-gap)
+    );
+  }
+
+  .gk-swipe-mode.gk-swipe-fullscreen {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding-bottom: var(--gk-swipe-nav-space) !important;
+  }
+
+  /* La stage deve occupare tutto lo spazio tra filtri e navbar. */
+  .gk-swipe-stage-area {
+    height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    min-height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    max-height: calc(100dvh - var(--gk-swipe-nav-space)) !important;
+    padding:
+      calc(var(--gk-swipe-top) + var(--gk-swipe-filter-h) + var(--gk-swipe-gap))
+      0
+      var(--gk-swipe-bottom-gap) !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Qualunque wrapper diretto dentro la stage non deve ridurre l'altezza. */
+  .gk-swipe-stage-area > div {
+    width: var(--gk-swipe-card-w) !important;
+    min-width: var(--gk-swipe-card-w) !important;
+    max-width: var(--gk-swipe-card-w) !important;
+    height: var(--gk-swipe-available-h) !important;
+    min-height: var(--gk-swipe-available-h) !important;
+    max-height: var(--gk-swipe-available-h) !important;
+    align-self: flex-start !important;
+  }
+
+  .gk-swipe-card-stack {
+    width: var(--gk-swipe-card-w) !important;
+    min-width: var(--gk-swipe-card-w) !important;
+    max-width: var(--gk-swipe-card-w) !important;
+    height: var(--gk-swipe-available-h) !important;
+    min-height: var(--gk-swipe-available-h) !important;
+    max-height: var(--gk-swipe-available-h) !important;
+    margin: 0 auto !important;
+    align-self: flex-start !important;
+    overflow: visible !important;
+  }
+
+  .gk-swipe-card-layer,
+  .gk-swipe-card,
+  .gk-swipe-card > div {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .gk-swipe-card {
+    border-radius: 30px !important;
+  }
+
+  /* Se vecchie classi Tailwind arbitrarie restano sullo stesso nodo, vinciamo noi. */
+  .gk-swipe-stage-area [class*="h-[min("],
+  .gk-swipe-stage-area [class*="calc(100dvh"],
+  .gk-swipe-stage-area [class*="min-h-"] {
+    height: var(--gk-swipe-available-h) !important;
+    min-height: var(--gk-swipe-available-h) !important;
+    max-height: var(--gk-swipe-available-h) !important;
+  }
+
+  @media (max-height: 740px) {
+    body.gk-swipe-route-active {
+      --gk-swipe-filter-h: 42px;
+      --gk-swipe-gap: 6px;
+      --gk-swipe-bottom-gap: 5px;
+    }
+  }
+
+  @media (max-height: 670px) {
+    body.gk-swipe-route-active {
+      --gk-swipe-filter-h: 38px;
+      --gk-swipe-gap: 5px;
+      --gk-swipe-bottom-gap: 5px;
+    }
+  }
+}

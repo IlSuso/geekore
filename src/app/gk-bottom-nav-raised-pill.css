@@ -1,0 +1,215 @@
+/* GK bottom nav raised pill
+   Versione finale dopo fix della vera causa:
+   - overlay nero legacy disabilitato in globals.css
+   - navbar leggermente più alta e corretta
+   - pill attiva sobria, non enorme
+   - nessun vecchio .mobile-nav
+*/
+
+@media (max-width: 767px) {
+  :root {
+    --gk-bottom-nav-raised-h: 56px;
+    --gk-bottom-nav-raised-total-h: calc(var(--gk-bottom-nav-raised-h) + env(safe-area-inset-bottom, 0px));
+  }
+
+  body:not(.no-mobile-nav):not(.gk-swipe-route-active) {
+    padding-bottom: var(--gk-bottom-nav-raised-total-h) !important;
+  }
+
+  body.gk-swipe-route-active {
+    padding-bottom: 0 !important;
+  }
+
+  body:not(.no-mobile-nav)::before {
+    display: none !important;
+    content: none !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  .mobile-nav,
+  nav.mobile-nav {
+    display: none !important;
+  }
+
+  .gk-bottom-nav-raised {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2147483000;
+
+    display: block;
+    width: 100vw;
+    height: var(--gk-bottom-nav-raised-total-h);
+
+    margin: 0;
+    padding: 0 0 env(safe-area-inset-bottom, 0px) 0;
+    box-sizing: border-box;
+
+    overflow: hidden;
+    background: rgba(8, 8, 12, 0.985);
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,0.045);
+    outline: 0;
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.18);
+    backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  .gk-bottom-nav-raised::before,
+  .gk-bottom-nav-raised::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .gk-bottom-nav-raised-inner {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+
+    width: 100%;
+    height: var(--gk-bottom-nav-raised-h);
+
+    margin: 0;
+    padding: 4px 8px 5px;
+    gap: 2px;
+    box-sizing: border-box;
+  }
+
+  .gk-bottom-nav-raised-item {
+    appearance: none;
+    -webkit-appearance: none;
+
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-width: 0;
+    height: 47px;
+
+    margin: 0;
+    padding: 4px 2px 3px;
+    gap: 2px;
+
+    box-sizing: border-box;
+    border: 0;
+    outline: 0;
+    border-radius: 17px;
+    background: transparent;
+    color: rgb(113 113 122);
+    box-shadow: none;
+    cursor: pointer;
+    line-height: 1;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gk-bottom-nav-raised-item::before,
+  .gk-bottom-nav-raised-item::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .gk-bottom-nav-raised-pill {
+    position: absolute;
+    inset: 2px 5px;
+    z-index: -1;
+    border-radius: 15px;
+    opacity: 0;
+    background: transparent;
+    box-shadow: none;
+    transition: opacity 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  }
+
+  .gk-bottom-nav-raised-item.is-active .gk-bottom-nav-raised-pill {
+    opacity: 1;
+    background: rgba(230,255,61,0.085);
+    box-shadow: inset 0 0 0 1px rgba(230,255,61,0.13), 0 0 14px rgba(230,255,61,0.06);
+  }
+
+  .gk-bottom-nav-raised-icon {
+    display: block;
+    width: 19px;
+    height: 19px;
+    min-width: 19px;
+    min-height: 19px;
+    max-width: 19px;
+    max-height: 19px;
+    flex: 0 0 19px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .gk-bottom-nav-raised-item.is-active .gk-bottom-nav-raised-icon {
+    filter: drop-shadow(0 0 7px rgba(230,255,61,0.22));
+  }
+
+  .gk-bottom-nav-raised-label {
+    display: block;
+    width: 100%;
+    max-width: 58px;
+
+    margin: 0;
+    padding: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: rgb(113 113 122);
+    text-align: center;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .gk-bottom-nav-raised-item.is-active .gk-bottom-nav-raised-label {
+    color: var(--accent);
+  }
+
+  body.no-mobile-nav .gk-bottom-nav-raised {
+    display: none;
+  }
+
+  body.gk-swipe-route-active .gk-bottom-nav-raised {
+    display: block;
+    pointer-events: auto;
+  }
+
+  @media (max-width: 374px) {
+    :root {
+      --gk-bottom-nav-raised-h: 53px;
+    }
+
+    .gk-bottom-nav-raised-inner {
+      padding-left: 5px;
+      padding-right: 5px;
+      gap: 1px;
+    }
+
+    .gk-bottom-nav-raised-item {
+      height: 45px;
+      border-radius: 16px;
+    }
+
+    .gk-bottom-nav-raised-icon {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      min-height: 18px;
+      flex-basis: 18px;
+    }
+
+    .gk-bottom-nav-raised-label {
+      max-width: 50px;
+      font-size: 9px;
+      line-height: 9px;
+    }
+  }
+}

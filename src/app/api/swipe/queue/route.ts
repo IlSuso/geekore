@@ -124,9 +124,21 @@ export async function POST(request: NextRequest) {
   if (!QUEUE_TYPES.has(queue)) return NextResponse.json({ error: 'queue non valida' }, { status: 400, headers: rl.headers })
   if (!Array.isArray(body?.rows)) return NextResponse.json({ error: 'rows mancanti' }, { status: 400, headers: rl.headers })
 
+  const now = Date.now()
   const rows: QueueRow[] = body.rows
-    .map((row: any) => toQueueRow(row, user.id))
-    .filter((row: ReturnType<typeof toQueueRow>): row is QueueRow => Boolean(row))
+    .map((row: any, index: number) => {
+      const queueRow = toQueueRow(row, user.id)
+      if (!queueRow) return null
+
+      // Mantiene stabile l'ordine deciso a monte dal caller anche quando Supabase
+      // inserisce più righe nello stesso batch. Senza questo, molti record possono
+      // avere lo stesso inserted_at e la SELECT successiva può tornare in ordine variabile.
+      return {
+        ...queueRow,
+        inserted_at: new Date(now + index).toISOString(),
+      } as QueueRow
+    })
+    .filter((row: ReturnType<typeof toQueueRow> | null): row is QueueRow => Boolean(row))
     .slice(0, 100)
   if (rows.length === 0) return NextResponse.json({ success: true, inserted: 0 }, { headers: rl.headers })
 

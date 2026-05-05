@@ -1,0 +1,23 @@
+/* Home mobile top gap fix
+   Rimuove lo spazio vuoto tra MobileHeader e il composer della Home.
+   Il pannello KeepAlive parte già sotto l'header, quindi il vecchio pt-14 era doppio.
+*/
+
+@media (max-width: 767px) {
+  .gk-home-page {
+    padding-top: 0 !important;
+  }
+
+  .gk-home-page > div.relative.min-h-screen {
+    padding-top: 0 !important;
+  }
+
+  .gk-home-page .flex.items-start.min-h-screen > .flex-1 {
+    padding-top: 12px !important;
+  }
+
+  .gk-home-page .flex.items-start.min-h-screen > .flex-1 > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
