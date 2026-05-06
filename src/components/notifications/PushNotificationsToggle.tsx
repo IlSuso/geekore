@@ -274,15 +274,19 @@ export function PushNotificationsToggle() {
           <button
             onClick={enabled ? handleDisable : handleEnable}
             disabled={state === "loading"}
-            className="h-9 rounded-2xl px-4 text-xs font-black transition-all disabled:opacity-50"
+            className="h-9 min-w-[82px] rounded-xl border px-4 text-xs font-black transition-colors disabled:border-[var(--border)] disabled:bg-[var(--bg-secondary)] disabled:text-[var(--text-muted)] disabled:opacity-100"
             style={
               enabled
                 ? {
                     background: "var(--bg-secondary)",
                     color: "var(--text-secondary)",
-                    border: "1px solid var(--border)",
+                    borderColor: "var(--border)",
                   }
-                : { background: "var(--accent)", color: "#0B0B0F" }
+                : {
+                    background: "rgba(230,255,61,0.12)",
+                    color: "var(--accent)",
+                    borderColor: "rgba(230,255,61,0.42)",
+                  }
             }
           >
             {state === "loading" ? "..." : enabled ? pc.disable : pc.enable}

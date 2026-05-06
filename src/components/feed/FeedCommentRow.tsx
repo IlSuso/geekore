@@ -22,6 +22,7 @@ export function FeedCommentRow({
   onOptions,
 }: FeedCommentRowProps) {
   const canManage = currentUserId === comment.user_id && !!onOptions
+  const displayName = comment.display_name || comment.username || 'user'
 
   return (
     <div className="flex items-start gap-3 group/mc">
@@ -44,7 +45,7 @@ export function FeedCommentRow({
             onClick={onClose}
             className="mr-1 font-semibold text-[var(--text-primary)] transition-colors hover:text-[var(--accent)]"
           >
-            {comment.username}
+            {displayName}
           </Link>
           <span className="text-[var(--text-secondary)]">{comment.content}</span>
         </p>

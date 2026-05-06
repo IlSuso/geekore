@@ -146,9 +146,9 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
       type="button"
       data-no-swipe="true"
       onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
-      className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-[16px] border border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-elevated)]"
+      className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-3.5 rounded-[18px] border border-[var(--border-soft)] bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))] p-3.5 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--bg-elevated)] md:gap-4"
     >
-      <div className="h-[74px] w-[50px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="h-[96px] w-[66px] flex-shrink-0 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--bg-secondary)] shadow-[0_10px_26px_rgba(0,0,0,0.28)] md:h-[112px] md:w-[78px]">
         {localizedMedia?.cover_image ? (
           <img src={localizedMedia.cover_image} alt={mediaTitle} className="h-full w-full object-cover" loading="lazy" />
         ) : (
@@ -162,8 +162,8 @@ function FeedActivityContext({ category, media, onCategoryClick }: {
           <span className="gk-label text-[var(--text-muted)]">{copy.activity}</span>
           <CategoryBadge category={parsed.category} />
         </div>
-        <p className="line-clamp-1 text-[15px] font-black leading-tight text-[var(--text-primary)]">{mediaTitle}</p>
-        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+        <p className="line-clamp-2 text-[15px] font-black leading-tight text-[var(--text-primary)] md:text-[16px]">{mediaTitle}</p>
+        <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
           {localizedMedia?.status && <span className="gk-mono rounded-full border border-[var(--border)] px-2 py-0.5 text-[var(--text-secondary)]">{localizedMedia.status}</span>}
           {progressLabel && <span className="gk-mono text-[var(--text-muted)]">{progressLabel}</span>}
           {localizedMedia?.rating != null && (

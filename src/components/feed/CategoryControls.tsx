@@ -32,7 +32,8 @@ const CATEGORY_CONTROLS_COPY = {
     useOnlyMedium: (label: string) => `Usa solo medium “${label}”`,
     allActivitiesIn: (label: string) => `Tutte le activity di ${label}`,
     titleSearchIn: (label: string) => `Cerca titolo in ${label}...`,
-    searchExactIn: (query: string, label: string) => `Cerca «${query}» in ${label}`,
+    searchExactIn: (query: string, label: string) =>
+      `Cerca «${query}» in ${label}`,
     placeholders: {
       movie: "Cerca un film...",
       tv: "Cerca una serie TV...",
@@ -52,7 +53,8 @@ const CATEGORY_CONTROLS_COPY = {
     useOnlyMedium: (label: string) => `Use only “${label}”`,
     allActivitiesIn: (label: string) => `All activity in ${label}`,
     titleSearchIn: (label: string) => `Search title in ${label}...`,
-    searchExactIn: (query: string, label: string) => `Search “${query}” in ${label}`,
+    searchExactIn: (query: string, label: string) =>
+      `Search “${query}” in ${label}`,
     placeholders: {
       movie: "Search for a movie...",
       tv: "Search for a TV show...",
@@ -236,14 +238,28 @@ async function searchByCategory(
   return [];
 }
 
+function toStoredMediaType(category: string): string | null {
+  if (category === "Film") return "movie";
+  if (category === "Serie TV") return "tv";
+  if (category === "Videogiochi") return "game";
+  if (category === "Anime") return "anime";
+  if (category === "Manga") return "manga";
+  if (category === "Giochi da tavolo") return "boardgame";
+  return null;
+}
+
 export function CategorySelector({
   value,
   onChange,
+  onMediaSelect,
   alwaysExpanded = false,
+  embedded = false,
 }: {
   value: string;
   onChange: (val: string) => void;
+  onMediaSelect?: (media: { external_id?: string | null; title: string; type?: string | null; cover_image?: string | null } | null) => void;
   alwaysExpanded?: boolean;
+  embedded?: boolean;
 }) {
   const { locale } = useLocale();
   const copy = CATEGORY_CONTROLS_COPY[locale];
@@ -257,28 +273,33 @@ export function CategorySelector({
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openAboveRef = useRef(false);
-  const [openAbove, setOpenAbove] = useState(false);
-  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+  const [isMobileSheet, setIsMobileSheet] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || window.innerWidth >= 768) return;
-    if (open) {
-      document.body.style.overflow = "hidden";
-      gestureState.drawerActive = true;
-    } else {
-      document.body.style.overflow = "";
-      gestureState.drawerActive = false;
-    }
+    if (!open || embedded || typeof window === "undefined") return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const isMobile = window.innerWidth < 768;
+
+    // Keep the picker visually anchored. Without this, desktop scroll makes the
+    // floating panel look detached, and mobile can leave the bottom sheet under
+    // the fixed navigation.
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    if (isMobile) gestureState.drawerActive = true;
+
     return () => {
-      document.body.style.overflow = "";
-      gestureState.drawerActive = false;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      if (isMobile) gestureState.drawerActive = false;
     };
-  }, [open]);
+  }, [open, embedded]);
 
   const API_CATEGORIES = new Set([
     "Film",
@@ -328,24 +349,8 @@ export function CategorySelector({
     };
   }, [subInput, selectedCat, step]);
 
-  const openDropup = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isMobile = window.innerWidth < 768;
-
-    if (isMobile) {
-      const above = rect.top + rect.height / 2 > window.innerHeight / 2;
-      openAboveRef.current = above;
-      setOpenAbove(above);
-      setPanelPos({ top: rect.bottom + (above ? 0 : 8), left: 12 });
-    } else {
-      const left = rect.right + 6;
-      const triggerMidY = rect.top + rect.height / 2;
-      const above = triggerMidY > window.innerHeight / 2;
-      const top = above ? rect.bottom : rect.top;
-      openAboveRef.current = above;
-      setOpenAbove(above);
-      setPanelPos({ top, left });
-    }
+  const openDropup = () => {
+    setIsMobileSheet(typeof window !== "undefined" ? window.innerWidth < 768 : false);
     setOpen(true);
     setStep("macro");
   };
@@ -364,6 +369,12 @@ export function CategorySelector({
 
   const selectSuggestion = (result: SearchResult) => {
     onChange(`${selectedCat}:${result.title}`);
+    onMediaSelect?.({
+      external_id: result.id || null,
+      title: result.title,
+      type: toStoredMediaType(selectedCat),
+      cover_image: result.image || null,
+    });
     close();
   };
 
@@ -372,6 +383,7 @@ export function CategorySelector({
     setSubInput("");
     setSuggestions([]);
     onChange("");
+    onMediaSelect?.(null);
     close();
   };
 
@@ -407,6 +419,12 @@ export function CategorySelector({
                 ? copy.placeholders.boardgame
                 : copy.placeholders.title;
 
+  const embeddedPortalTarget = mounted && typeof document !== "undefined"
+    ? document.getElementById("composer-modal-shell")
+    : null;
+  const categoryPortalTarget = embedded ? embeddedPortalTarget : mounted && typeof document !== "undefined" ? document.body : null;
+
+
   return (
     <div ref={wrapRef} className="relative">
       <button
@@ -441,264 +459,307 @@ export function CategorySelector({
 
       {open &&
         mounted &&
-        typeof document !== "undefined" &&
+        categoryPortalTarget &&
         createPortal(
-          <div
-            id="category-portal-panel"
-            data-no-swipe
-            className="fixed z-[10000] bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl shadow-black/70 overflow-hidden"
-            style={{
-              top: panelPos.top,
-              left: panelPos.left,
-              width: "300px",
-              transform: openAboveRef.current ? "translateY(-100%)" : "none",
-            }}
-          >
-            {step === "macro" && (
-              <div
-                className={`p-3 flex flex-col ${openAboveRef.current ? "flex-col-reverse" : ""}`}
-              >
-                <div
-                  className={`flex items-center justify-between ${openAboveRef.current ? "mb-1" : "mb-2.5"}`}
-                >
-                  <span
-                    className={`text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ${openAboveRef.current ? "mt-3" : ""}`}
-                  >
-                    {copy.chooseMedium}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={close}
-                    className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5 mb-1.5">
-                  {MACRO_CATEGORIES.slice(0, 3).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => selectMacro(cat)}
-                      className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group"
-                    >
-                      <CategoryIcon
-                        category={cat}
-                        size={18}
-                        className="text-zinc-400 group-hover:text-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">
-                        {getCategoryDisplayLabel(cat, locale)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {MACRO_CATEGORIES.slice(3).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => selectMacro(cat)}
-                      className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/60 hover:bg-zinc-800 hover:border-zinc-600 transition-all group"
-                    >
-                      <CategoryIcon
-                        category={cat}
-                        size={18}
-                        className="text-zinc-400 group-hover:text-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-zinc-300 group-hover:text-white leading-tight text-center">
-                        {getCategoryDisplayLabel(cat, locale)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <>
+            {!embedded && (
+              <button
+                type="button"
+                aria-label="Close media picker"
+                className="fixed inset-0 z-[2147483646] bg-black/70 backdrop-blur-[3px]"
+                onClick={close}
+              />
             )}
-
-            {step === "search" &&
-              (() => {
-                const header = (
-                  <div className="flex items-center gap-2 mb-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep("macro");
-                        setSuggestions([]);
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all flex-shrink-0"
-                    >
-                      <ArrowLeft size={13} />
-                    </button>
-                    <CategoryIcon
-                      category={selectedCat}
-                      size={14}
-                      className="flex-shrink-0"
-                      style={{ color: "var(--accent)" }}
-                    />
-                    <span className="text-sm font-semibold text-white flex-1 truncate">
-                      {getCategoryDisplayLabel(selectedCat, locale)}
+            <div
+              id="category-portal-panel"
+              data-no-swipe
+              role="dialog"
+              aria-modal="true"
+              className={
+                embedded
+                  ? "absolute inset-x-6 bottom-[86px] z-[80] max-h-[min(420px,58vh)] overflow-y-auto overscroll-contain rounded-[28px] border border-[rgba(230,255,61,0.16)] bg-[linear-gradient(180deg,rgba(25,25,34,0.98),rgba(12,12,17,0.98))] shadow-[0_30px_90px_rgba(0,0,0,0.70),0_0_0_1px_rgba(255,255,255,0.06)]"
+                  : isMobileSheet
+                    ? "fixed inset-x-0 bottom-0 z-[2147483647] max-h-[78dvh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-zinc-700/80 bg-zinc-950 shadow-2xl shadow-black/80"
+                    : "fixed left-1/2 top-1/2 z-[2147483647] w-[min(92vw,460px)] max-h-[78vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-[28px] border border-zinc-700/80 bg-zinc-950 shadow-2xl shadow-black/80"
+              }
+              style={
+                !embedded && isMobileSheet
+                  ? { paddingBottom: "max(18px, env(safe-area-inset-bottom))" }
+                  : undefined
+              }
+            >
+              {step === "macro" && (
+                <div className={isMobileSheet ? "p-4" : "p-5"}>
+                  {isMobileSheet && (
+                    <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-700" />
+                  )}
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      {copy.chooseMedium}
                     </span>
                     <button
                       type="button"
                       onClick={close}
-                      className="text-zinc-600 hover:text-zinc-400 p-0.5"
+                      className="text-zinc-600 hover:text-zinc-400 transition-colors p-0.5"
                     >
                       <X size={13} />
                     </button>
                   </div>
-                );
-                const inputEl = (
-                  <div className="relative mb-2">
-                    <Search
-                      size={13}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
-                    />
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={subInput}
-                      onChange={(e) => setSubInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        hasApiSupport
-                          ? searchPlaceholder
-                          : copy.placeholders.title
-                      }
-                      className="no-nav-hide w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-600 focus:outline-none rounded-xl pl-8 pr-8 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
-                    />
-                    {isSearching && (
-                      <Loader2
-                        size={13}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin"
-                        style={{ color: "var(--accent)" }}
-                      />
-                    )}
-                    {!isSearching && subInput && (
+                  <div
+                    className={
+                      isMobileSheet
+                        ? "grid grid-cols-2 gap-2"
+                        : "grid grid-cols-3 gap-2"
+                    }
+                  >
+                    {MACRO_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => selectMacro(cat)}
+                        className={
+                          isMobileSheet
+                            ? "flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-3 py-3 text-left transition-all hover:border-zinc-600 hover:bg-zinc-900 active:scale-[0.99]"
+                            : "group flex flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/80 px-3 py-5 transition-all hover:border-zinc-600 hover:bg-zinc-900"
+                        }
+                      >
+                        <CategoryIcon
+                          category={cat}
+                          size={isMobileSheet ? 19 : 22}
+                          className="flex-shrink-0 text-zinc-400 transition-colors group-hover:text-white"
+                        />
+                        <span
+                          className={
+                            isMobileSheet
+                              ? "min-w-0 text-[13px] font-bold leading-tight text-zinc-100"
+                              : "text-center text-[13px] font-semibold leading-tight text-zinc-200 transition-colors group-hover:text-white"
+                          }
+                        >
+                          {getCategoryDisplayLabel(cat, locale)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {step === "search" &&
+                (() => {
+                  const header = (
+                    <div className="mb-4 flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setSubInput("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
+                        onClick={() => {
+                          setStep("macro");
+                          setSuggestions([]);
+                        }}
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/80 text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+                        aria-label="Back"
                       >
-                        <X size={13} />
+                        <ArrowLeft size={15} />
                       </button>
-                    )}
-                  </div>
-                );
-                const results =
-                  suggestions.length > 0 ? (
-                    <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
-                      {suggestions.map((result, idx) => (
-                        <button
-                          key={result.id}
-                          type="button"
-                          onClick={() => selectSuggestion(result)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 text-left border-b border-zinc-800/60 last:border-0 transition-colors ${
-                            idx === activeSuggestion
-                              ? "bg-zinc-700/40"
-                              : "hover:bg-zinc-800/80"
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-semibold text-white truncate">
-                              {result.title}
-                            </p>
-                            {result.subtitle && (
-                              <p className="text-[11px] text-zinc-500">
-                                {result.subtitle}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.08)]">
+                          <CategoryIcon
+                            category={selectedCat}
+                            size={15}
+                            style={{ color: "var(--accent)" }}
+                          />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                            {copy.mediumTitle}
+                          </p>
+                          <p className="truncate text-base font-black text-white">
+                            {getCategoryDisplayLabel(selectedCat, locale)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={close}
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white"
+                        aria-label="Close"
+                      >
+                        <X size={15} />
+                      </button>
                     </div>
-                  ) : null;
-                const usaLibero =
-                  subInput.trim() && !isSearching ? (
+                  );
+                  const inputEl = (
+                    <div className="relative mb-3">
+                      <Search
+                        size={15}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
+                      />
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={subInput}
+                        onChange={(e) => setSubInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={
+                          hasApiSupport
+                            ? searchPlaceholder
+                            : copy.placeholders.title
+                        }
+                        className="no-nav-hide w-full rounded-2xl border border-[rgba(230,255,61,0.22)] bg-zinc-950/70 py-3.5 pl-11 pr-11 text-[15px] font-semibold text-white placeholder-zinc-600 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] transition focus:border-[rgba(230,255,61,0.45)] focus:outline-none"
+                      />
+                      {isSearching && (
+                        <Loader2
+                          size={15}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin"
+                          style={{ color: "var(--accent)" }}
+                        />
+                      )}
+                    </div>
+                  );
+                  const results =
+                    suggestions.length > 0 ? (
+                      <div className="mb-3 max-h-[38dvh] overflow-y-auto overscroll-contain rounded-3xl border border-zinc-800/80 bg-zinc-950/75 p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] sm:max-h-[260px]">
+                        {suggestions.map((result, idx) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => selectSuggestion(result)}
+                            className={`group w-full flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
+                              idx === activeSuggestion
+                                ? "bg-[rgba(230,255,61,0.10)]"
+                                : "hover:bg-zinc-900"
+                            }`}
+                          >
+                            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-500 transition-colors group-hover:border-[rgba(230,255,61,0.25)] group-hover:text-[var(--accent)]">
+                              <CategoryIcon category={selectedCat} size={15} />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-[14px] font-black leading-tight text-white">
+                                {result.title}
+                              </p>
+                              {result.subtitle && (
+                                <p className="mt-1 text-[11px] font-semibold text-zinc-500">
+                                  {result.subtitle}
+                                </p>
+                              )}
+                            </div>
+                            <Check
+                              size={15}
+                              className={`flex-shrink-0 transition-opacity ${
+                                idx === activeSuggestion
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-70"
+                              }`}
+                              style={{ color: "var(--accent)" }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  const usaLibero =
+                    subInput.trim() && !isSearching ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onChange(`${selectedCat}:${subInput.trim()}`);
+                          onMediaSelect?.({
+                            external_id: null,
+                            title: subInput.trim(),
+                            type: toStoredMediaType(selectedCat),
+                            cover_image: null,
+                          });
+                          close();
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
+                        style={{
+                          background: "rgba(230,255,61,0.1)",
+                          border: "1px solid rgba(230,255,61,0.25)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <Check size={13} />
+                        {copy.use}{" "}
+                        <strong className="font-semibold">
+                          "{subInput.trim()}"
+                        </strong>
+                      </button>
+                    ) : null;
+                  const nessunRis =
+                    hasApiSupport &&
+                    subInput.length >= 2 &&
+                    !isSearching &&
+                    suggestions.length === 0 ? (
+                      <p className="text-[12px] text-zinc-600 text-center py-2">
+                        {copy.noResults}
+                      </p>
+                    ) : null;
+                  const chips =
+                    !hasApiSupport && !subInput ? (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(QUICK_SUBS[selectedCat] || []).map((sub) => (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => {
+                              onChange(`${selectedCat}:${sub}`);
+                              onMediaSelect?.({
+                                external_id: null,
+                                title: sub,
+                                type: toStoredMediaType(selectedCat),
+                                cover_image: null,
+                              });
+                              close();
+                            }}
+                            className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-zinc-500 hover:text-white transition-all"
+                          >
+                            {sub}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  const usaSoloMacro = (
                     <button
                       type="button"
                       onClick={() => {
-                        onChange(`${selectedCat}:${subInput.trim()}`);
+                        onChange(selectedCat);
+                        onMediaSelect?.(null);
                         close();
                       }}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium transition mb-2"
-                      style={{
-                        background: "rgba(230,255,61,0.1)",
-                        border: "1px solid rgba(230,255,61,0.25)",
-                        color: "var(--accent)",
-                      }}
+                      className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1"
                     >
-                      <Check size={13} />
-                      {copy.use}{" "}
-                      <strong className="font-semibold">
-                        "{subInput.trim()}"
-                      </strong>
+                      {copy.useOnlyMedium(
+                        getCategoryDisplayLabel(selectedCat, locale),
+                      )}
                     </button>
-                  ) : null;
-                const nessunRis =
-                  hasApiSupport &&
-                  subInput.length >= 2 &&
-                  !isSearching &&
-                  suggestions.length === 0 ? (
-                    <p className="text-[12px] text-zinc-600 text-center py-2">
-                      {copy.noResults}
-                    </p>
-                  ) : null;
-                const chips =
-                  !hasApiSupport && !subInput ? (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {(QUICK_SUBS[selectedCat] || []).map((sub) => (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => {
-                            onChange(`${selectedCat}:${sub}`);
-                            close();
-                          }}
-                          className="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 hover:border-zinc-500 hover:text-white transition-all"
-                        >
-                          {sub}
-                        </button>
-                      ))}
+                  );
+                  if (isMobileSheet) {
+                    return (
+                      <div className="p-4">
+                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-700" />
+                        {header}
+                        {inputEl}
+                        {results}
+                        {usaLibero}
+                        {nessunRis}
+                        {chips}
+                        {usaSoloMacro}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-5">
+                      {header}
+                      {inputEl}
+                      {results}
+                      {usaLibero}
+                      {nessunRis}
+                      {chips}
+                      {usaSoloMacro}
                     </div>
-                  ) : null;
-                const usaSoloMacro = (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange(selectedCat);
-                      close();
-                    }}
-                    className="mt-1 w-full text-center text-[12px] text-zinc-600 hover:text-zinc-400 transition py-1"
-                  >
-                    {copy.useOnlyMedium(
-                      getCategoryDisplayLabel(selectedCat, locale),
-                    )}
-                  </button>
-                );
-                return openAboveRef.current ? (
-                  <div className="p-3">
-                    {usaSoloMacro}
-                    {results}
-                    {usaLibero}
-                    {nessunRis}
-                    {chips}
-                    {inputEl}
-                    {header}
-                  </div>
-                ) : (
-                  <div className="p-3">
-                    {header}
-                    {inputEl}
-                    {results}
-                    {usaLibero}
-                    {nessunRis}
-                    {chips}
-                    {usaSoloMacro}
-                  </div>
-                );
-              })()}
-          </div>,
-          document.body,
+                  );
+                })()}
+            </div>
+          </>,
+          categoryPortalTarget,
         )}
     </div>
   );
@@ -864,7 +925,8 @@ export function CategoryFilter({
                 onClick={() => applyFilter(activeMacro)}
                 className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2"
               >
-                {copy.allActivitiesIn(activeMacro).replace(activeMacro, "")}<strong>{activeMacro}</strong>
+                {copy.allActivitiesIn(activeMacro).replace(activeMacro, "")}
+                <strong>{activeMacro}</strong>
               </button>
 
               <div className="relative mb-2">
@@ -894,7 +956,7 @@ export function CategoryFilter({
               </div>
 
               {suggestions.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-zinc-700/50 bg-zinc-950 max-h-[200px] overflow-y-auto overscroll-contain mb-2">
+                <div className="mb-2 max-h-[38dvh] sm:max-h-[200px] overflow-y-auto overscroll-contain rounded-2xl sm:rounded-xl border border-zinc-800 sm:border-zinc-700/50 bg-zinc-950">
                   {suggestions.map((result) => (
                     <button
                       key={result.id}

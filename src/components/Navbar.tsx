@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home, Search, Sparkles, Library, User, X, Settings, LogOut, ChevronDown, Bell, Users,
+  Home, Search, Sparkles, X, Bell, Users,
   Bookmark, BarChart3, List, Trophy, Compass, TrendingUp, Heart, Shuffle,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -61,7 +61,7 @@ function writeOwnProfileCache(data: OwnProfileCache) {
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { setActiveTab, activeTab } = useActiveTab()
+  const { setActiveTab } = useActiveTab()
   const supabase = createClient()
   const { t, locale } = useLocale()
   const copy = appCopy(locale)
@@ -78,21 +78,12 @@ export default function Navbar() {
   const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   const navigateToTab = useCallback((href: string) => {
     const tab = pathnameToTab(href)
     if (tab) setActiveTab(tab)
     router.push(href)
   }, [router, setActiveTab])
-
-  const handleLogout = async () => {
-    setMenuOpen(false)
-    await supabase.auth.signOut()
-    document.cookie = 'geekore_onboarding_done=; path=/; max-age=0'
-    router.push('/login')
-  }
 
   const isPublicPageWithoutNav = PUBLIC_NO_NAV_PATHS.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)))
   const isAuthPage = isPublicPageWithoutNav
@@ -114,12 +105,6 @@ export default function Navbar() {
     { href: '/lists', label: copy.nav.lists, icon: List },
   ]
 
-  const ACCOUNT_LINKS = [
-    { href: `/profile/${username || 'me'}`, label: copy.nav.yourProfile, icon: User },
-    { href: '/library', label: copy.nav.manageLibrary, icon: Library },
-    { href: '/settings', label: t.nav.settings, icon: Settings },
-  ]
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -130,13 +115,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   const authUser = useUser()
   useEffect(() => {
@@ -202,6 +180,11 @@ export default function Navbar() {
     searchInputRef.current?.focus()
   }
 
+  const isRouteActive = useCallback((href: string) => {
+    if (href === '/home') return pathname === '/home' || pathname === '/'
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }, [pathname])
+
   const navbarVisible = !(
     isAuthPage ||
     (isPublicLanding && isLoggedIn === false) ||
@@ -232,14 +215,30 @@ export default function Navbar() {
         data-no-swipe="true"
         className="hidden md:flex fixed left-0 top-0 bottom-0 z-[100] w-[240px] flex-col border-r border-[var(--border)] bg-[rgba(11,11,15,0.96)] px-4 py-5 backdrop-blur-2xl"
       >
-        <div className="mb-8 flex items-center gap-2 px-1">
+        <div className="mb-5 flex items-center gap-2 px-1">
           <GeekoreWordmark size="md" />
         </div>
 
+        <Link
+          href={`/profile/${currentUsername || 'me'}`}
+          data-no-swipe="true"
+          className="mb-5 flex w-full items-center gap-3 rounded-3xl border border-[rgba(230,255,61,0.08)] bg-[rgba(255,255,255,0.025)] px-3 py-3 text-left transition-all hover:border-[rgba(230,255,61,0.18)] hover:bg-[rgba(230,255,61,0.055)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+          aria-label={copy.nav.yourProfile}
+        >
+          {avatarSrc ? (
+            <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={42} />
+          ) : (
+            <span className="h-[42px] w-[42px] flex-shrink-0 rounded-2xl bg-[var(--bg-card-hover)]" aria-hidden="true" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-black leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || copy.nav.userFallback}</p>
+            <p className="gk-mono truncate text-[11px] uppercase text-[var(--text-muted)]">{currentUsername || currentDisplayName || copy.nav.yourProfile}</p>
+          </div>
+        </Link>
+
         <nav className="space-y-1" aria-label={locale === 'it' ? 'Navigazione principale desktop' : 'Main desktop navigation'}>
           {NAV_ITEMS.map((item) => {
-            const itemTab = pathnameToTab(item.href)
-            const isActive = activeTab ? activeTab === itemTab : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
+            const isActive = isRouteActive(item.href)
             return (
               <button
                 key={item.href}
@@ -301,12 +300,37 @@ export default function Navbar() {
           )}
         </div>
 
+        {(() => {
+          const isNotificationsActive = isRouteActive('/notifications')
+          return (
+            <Link
+              href="/notifications"
+              data-no-swipe="true"
+              aria-current={isNotificationsActive ? 'page' : undefined}
+              className="mt-3 flex h-10 w-full items-center gap-3 rounded-2xl border px-3 text-[12px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+              style={isNotificationsActive
+                ? { background: 'rgba(230,255,61,0.085)', color: 'var(--accent)', borderColor: 'rgba(230,255,61,0.16)' }
+                : { background: 'rgba(255,255,255,0.018)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
+            >
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-xl transition-colors"
+                style={{
+                  background: isNotificationsActive ? 'rgba(230,255,61,0.14)' : 'rgba(230,255,61,0.07)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Bell size={15} />
+              </span>
+              <span>{copy.nav.notifications}</span>
+            </Link>
+          )
+        })()}
+
         {/* Secondary nav — pagine raggiungibili */}
-        <div className="mt-5">
-          <p className="gk-label mb-2 px-3">{copy.nav.discoverGroup}</p>
+        <div className="mt-4">
           <div className="space-y-0.5">
             {SECONDARY_NAV.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href
+              const isActive = isRouteActive(href)
               return (
                 <Link
                   key={href}
@@ -323,49 +347,8 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
-          <Link href="/notifications" data-no-swipe="true" className="mb-1 flex h-9 items-center gap-2.5 rounded-xl px-3 text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35">
-            <Bell size={15} />
-            {copy.nav.notifications}
-          </Link>
-
-          <div ref={menuRef} className="relative">
-            <button
-              type="button"
-              data-no-swipe="true"
-              onClick={() => setMenuOpen(o => !o)}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
-              aria-label={copy.nav.accountMenu}
-            >
-              {avatarSrc ? (
-                <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={36} />
-              ) : (
-                <span className="h-9 w-9 flex-shrink-0 rounded-xl bg-[var(--bg-card-hover)]" aria-hidden="true" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-bold leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || copy.nav.userFallback}</p>
-                {currentDisplayName && <p className="gk-mono truncate text-[var(--text-muted)]">{currentDisplayName}</p>}
-              </div>
-              <ChevronDown size={14} className={`flex-shrink-0 text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {menuOpen && (
-              <div className="absolute bottom-full left-0 z-[130] mb-2 w-[220px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl shadow-black/70">
-                <div className="flex flex-col p-1.5">
-                  {ACCOUNT_LINKS.map(({ href, label, icon: Icon }) => (
-                    <Link key={href} href={href} data-no-swipe="true" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]">
-                      <Icon size={15} />
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-                <button type="button" data-no-swipe="true" onClick={handleLogout} className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-left text-[13px] font-bold text-red-400 transition-colors hover:bg-[var(--bg-card-hover)] hover:text-red-300">
-                  <LogOut size={15} />
-                  {copy.nav.logoutGeekore}
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="mt-auto px-3 pb-2 pt-4">
+          <p className="text-[11px] text-zinc-600">© 2025 Geekore</p>
         </div>
       </aside>
 
@@ -376,10 +359,7 @@ export default function Navbar() {
       >
         <div className="gk-bottom-nav-raised-inner">
           {NAV_ITEMS.map((item) => {
-            const itemTab = pathnameToTab(item.href)
-            const isActive = activeTab
-              ? activeTab === itemTab
-              : (item.href === '/home' ? pathname === '/home' || pathname === '/' : pathname === item.href)
+            const isActive = isRouteActive(item.href)
 
             return (
               <button

@@ -29,6 +29,22 @@ function cleanImageUrl(value: unknown) {
   }
 }
 
+function cleanMediaPreview(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const source = value as Record<string, unknown>
+  const title = typeof source.title === 'string' ? source.title.trim().slice(0, 300) : ''
+  if (!title) return null
+  const type = typeof source.type === 'string' ? source.type.trim().slice(0, 40) : null
+  const external_id = typeof source.external_id === 'string' ? source.external_id.trim().slice(0, 200) : null
+  const cover_image = typeof source.cover_image === 'string' ? source.cover_image.trim().slice(0, 1000) : null
+  return {
+    external_id: external_id || null,
+    title,
+    type: type || null,
+    cover_image: cover_image || null,
+  }
+}
+
 async function getUser() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,13 +65,14 @@ export async function POST(request: NextRequest) {
   const content = cleanContent(body.content)
   const imageUrl = cleanImageUrl(body.image_url)
   const category = cleanCategory(body.category)
+  const mediaPreview = cleanMediaPreview(body.media_preview)
   if (!content && !imageUrl) return NextResponse.json({ error: 'contenuto mancante' }, { status: 400, headers: rl.headers })
 
   const service = createServiceClient('social:post:create')
   const { data, error } = await service
     .from('posts')
-    .insert({ user_id: user.id, content, image_url: imageUrl, category })
-    .select('id, content, image_url, created_at, category')
+    .insert({ user_id: user.id, content, image_url: imageUrl, category, media_preview: mediaPreview })
+    .select('id, content, image_url, created_at, category, media_preview')
     .single()
 
   if (error) return NextResponse.json({ error: apiMessage(request, 'postNotSaved') }, { status: 500, headers: rl.headers })

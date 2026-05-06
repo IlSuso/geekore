@@ -365,6 +365,16 @@ input[type="number"].no-spinner {
   animation: fade-in 0.28s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
+
+/* Geekore: niente comparsa a cascata delle sezioni/card.
+   Le animazioni di entrata restano leggere, ma senza delay/stagger visibile. */
+.animate-fade-in,
+.animate-slide-up,
+.slide-in-from-top-2,
+.fade-in {
+  animation-delay: 0ms !important;
+}
+
 .duration-300 {
   animation-duration: 0.3s;
 }

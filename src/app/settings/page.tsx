@@ -10,7 +10,6 @@ import { useLocale } from "@/lib/locale";
 import { appCopy } from "@/lib/i18n/appCopy";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Globe,
   List,
   TrendingUp,
   BarChart3,
@@ -25,9 +24,10 @@ import {
   ChevronUp,
   Mail,
   Check,
-  Heart,
   Tv,
   Trash2,
+  UserRound,
+  ExternalLink,
 } from "lucide-react";
 import { DeleteAccountModal } from "@/components/profile/DeleteAccountModal";
 import { useCsrf } from "@/hooks/useCsrf";
@@ -109,6 +109,9 @@ const SETTINGS_TEXT = {
       "Verrai disconnesso da tutti i dispositivi. Continuare?",
     globalLogoutTitle: "Esci da tutti i dispositivi",
     globalLogoutDesc: "Invalida tutte le sessioni attive",
+    logoutEverywhereLabel: "Esci anche dagli altri dispositivi",
+    logoutEverywhereHint: "Se attivo, chiude ogni sessione prima di tornare al login.",
+    logoutSubmit: "Esci",
     currentSession: (info: string) => `Sessione corrente iniziata il ${info}`,
     digestTitle: "Digest settimanale",
     digestDesc: "Riepilogo ogni lunedì: gusti, completati, trending",
@@ -130,11 +133,11 @@ const SETTINGS_TEXT = {
     pageDescription:
       "Lingua, notifiche, sicurezza e piattaforme: il pannello operativo del tuo account.",
     sections: {
-      account: "Account",
-      security: "Sicurezza",
-      notifications: "Notifiche",
-      streaming: "Piattaforme streaming",
-      other: "Altro",
+      account: "Account e profilo",
+      security: "Accesso e sicurezza",
+      notifications: "Notifiche e riepiloghi",
+      streaming: "Preferenze media",
+      other: "Strumenti",
       danger: "Zona pericolosa",
     },
     links: [
@@ -157,6 +160,9 @@ const SETTINGS_TEXT = {
     madeWith: "Fatto con",
     forNerds: "per i nerd",
     dataProvidedBy: "Dati forniti da",
+    profileTitle: "Modifica profilo",
+    profileDesc: "Username, nome visibile, avatar e bio",
+    accountIntro: "Gestisci identità, lingua e sessione corrente.",
   },
   en: {
     logoutTitle: "Log out",
@@ -171,6 +177,9 @@ const SETTINGS_TEXT = {
     globalLogoutConfirm: "You will be signed out from all devices. Continue?",
     globalLogoutTitle: "Log out from all devices",
     globalLogoutDesc: "Invalidate every active session",
+    logoutEverywhereLabel: "Also log out from other devices",
+    logoutEverywhereHint: "When enabled, every session is closed before returning to login.",
+    logoutSubmit: "Log out",
     currentSession: (info: string) => `Current session started on ${info}`,
     digestTitle: "Weekly digest",
     digestDesc: "Monday recap: taste, completed titles, trending",
@@ -192,11 +201,11 @@ const SETTINGS_TEXT = {
     pageDescription:
       "Language, notifications, security and platforms: your account control panel.",
     sections: {
-      account: "Account",
-      security: "Security",
-      notifications: "Notifications",
-      streaming: "Streaming platforms",
-      other: "More",
+      account: "Account and profile",
+      security: "Access and security",
+      notifications: "Notifications and recaps",
+      streaming: "Media preferences",
+      other: "Tools",
       danger: "Danger zone",
     },
     links: [
@@ -219,6 +228,9 @@ const SETTINGS_TEXT = {
     madeWith: "Made with",
     forNerds: "for nerds",
     dataProvidedBy: "Data provided by",
+    profileTitle: "Edit profile",
+    profileDesc: "Username, display name, avatar and bio",
+    accountIntro: "Manage identity, language and current session.",
   },
 } as const;
 
@@ -227,16 +239,22 @@ function useSettingsText() {
   return SETTINGS_TEXT[locale];
 }
 
-function LogoutButton() {
+function LogoutPanel() {
   const st = useSettingsText();
   const [loading, setLoading] = useState(false);
+  const [everywhere, setEverywhere] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
   const handleLogout = async () => {
+    if (everywhere && !confirm(st.globalLogoutConfirm)) return;
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      if (everywhere) {
+        await supabase.auth.signOut({ scope: "global" });
+      } else {
+        await supabase.auth.signOut();
+      }
       document.cookie = "geekore_onboarding_done=; path=/; max-age=0";
       router.push("/login");
     } catch {
@@ -245,27 +263,68 @@ function LogoutButton() {
   };
 
   return (
-    <button
-      type="button"
-      data-no-swipe="true"
-      onClick={handleLogout}
-      disabled={loading}
-      className="group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-red-500/5 disabled:opacity-60"
-    >
-      <ActionIcon danger>
-        {loading ? (
-          <Loader2 size={16} className="animate-spin" />
-        ) : (
+    <div className="p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <ActionIcon danger>
           <LogOut size={16} />
-        )}
-      </ActionIcon>
-      <div>
-        <p className="text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-red-300">
-          {st.logoutTitle}
-        </p>
-        <p className="gk-caption">{st.logoutDesc}</p>
+        </ActionIcon>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-[var(--text-primary)]">
+            {st.logoutTitle}
+          </p>
+          <p className="gk-caption">{st.logoutDesc}</p>
+        </div>
       </div>
-    </button>
+
+      <label
+        data-no-swipe="true"
+        className="mb-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-3 transition-colors hover:border-[rgba(230,255,61,0.28)] hover:bg-[var(--bg-card-hover)]"
+      >
+        <input
+          type="checkbox"
+          checked={everywhere}
+          onChange={(e) => setEverywhere(e.target.checked)}
+          className="sr-only"
+        />
+        <span
+          className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-all"
+          style={
+            everywhere
+              ? {
+                  background: "var(--accent)",
+                  borderColor: "var(--accent)",
+                  color: "#0B0B0F",
+                }
+              : {
+                  background: "rgba(255,255,255,0.03)",
+                  borderColor: "var(--border)",
+                  color: "transparent",
+                }
+          }
+        >
+          <Check size={13} strokeWidth={3} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-bold text-[var(--text-primary)]">
+            {st.logoutEverywhereLabel}
+          </span>
+          <span className="gk-caption block leading-snug">
+            {st.logoutEverywhereHint}
+          </span>
+        </span>
+      </label>
+
+      <button
+        type="button"
+        data-no-swipe="true"
+        onClick={handleLogout}
+        disabled={loading}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 py-2.5 text-sm font-black text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-60"
+      >
+        {loading ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+        {everywhere ? st.globalLogoutTitle : st.logoutSubmit}
+      </button>
+    </div>
   );
 }
 
@@ -308,7 +367,7 @@ function ChangePasswordSheet() {
   };
 
   return (
-    <div className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)]">
+    <div>
       <button
         type="button"
         data-no-swipe="true"
@@ -380,9 +439,8 @@ function ChangePasswordSheet() {
           <button
             type="submit"
             data-no-swipe="true"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-60"
-            style={{ background: "var(--accent)", color: "#0B0B0F" }}
+            disabled={loading || newPass.length < 8 || currentPass.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border py-2.5 text-sm font-black transition-colors enabled:border-[rgba(230,255,61,0.42)] enabled:bg-[rgba(230,255,61,0.12)] enabled:text-[var(--accent)] enabled:hover:bg-[rgba(230,255,61,0.17)] disabled:border-[var(--border)] disabled:bg-[var(--bg-secondary)] disabled:text-[var(--text-muted)]"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {loading ? st.updatingPassword : st.updatePassword}
@@ -390,50 +448,6 @@ function ChangePasswordSheet() {
         </form>
       )}
     </div>
-  );
-}
-
-function GlobalLogoutButton() {
-  const st = useSettingsText();
-  const [loading, setLoading] = useState(false);
-  const supabase = createClient();
-  const router = useRouter();
-
-  const handleGlobalLogout = async () => {
-    if (!confirm(st.globalLogoutConfirm)) return;
-    setLoading(true);
-    try {
-      await supabase.auth.signOut({ scope: "global" });
-      document.cookie = "geekore_onboarding_done=; path=/; max-age=0";
-      router.push("/login");
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      data-no-swipe="true"
-      onClick={handleGlobalLogout}
-      disabled={loading}
-      className="group flex w-full items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left transition-all hover:border-red-500/35 hover:bg-red-500/5 disabled:opacity-60"
-    >
-      <ActionIcon danger>
-        {loading ? (
-          <Loader2 size={15} className="animate-spin" />
-        ) : (
-          <LogOut size={15} />
-        )}
-      </ActionIcon>
-      <div>
-        <p className="text-sm font-bold text-[var(--text-primary)] transition-colors group-hover:text-red-300">
-          {st.globalLogoutTitle}
-        </p>
-        <p className="gk-caption">{st.globalLogoutDesc}</p>
-      </div>
-    </button>
   );
 }
 
@@ -462,7 +476,7 @@ function LastAccessInfo() {
 
   if (!info) return null;
 
-  return <p className="gk-caption px-1 pt-1">{st.currentSession(info)}</p>;
+  return <p className="gk-caption px-4 py-3">{st.currentSession(info)}</p>;
 }
 
 function DigestToggle() {
@@ -543,15 +557,23 @@ function DigestToggle() {
           type="button"
           data-no-swipe="true"
           onClick={toggle}
-          className="relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200"
-          style={{
-            background: enabled ? "var(--accent)" : "var(--bg-secondary)",
-          }}
+          className="flex h-8 w-[74px] flex-shrink-0 items-center justify-center rounded-xl border px-3 text-[11px] font-black tracking-[0.14em] transition-colors"
+          style={
+            enabled
+              ? {
+                  background: "rgba(230,255,61,0.12)",
+                  borderColor: "rgba(230,255,61,0.38)",
+                  color: "var(--accent)",
+                }
+              : {
+                  background: "var(--bg-secondary)",
+                  borderColor: "var(--border)",
+                  color: "var(--text-muted)",
+                }
+          }
           aria-label={enabled ? st.digestOff : st.digestOn}
         >
-          <span
-            className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`}
-          />
+          {enabled ? "ON" : "OFF"}
         </button>
       )}
     </div>
@@ -767,8 +789,7 @@ function StreamingPlatformsSelector({
           data-no-swipe="true"
           onClick={save}
           disabled={saving || loading}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-black transition-colors disabled:opacity-50"
-          style={{ background: "var(--accent)", color: "#0B0B0F" }}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border py-2.5 text-sm font-black transition-colors enabled:border-[rgba(230,255,61,0.42)] enabled:bg-[rgba(230,255,61,0.12)] enabled:text-[var(--accent)] enabled:hover:bg-[rgba(230,255,61,0.17)] disabled:border-[var(--border)] disabled:bg-[var(--bg-secondary)] disabled:text-[var(--text-muted)]"
         >
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
@@ -825,157 +846,163 @@ function DeleteAccountSection() {
   );
 }
 
-export default function SettingsPage() {
-  const { locale, setLocale, t } = useLocale();
+
+function SettingsRowLink({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      data-no-swipe="true"
+      className="group flex items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-[var(--bg-card-hover)]"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <ActionIcon>{icon}</ActionIcon>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[var(--text-primary)]">{title}</p>
+          <p className="gk-caption line-clamp-1">{description}</p>
+        </div>
+      </div>
+      <ExternalLink size={15} className="flex-shrink-0 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]" />
+    </Link>
+  );
+}
+
+function LanguageCard() {
+  const { locale, setLocale } = useLocale();
   const copy = appCopy(locale);
+
+  return (
+    <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
+      <p className="gk-caption mb-3">{copy.settings.productLanguage}</p>
+      <div className="grid grid-cols-2 gap-2" data-no-swipe="true">
+        {(["it", "en"] as const).map((lang) => {
+          const active = locale === lang;
+          return (
+            <button
+              key={lang}
+              type="button"
+              data-no-swipe="true"
+              onClick={() => setLocale(lang)}
+              aria-pressed={active}
+              className={`flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black transition-all ${
+                active
+                  ? "border-[rgba(230,255,61,0.55)] bg-[rgba(230,255,61,0.14)] text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(230,255,61,0.08),0_0_24px_rgba(230,255,61,0.08)]"
+                  : "border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              <span>{lang === "it" ? copy.settings.italian : copy.settings.english}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const { locale, t } = useLocale();
   const st = SETTINGS_TEXT[locale];
   const [selectedPlatformsCount, setSelectedPlatformsCount] = useState(0);
+
+  const toolLinks = st.links.map((link) => ({
+    ...link,
+    icon: link.href === "/stats" ? BarChart3 : link.href === "/trending" ? TrendingUp : List,
+  }));
 
   return (
     <PageScaffold
       title={t.settings.title}
       description={st.pageDescription}
       icon={<Shield size={16} />}
-      contentClassName="gk-settings-page max-w-3xl pt-2 md:pt-8 pb-28 space-y-6"
+      contentClassName="gk-settings-page max-w-5xl pt-2 md:pt-8 pb-8 md:pb-10"
     >
       <SettingsControlHero
         localeLabel={locale.toUpperCase()}
-        sectionsCount={6}
+        sectionsCount={5}
         selectedPlatformsCount={selectedPlatformsCount}
         digestEnabled
       />
 
-      <SettingsSection
-        icon={<Globe size={15} />}
-        title={copy.settings.appLanguage}
-      >
-        <SettingsCard>
-          <p className="gk-body max-w-none px-5 pb-3 pt-4">
-            {copy.settings.productLanguage}
-          </p>
-          <div className="flex gap-2 p-3" data-no-swipe="true">
-            {(["it", "en"] as const).map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                data-no-swipe="true"
-                onClick={() => setLocale(lang)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all ${
-                  locale === lang
-                    ? ""
-                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                }`}
-                style={
-                  locale === lang
-                    ? { background: "var(--accent)", color: "#0B0B0F" }
-                    : {}
-                }
-              >
-                {lang === "it" ? copy.settings.italian : copy.settings.english}
-                {locale === lang && <Check size={12} className="text-black" />}
-              </button>
-            ))}
-          </div>
-        </SettingsCard>
-      </SettingsSection>
-
-      <SettingsSection icon={<LogOut size={15} />} title={st.sections.account}>
-        <SettingsCard>
-          <LogoutButton />
-        </SettingsCard>
-      </SettingsSection>
-
-      <SettingsSection icon={<Shield size={15} />} title={st.sections.security}>
-        <div className="space-y-3">
-          <ChangePasswordSheet />
-          <GlobalLogoutButton />
-          <LastAccessInfo />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        icon={<Bell size={15} />}
-        title={st.sections.notifications}
-      >
-        <div className="space-y-3">
-          <PushNotificationsToggle />
-          <DigestToggle />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection icon={<Tv size={15} />} title={st.sections.streaming}>
-        <StreamingPlatformsSelector
-          onSelectedCountChange={setSelectedPlatformsCount}
-        />
-      </SettingsSection>
-
-      <SettingsSection icon={<BarChart3 size={15} />} title={st.sections.other}>
-        <div className="space-y-2">
-          {[
-            ...st.links.map((link) => ({
-              ...link,
-              icon:
-                link.href === "/stats"
-                  ? BarChart3
-                  : link.href === "/trending"
-                    ? TrendingUp
-                    : List,
-            })),
-          ].map(({ href, icon: Icon, label, desc }) => (
-            <Link
-              key={href}
-              href={href}
-              data-no-swipe="true"
-              className="group flex items-center justify-between rounded-[22px] border border-[var(--border)] bg-[var(--bg-card)] p-4 transition-colors hover:bg-[var(--bg-card-hover)]"
-            >
-              <div className="flex items-center gap-3">
-                <ActionIcon>
-                  <Icon size={16} />
-                </ActionIcon>
-                <div>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">
-                    {label}
-                  </p>
-                  <p className="gk-caption">{desc}</p>
-                </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="space-y-5">
+          <SettingsSection icon={<UserRound size={15} />} title={st.sections.account}>
+            <SettingsCard>
+              <div className="px-4 pb-2 pt-4">
+                <p className="gk-body max-w-none">{st.accountIntro}</p>
               </div>
-              <span className="text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]">
-                →
-              </span>
-            </Link>
-          ))}
+              <div className="divide-y divide-[var(--border)]">
+                <SettingsRowLink
+                  href="/settings/profile"
+                  icon={<UserRound size={16} />}
+                  title={st.profileTitle}
+                  description={st.profileDesc}
+                />
+                <LanguageCard />
+              </div>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection icon={<Tv size={15} />} title={st.sections.streaming}>
+            <StreamingPlatformsSelector onSelectedCountChange={setSelectedPlatformsCount} />
+          </SettingsSection>
+
+          <SettingsSection icon={<BarChart3 size={15} />} title={st.sections.other}>
+            <SettingsCard>
+              <div className="divide-y divide-[var(--border)]">
+                {toolLinks.map(({ href, icon: Icon, label, desc }) => (
+                  <SettingsRowLink
+                    key={href}
+                    href={href}
+                    icon={<Icon size={16} />}
+                    title={label}
+                    description={desc}
+                  />
+                ))}
+              </div>
+            </SettingsCard>
+          </SettingsSection>
         </div>
-      </SettingsSection>
 
-      <SettingsSection icon={<Trash2 size={15} />} title={st.sections.danger}>
-        <SettingsCard>
-          <DeleteAccountSection />
-        </SettingsCard>
-      </SettingsSection>
+        <aside className="space-y-5 xl:sticky xl:top-6">
+          <SettingsSection icon={<Bell size={15} />} title={st.sections.notifications}>
+            <div className="space-y-3">
+              <PushNotificationsToggle />
+              <DigestToggle />
+            </div>
+          </SettingsSection>
 
-      <div className="pt-4 text-center text-xs text-[var(--text-muted)]">
-        <span className="inline-flex items-center gap-1">
-          Geekore · {st.madeWith}{" "}
-          <Heart size={11} className="fill-red-500 text-red-500" />{" "}
-          {st.forNerds}
-        </span>
+          <SettingsSection icon={<Shield size={15} />} title={st.sections.security}>
+            <SettingsCard>
+              <div className="divide-y divide-[var(--border)]">
+                <ChangePasswordSheet />
+                <LogoutPanel />
+                <LastAccessInfo />
+              </div>
+            </SettingsCard>
+          </SettingsSection>
+
+          <SettingsSection icon={<Trash2 size={15} />} title={st.sections.danger}>
+            <SettingsCard>
+              <DeleteAccountSection />
+            </SettingsCard>
+          </SettingsSection>
+        </aside>
       </div>
 
-      <div className="flex flex-col items-center gap-3 pb-2 pt-2">
+      <div className="flex flex-col items-center gap-3 pb-0 pt-4">
         <p className="gk-label text-[var(--text-muted)]">{st.dataProvidedBy}</p>
         <div className="flex flex-wrap items-center justify-center gap-4 opacity-40 transition-opacity hover:opacity-70">
-          <a
-            href="https://boardgamegeek.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Powered by BoardGameGeek"
-            data-no-swipe="true"
-          >
-            <img
-              src="/powered-by-bgg.svg"
-              alt="Powered by BGG"
-              className="h-5 w-auto"
-            />
+          <a href="https://boardgamegeek.com" target="_blank" rel="noopener noreferrer" aria-label="Powered by BoardGameGeek" data-no-swipe="true">
+            <img src="/powered-by-bgg.svg" alt="Powered by BGG" className="h-5 w-auto" />
           </a>
           <span className="text-[10px] text-[var(--text-muted)]">TMDb</span>
           <span className="text-[10px] text-[var(--text-muted)]">AniList</span>

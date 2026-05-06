@@ -283,7 +283,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-          {hero.noAccount} <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>{l.registerLink}</Link>
+          {hero.noAccount} <Link href="/register" className="font-black" style={{ color: 'var(--accent)' }}>{hero.createAccount}</Link>
         </p>
       </div>
 

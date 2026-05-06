@@ -34,7 +34,7 @@ import { parseCategoryString } from '@/components/feed/CategoryBasics'
 import { FeedComposer } from '@/components/feed/FeedComposer'
 import { EndOfFeedNotice, FeedLoadingSkeleton, MobileCreatePostFab } from '@/components/feed/FeedChrome'
 import { EditPostModal, EmptyFeedState, FeedFilterTabs, MediumTypeChipRow, NewPostsBanner } from '@/components/feed/FeedPanels'
-import type { Comment, Post } from '@/components/feed/feedTypes'
+import type { Comment, FeedMediaPreview, Post } from '@/components/feed/feedTypes'
 import { BottomSheet, PostCard, PostModal, VirtualPostCard } from '@/components/feed/PostComponents'
 import { buildFeedSheetActions, getFeedSheetTitle, type FeedSheetState } from '@/components/feed/feedSheet'
 import { cache, haptic, invalidateCache, isCacheValid, trackAffinity, type FeedFilter } from '@/components/feed/feedUtils'
@@ -53,6 +53,7 @@ export default function FeedPage() {
   const [localizedPinnedPosts, setLocalizedPinnedPosts] = useState<Post[]>([])
   const [newPostContent, setNewPostContent] = useState('')
   const [newPostCategory, setNewPostCategory] = useState('')
+  const [newPostMediaPreview, setNewPostMediaPreview] = useState<FeedMediaPreview | null>(null)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -228,6 +229,7 @@ export default function FeedPage() {
     setComposerOpen(false)
     setNewPostContent('')
     setNewPostCategory('')
+    setNewPostMediaPreview(null)
     setSelectedImage(null)
     setImagePreview(null)
   }, [])
@@ -309,6 +311,7 @@ export default function FeedPage() {
         content: newPostContent,
         image_url: imageUrl,
         category: newPostCategory || null,
+        media_preview: newPostMediaPreview,
       }),
     }).catch(() => null)
 
@@ -317,11 +320,12 @@ export default function FeedPage() {
       const optimisticPost: Post = {
         id: newPostData.id, user_id: currentUser.id, content: newPostData.content,
         image_url: newPostData.image_url, created_at: newPostData.created_at, category: newPostData.category,
+        media_preview: newPostData.media_preview || newPostMediaPreview || null,
         profiles: { username: currentProfile?.username || '', display_name: currentProfile?.display_name, avatar_url: currentProfile?.avatar_url },
         likes_count: 0, comments_count: 0, liked_by_user: false, comments: [],
       }
       setPosts(prev => { const updated = [optimisticPost, ...prev]; cache.posts = updated; cache.ts = Date.now(); return updated })
-      setNewPostContent(''); setNewPostCategory(''); setSelectedImage(null); setImagePreview(null)
+      setNewPostContent(''); setNewPostCategory(''); setNewPostMediaPreview(null); setSelectedImage(null); setImagePreview(null)
       setComposerOpen(false)
     }
     setIsPublishing(false)
@@ -633,6 +637,7 @@ export default function FeedPage() {
                 setNewPostContent={setNewPostContent}
                 newPostCategory={newPostCategory}
                 setNewPostCategory={setNewPostCategory}
+                setNewPostMediaPreview={setNewPostMediaPreview}
                 selectedImage={selectedImage}
                 setSelectedImage={setSelectedImage}
                 imagePreview={imagePreview}

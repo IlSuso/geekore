@@ -2,7 +2,7 @@
 // FeedSidebar — right rail desktop più leggero: niente dashboard stagionali,
 // solo segnali social utili e suggerimenti, senza rubare scena al feed.
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
@@ -37,6 +37,18 @@ interface TrendingItem {
   friendCount: number;
   userIds: string[];
 }
+
+interface SidebarData {
+  counts: { following: number; posts: number };
+  trendingItems: TrendingItem[];
+  suggestedUsers: SuggestedUser[];
+}
+
+const EMPTY_SIDEBAR_DATA: SidebarData = {
+  counts: { following: 0, posts: 0 },
+  trendingItems: [],
+  suggestedUsers: [],
+};
 
 const FEED_SIDEBAR_COPY = {
   it: {
@@ -136,34 +148,39 @@ function RailHeader({
   );
 }
 
-function PulseCard({ currentUserId }: { currentUserId: string | null }) {
+function RailCardSkeleton({ tall = false }: { tall?: boolean }) {
+  return (
+    <RailCard>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="h-3 w-40 rounded-full bg-white/8" />
+        <div className="h-3 w-8 rounded-full bg-white/8" />
+      </div>
+      <div className={tall ? "space-y-3" : "grid grid-cols-2 gap-2"}>
+        {Array.from({ length: tall ? 3 : 2 }).map((_, index) => (
+          <div key={index} className="h-16 rounded-2xl bg-white/[0.055]" />
+        ))}
+      </div>
+    </RailCard>
+  );
+}
+
+function FeedSidebarSkeleton() {
+  return (
+    <aside className="gk-home-right-rail space-y-3.5" aria-hidden="true">
+      <RailCardSkeleton />
+      <RailCardSkeleton tall />
+      <RailCardSkeleton tall />
+    </aside>
+  );
+}
+
+function PulseCard({
+  counts,
+}: {
+  counts: { following: number; posts: number };
+}) {
   const { locale } = useLocale();
   const copy = FEED_SIDEBAR_COPY[locale];
-  const [counts, setCounts] = useState({ following: 0, posts: 0 });
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    const supabase = createClient();
-    Promise.all([
-      supabase
-        .from("follows")
-        .select("following_id", { count: "exact", head: true })
-        .eq("follower_id", currentUserId),
-      supabase
-        .from("posts")
-        .select("id", { count: "exact", head: true })
-        .gte(
-          "created_at",
-          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        ),
-    ])
-      .then(([follows, posts]) => {
-        setCounts({ following: follows.count || 0, posts: posts.count || 0 });
-      })
-      .catch(() => {});
-  }, [currentUserId]);
-
-  if (!currentUserId) return null;
 
   return (
     <RailCard className="bg-[linear-gradient(135deg,rgba(230,255,61,0.055),rgba(18,18,25,0.72))]">
@@ -206,106 +223,9 @@ function localizedCategoryLabel(type: string, locale: "it" | "en") {
   return CATEGORY_LABEL[type] || type;
 }
 
-function FriendsTrendingCard({ currentUserId }: { currentUserId: string | null }) {
+function FriendsTrendingCard({ items }: { items: TrendingItem[] }) {
   const { locale } = useLocale();
   const copy = FEED_SIDEBAR_COPY[locale];
-  const [items, setItems] = useState<TrendingItem[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createClient();
-
-    const loadFriendsTrending = async () => {
-      if (!currentUserId) {
-        setItems([]);
-        return;
-      }
-
-      const { data: follows } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", currentUserId);
-
-      const followingIds = Array.from(
-        new Set((follows || []).map((f: any) => f.following_id).filter(Boolean)),
-      );
-
-      if (cancelled) return;
-      if (!followingIds.length) {
-        setItems([]);
-        return;
-      }
-
-      const twoWeeksAgo = new Date(
-        Date.now() - 14 * 24 * 60 * 60 * 1000,
-      ).toISOString();
-
-      const { data } = await supabase
-        .from("user_media_entries")
-        .select("user_id, external_id, title, type, cover_image, updated_at")
-        .in("user_id", followingIds)
-        .gte("updated_at", twoWeeksAgo)
-        .order("updated_at", { ascending: false })
-        .limit(250);
-
-      if (cancelled || !data) return;
-
-      const map = new Map<string, TrendingItem & { userSet: Set<string> }>();
-      for (const row of data as any[]) {
-        if (!row?.title || !row?.type || !row?.user_id) continue;
-
-        const externalId = typeof row.external_id === "string" && row.external_id.trim()
-          ? row.external_id.trim()
-          : null;
-        const normalizedTitle = String(row.title).trim().toLowerCase();
-        const key = `${row.type}::${externalId || normalizedTitle}`;
-        const existing = map.get(key);
-
-        if (existing) {
-          existing.count += 1;
-          existing.userSet.add(row.user_id);
-          existing.friendCount = existing.userSet.size;
-          if (!existing.cover_image && row.cover_image) existing.cover_image = row.cover_image;
-          if (!existing.external_id && externalId) existing.external_id = externalId;
-          continue;
-        }
-
-        map.set(key, {
-          title: row.title,
-          type: row.type,
-          cover_image: row.cover_image || null,
-          external_id: externalId,
-          count: 1,
-          friendCount: 1,
-          userIds: [row.user_id],
-          userSet: new Set([row.user_id]),
-        });
-      }
-
-      const next = [...map.values()]
-        .map(({ userSet, ...item }) => ({
-          ...item,
-          friendCount: userSet.size,
-          userIds: [...userSet],
-        }))
-        .sort((a, b) => {
-          if (b.friendCount !== a.friendCount) return b.friendCount - a.friendCount;
-          return b.count - a.count;
-        })
-        .slice(0, 5);
-
-      setItems(next);
-    };
-
-    loadFriendsTrending().catch(() => {
-      if (!cancelled) setItems([]);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUserId]);
-
   const localizedItems = useLocalizedMediaRows(items, {
     titleKeys: ["title"],
     coverKeys: ["cover_image"],
@@ -356,7 +276,8 @@ function FriendsTrendingCard({ currentUserId }: { currentUserId: string | null }
                   {localizedCategoryLabel(item.type, locale)}
                 </p>
                 <p className="mt-1 inline-flex rounded-full border border-[rgba(230,255,61,0.16)] bg-[rgba(230,255,61,0.06)] px-2 py-0.5 font-mono-data text-[10px] font-black text-[var(--accent)]">
-                  {item.friendCount} {item.friendCount === 1 ? copy.friend : copy.friends}
+                  {item.friendCount}{" "}
+                  {item.friendCount === 1 ? copy.friend : copy.friends}
                 </p>
               </div>
             </Link>
@@ -367,34 +288,20 @@ function FriendsTrendingCard({ currentUserId }: { currentUserId: string | null }
   );
 }
 
-function SuggestedUsersCard({ currentUserId }: { currentUserId: string }) {
+function SuggestedUsersCard({
+  users: initialUsers,
+}: {
+  users: SuggestedUser[];
+}) {
   const { locale } = useLocale();
   const copy = FEED_SIDEBAR_COPY[locale];
-  const [users, setUsers] = useState<SuggestedUser[]>([]);
+  const [users, setUsers] = useState<SuggestedUser[]>(initialUsers);
   const [followed, setFollowed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const supabase = createClient();
-    const fetchSuggested = async () => {
-      const { data: follows } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", currentUserId);
-      const followingIds = new Set(
-        (follows || []).map((f: any) => f.following_id),
-      );
-      followingIds.add(currentUserId);
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, badge")
-        .order("created_at", { ascending: false })
-        .limit(18);
-      setUsers(
-        (data || []).filter((u: any) => !followingIds.has(u.id)).slice(0, 4),
-      );
-    };
-    fetchSuggested();
-  }, [currentUserId]);
+    setUsers(initialUsers);
+    setFollowed(new Set());
+  }, [initialUsers]);
 
   const handleFollow = async (userId: string) => {
     await fetch("/api/social/follow", {
@@ -459,16 +366,162 @@ function SuggestedUsersCard({ currentUserId }: { currentUserId: string }) {
   );
 }
 
+async function loadSidebarData(currentUserId: string): Promise<SidebarData> {
+  const supabase = createClient();
+  const twoWeeksAgo = new Date(
+    Date.now() - 14 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const oneWeekAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const [followsResult, postsCountResult, profilesResult] = await Promise.all([
+    supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", currentUserId),
+    supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", oneWeekAgo),
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, badge")
+      .order("created_at", { ascending: false })
+      .limit(18),
+  ]);
+
+  const followingIds = Array.from(
+    new Set(
+      (followsResult.data || [])
+        .map((f: any) => f.following_id)
+        .filter(Boolean),
+    ),
+  );
+
+  let mediaRows: any[] = [];
+  if (followingIds.length) {
+    const { data } = await supabase
+      .from("user_media_entries")
+      .select("user_id, external_id, title, type, cover_image, updated_at")
+      .in("user_id", followingIds)
+      .gte("updated_at", twoWeeksAgo)
+      .order("updated_at", { ascending: false })
+      .limit(250);
+    mediaRows = data || [];
+  }
+
+  const trendingMap = new Map<
+    string,
+    TrendingItem & { userSet: Set<string> }
+  >();
+  for (const row of mediaRows) {
+    if (!row?.title || !row?.type || !row?.user_id) continue;
+
+    const externalId =
+      typeof row.external_id === "string" && row.external_id.trim()
+        ? row.external_id.trim()
+        : null;
+    const normalizedTitle = String(row.title).trim().toLowerCase();
+    const key = `${row.type}::${externalId || normalizedTitle}`;
+    const existing = trendingMap.get(key);
+
+    if (existing) {
+      existing.count += 1;
+      existing.userSet.add(row.user_id);
+      existing.friendCount = existing.userSet.size;
+      if (!existing.cover_image && row.cover_image)
+        existing.cover_image = row.cover_image;
+      if (!existing.external_id && externalId)
+        existing.external_id = externalId;
+      continue;
+    }
+
+    trendingMap.set(key, {
+      title: row.title,
+      type: row.type,
+      cover_image: row.cover_image || null,
+      external_id: externalId,
+      count: 1,
+      friendCount: 1,
+      userIds: [row.user_id],
+      userSet: new Set([row.user_id]),
+    });
+  }
+
+  const trendingItems = [...trendingMap.values()]
+    .map(({ userSet, ...item }) => ({
+      ...item,
+      friendCount: userSet.size,
+      userIds: [...userSet],
+    }))
+    .sort((a, b) => {
+      if (b.friendCount !== a.friendCount) return b.friendCount - a.friendCount;
+      return b.count - a.count;
+    })
+    .slice(0, 5);
+
+  const excludedUserIds = new Set(followingIds);
+  excludedUserIds.add(currentUserId);
+  const suggestedUsers = ((profilesResult.data || []) as SuggestedUser[])
+    .filter((u) => u?.id && !excludedUserIds.has(u.id))
+    .slice(0, 4);
+
+  return {
+    counts: {
+      following: followingIds.length,
+      posts: postsCountResult.count || 0,
+    },
+    trendingItems,
+    suggestedUsers,
+  };
+}
+
 export function FeedSidebar({
   currentUserId,
 }: {
   currentUserId: string | null;
 }) {
+  const [ready, setReady] = useState(false);
+  const [data, setData] = useState<SidebarData>(EMPTY_SIDEBAR_DATA);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!currentUserId) {
+      setData(EMPTY_SIDEBAR_DATA);
+      setReady(true);
+      return;
+    }
+
+    setReady(false);
+    loadSidebarData(currentUserId)
+      .then((nextData) => {
+        if (!cancelled) {
+          setData(nextData);
+          setReady(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setData(EMPTY_SIDEBAR_DATA);
+          setReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
+
+  if (!ready) return <FeedSidebarSkeleton />;
+  if (!currentUserId) return null;
+
   return (
     <aside className="gk-home-right-rail space-y-3.5">
-      <PulseCard currentUserId={currentUserId} />
-      <FriendsTrendingCard currentUserId={currentUserId} />
-      {currentUserId && <SuggestedUsersCard currentUserId={currentUserId} />}
+      <PulseCard counts={data.counts} />
+      <FriendsTrendingCard items={data.trendingItems} />
+      <SuggestedUsersCard users={data.suggestedUsers} />
     </aside>
   );
 }

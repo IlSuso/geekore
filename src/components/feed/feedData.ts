@@ -22,6 +22,23 @@ function parseCategoryTitle(category: string | null | undefined): string {
   return category.slice(idx + 1).trim()
 }
 
+function normalizeMediaPreview(value: unknown): FeedMediaPreview | null {
+  if (!value || typeof value !== 'object') return null
+  const source = value as Record<string, any>
+  const title = typeof source.title === 'string' ? source.title.trim() : ''
+  if (!title) return null
+  return {
+    external_id: typeof source.external_id === 'string' ? source.external_id : null,
+    title,
+    type: typeof source.type === 'string' ? source.type : null,
+    cover_image: typeof source.cover_image === 'string' ? source.cover_image : null,
+    rating: typeof source.rating === 'number' ? source.rating : null,
+    status: typeof source.status === 'string' ? source.status : null,
+    current_episode: typeof source.current_episode === 'number' ? source.current_episode : null,
+    episodes: typeof source.episodes === 'number' ? source.episodes : null,
+  }
+}
+
 function buildPreviewKey(userId: string, title: string) {
   return `${userId}::${normalizeTitle(title)}`
 }
@@ -41,7 +58,7 @@ function formatPost(
     image_url: post.image_url,
     created_at: post.created_at,
     category: post.category,
-    media_preview: options.mediaPreview || null,
+    media_preview: options.mediaPreview || normalizeMediaPreview(post.media_preview) || null,
     is_edited: post.is_edited,
     profiles: {
       username: profile?.username || '',
@@ -68,14 +85,20 @@ function formatPost(
 }
 
 async function attachMediaPreviews(supabase: SupabaseClient, posts: any[]): Promise<Map<string, FeedMediaPreview>> {
+  const result = new Map<string, FeedMediaPreview>()
+  for (const post of posts) {
+    const stored = normalizeMediaPreview(post.media_preview)
+    if (stored) result.set(post.id, stored)
+  }
+
   const wanted = posts
     .map(post => ({ post, title: parseCategoryTitle(post.category) }))
-    .filter(item => item.title.length > 0)
+    .filter(item => item.title.length > 0 && !result.has(item.post.id))
 
-  if (wanted.length === 0) return new Map()
+  if (wanted.length === 0) return result
 
   const userIds = Array.from(new Set(wanted.map(item => item.post.user_id).filter(Boolean)))
-  if (userIds.length === 0) return new Map()
+  if (userIds.length === 0) return result
 
   const { data } = await supabase
     .from('user_media_entries')
@@ -99,7 +122,6 @@ async function attachMediaPreviews(supabase: SupabaseClient, posts: any[]): Prom
     if (row.title_en) byKey.set(buildPreviewKey(row.user_id, row.title_en), preview)
   }
 
-  const result = new Map<string, FeedMediaPreview>()
   for (const { post, title } of wanted) {
     const preview = byKey.get(buildPreviewKey(post.user_id, title))
     if (preview) result.set(post.id, preview)
@@ -112,7 +134,7 @@ export async function fetchPinnedPosts(supabase: SupabaseClient, userId: string)
 
   const { data, error } = await supabase.from('posts')
     .select(`
-      id, user_id, content, image_url, created_at, category, is_edited,
+      id, user_id, content, image_url, created_at, category, media_preview, is_edited,
       profiles (id, username, display_name, avatar_url, badge),
       likes (id, user_id),
       comments (
@@ -159,7 +181,7 @@ async function fetchDiscoveryPosts(
 
   const { data } = await supabase.from('posts')
     .select(`
-      id, user_id, content, image_url, created_at, category, is_edited,
+      id, user_id, content, image_url, created_at, category, media_preview, is_edited,
       profiles (id, username, display_name, avatar_url, badge),
       likes (id, user_id)
     `)
@@ -187,7 +209,7 @@ async function fetchTrendingPosts(supabase: SupabaseClient, userId: string, from
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data } = await supabase.from('posts')
     .select(`
-      id, user_id, content, image_url, created_at, category, is_edited,
+      id, user_id, content, image_url, created_at, category, media_preview, is_edited,
       profiles (id, username, display_name, avatar_url, badge),
       likes (id, user_id),
       comments (
@@ -219,7 +241,7 @@ async function fetchPureDiscoveryPosts(supabase: SupabaseClient, userId: string,
 
   const { data } = await supabase.from('posts')
     .select(`
-      id, user_id, content, image_url, created_at, category, is_edited,
+      id, user_id, content, image_url, created_at, category, media_preview, is_edited,
       profiles (id, username, display_name, avatar_url, badge),
       likes (id, user_id),
       comments (
@@ -280,7 +302,7 @@ export async function fetchFeedPostsPage({
 
   let query = supabase.from('posts')
     .select(`
-      id, user_id, content, image_url, created_at, category, is_edited,
+      id, user_id, content, image_url, created_at, category, media_preview, is_edited,
       profiles (id, username, display_name, avatar_url, badge),
       likes (id, user_id),
       comments (

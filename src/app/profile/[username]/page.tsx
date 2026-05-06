@@ -1332,10 +1332,19 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                   <Link href="/settings/profile">
                     <button
                       data-testid="btn-edit-profile"
-                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.26)] bg-[rgba(230,255,61,0.08)] px-4 text-sm font-black text-[var(--accent)] transition-colors hover:bg-[rgba(230,255,61,0.12)]"
+                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-black text-[var(--text-primary)] transition-colors hover:border-[rgba(230,255,61,0.24)] hover:bg-white/[0.07]"
+                    >
+                      <Edit3 size={15} />
+                      {t.profile.editProfile}
+                    </button>
+                  </Link>
+                  <Link href="/settings">
+                    <button
+                      data-testid="btn-open-settings"
+                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.30)] bg-[rgba(230,255,61,0.10)] px-4 text-sm font-black text-[var(--accent)] shadow-[0_12px_30px_rgba(230,255,61,0.10)] transition-colors hover:bg-[rgba(230,255,61,0.16)]"
                     >
                       <Settings size={15} />
-                      {t.profile.editProfile}
+                      {t.nav.settings}
                     </button>
                   </Link>
                   <CopyProfileLink username={profile.username} />
