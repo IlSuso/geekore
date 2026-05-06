@@ -937,7 +937,7 @@ export default function OnboardingPage() {
       // Non fidarti di queue piene ma vecchie: le prime versioni potevano aver
       // salvato boardgame senza dati ricchi o descrizioni game/manga in inglese.
       // In quel caso rifacciamo fetch e permettiamo l'upsert sugli stessi external_id.
-      if (existingRows.length >= 20 && !needsQueueRefresh)
+      if (existingRows.length > 20 && !needsQueueRefresh)
         return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
 
       const items = await fetchCategoryTitles(

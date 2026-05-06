@@ -205,6 +205,7 @@ export async function sampleAndPersistFromMasterPool(params: {
   collectionHash: string
   totalEntries: number
   isAlreadyOwned: (type: string, id: string, title: string) => boolean
+  explorationRate?: number
 }): Promise<{
   recommendations: Record<string, Recommendation[]>
   poolByType: Map<string, Recommendation[]>
@@ -219,6 +220,7 @@ export async function sampleAndPersistFromMasterPool(params: {
     collectionHash,
     totalEntries,
     isAlreadyOwned,
+    explorationRate,
   } = params
 
   const poolByType = new Map<string, Recommendation[]>()
@@ -235,6 +237,7 @@ export async function sampleAndPersistFromMasterPool(params: {
     const poolItems = sampleMasterPool(available, {
       exposures,
       size: SERVE_SIZE_PER_TYPE,
+      explorationRate,
     })
 
     poolByType.set(type, poolItems)

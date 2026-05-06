@@ -105,19 +105,6 @@ export interface SwipeItem {
   authors?: string[];
   developers?: string[];
   platforms?: string[];
-  totalSeasons?: number;
-  min_players?: number;
-  max_players?: number;
-  playing_time?: number;
-  complexity?: number;
-  mechanics?: string[];
-  designers?: string[];
-  themes?: string[];
-  studios?: string[];
-  directors?: string[];
-  pages?: number;
-  isbn?: string;
-  publisher?: string;
   isAwardWinner?: boolean;
   source?: string;
   isDiscovery?: boolean;
@@ -190,7 +177,7 @@ const SWIPE_COMPLETE_RATIO = 0.32;
 const SWIPE_FLING_MIN_DISTANCE = 82;
 const SWIPE_FLING_VELOCITY = 1.15; // px/ms: solo un gesto veloce e intenzionale completa sotto soglia
 const ROTATION_FACTOR = 0.08;
-const REFILL_THRESHOLD = 25;
+const REFILL_THRESHOLD = 20;
 const PRELOAD_TARGET = 50;
 // GPU-friendly: text-shadow via CSS class, no filter: drop-shadow (each one = offscreen GPU buffer)
 // TEXT_SHADOW kept as lightweight single shadow only (no stacked multi-shadow)
@@ -1180,6 +1167,7 @@ export function SwipeMode({
   const skippedIdsRef = useRef<Set<string>>(new Set());
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const loadingRef = useRef(false);
+  const emptyDeckRetryRef = useRef<number | null>(null);
   const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>(
     {},
   );
@@ -1318,9 +1306,42 @@ export function SwipeMode({
 
   useEffect(() => {
     if (!didArmAutoRefillRef.current) return;
-    if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
+    if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current) {
       loadMore(activeFilter);
-  }, [filteredQueue.length, activeFilter]); // eslint-disable-line
+    }
+  }, [filteredQueue.length, activeFilter, loadMore]);
+
+  // Fallback anti-deck vuoto: se l'utente swipa più veloce del refill,
+  // non mostrare mai uno stato terminale. Resta in loading e continua a
+  // riprovare finché il parent riesce a riscrivere/ritornare nuove card.
+  useEffect(() => {
+    if (emptyDeckRetryRef.current) {
+      window.clearTimeout(emptyDeckRetryRef.current);
+      emptyDeckRetryRef.current = null;
+    }
+
+    if (filteredQueue.length > 0) return;
+
+    let cancelled = false;
+
+    const retryUntilFilled = () => {
+      if (cancelled) return;
+      if (!loadingRef.current) {
+        loadMore(activeFilter);
+      }
+      emptyDeckRetryRef.current = window.setTimeout(retryUntilFilled, 1800);
+    };
+
+    retryUntilFilled();
+
+    return () => {
+      cancelled = true;
+      if (emptyDeckRetryRef.current) {
+        window.clearTimeout(emptyDeckRetryRef.current);
+        emptyDeckRetryRef.current = null;
+      }
+    };
+  }, [filteredQueue.length, activeFilter, loadMore]);
 
   const handleFilterChange = useCallback(
     (filter: CategoryFilter) => {
@@ -1452,22 +1473,9 @@ export function SwipeMode({
       description: item.description,
       score: item.score,
       ...(item.type === "manga" ? { episodes: item.episodes } : {}),
-      totalSeasons: item.totalSeasons,
       authors: item.authors,
       developers: item.developers,
       platforms: item.platforms,
-      min_players: item.min_players,
-      max_players: item.max_players,
-      playing_time: item.playing_time,
-      complexity: item.complexity,
-      mechanics: item.mechanics,
-      designers: item.designers,
-      themes: item.themes,
-      studios: item.studios,
-      directors: item.directors,
-      pages: item.pages,
-      isbn: item.isbn,
-      publisher: item.publisher,
       why: item.why,
       matchScore: item.matchScore,
       isAwardWinner: item.isAwardWinner,
@@ -1831,44 +1839,7 @@ export function SwipeMode({
           }
         >
           {filteredQueue.length === 0 ? (
-            isLoadingMore ? (
-              <LoadingScreen message={swipeUi.loadingNewTitles} />
-            ) : (
-              <div
-                className="mx-auto flex max-w-sm flex-col items-center justify-center rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.26)]"
-                data-no-swipe="true"
-                data-testid="swipe-empty-state"
-              >
-                <p className="mb-2 text-lg font-black text-[var(--text-primary)]">
-                  {swipeUi.empty}
-                </p>
-                <p className="mb-5 text-sm leading-6 text-[var(--text-muted)]">
-                  {swipeUi.emptyHint}
-                </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {activeFilter !== "all" && (
-                    <button
-                      type="button"
-                      data-no-swipe="true"
-                      onClick={() => handleFilterChange("all")}
-                      className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-black text-[#0B0B0F]"
-                    >
-                      {swipeUi.categories.all}
-                    </button>
-                  )}
-                  {!standalone && !isOnboarding && (
-                    <button
-                      type="button"
-                      data-no-swipe="true"
-                      onClick={onClose}
-                      className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--text-secondary)] hover:text-white"
-                    >
-                      {swipeUi.backToList}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
+            <LoadingScreen message={swipeUi.loadingNewTitles} />
           ) : (
             <div
               className={
@@ -1943,6 +1914,14 @@ export function SwipeMode({
                         {genre}
                       </span>
                     ))}
+                  </div>
+                  <div className={isOnboarding ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4" : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"}>
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+                      {swipeUi.howItWorks}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-white/64">
+                      {swipeUi.howItWorksBody}
+                    </p>
                   </div>
                   <div className="mt-4 shrink-0 grid grid-cols-3 gap-2 text-center text-xs font-bold text-white/54">
                     <div className="rounded-2xl bg-white/6 px-3 py-3">

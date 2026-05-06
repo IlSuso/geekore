@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === '1'
     const similarToId = searchParams.get('similar_to_id') || null
     const isOnboardingCall = searchParams.get('onboarding') === '1'
+    const isSwipeCall = searchParams.get('swipe') === '1'
     const onboardingTypes = searchParams.get('types')?.split(',').filter(Boolean) as MediaType[] | undefined
 
     const poolOnlyResponse = await handlePoolOnlyFastPath({ searchParams, forceRefresh, supabase, userId, locale })
@@ -194,6 +195,7 @@ export async function GET(request: NextRequest) {
       collectionHash,
       totalEntries: allEntries.length,
       isAlreadyOwned,
+      explorationRate: isSwipeCall ? 0.65 : undefined,
     })
 
     persistCreatorProfile(supabase, userId, tasteProfile)
