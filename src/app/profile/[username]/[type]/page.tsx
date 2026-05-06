@@ -653,7 +653,7 @@ export default function ProfileTypePage() {
 
       const { data } = await supabase
         .from('user_media_entries')
-        .select('*')
+        .select('id, title, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id, achievement_data')
         .eq('user_id', profile.id)
         .eq('type', type)
         .order('display_order', { ascending: false, nullsFirst: false })

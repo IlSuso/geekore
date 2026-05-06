@@ -52,10 +52,12 @@ type ProfileCacheEntry = {
   steamAccount: any
   followersCount: number
   followingCount: number
+  mediaTotalCount?: number
   ts: number
 }
 const profileCache: Record<string, ProfileCacheEntry> = {}
 const PROFILE_CACHE_TTL = 5 * 60 * 1000 // 5 minuti
+const PROFILE_INITIAL_MEDIA_LIMIT = 360
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -795,6 +797,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const [profile, setProfile] = useState<Profile | null>(cp?.profile ?? null)
   const [steamAccount, setSteamAccount] = useState<any>(cp?.steamAccount ?? null)
   const [mediaList, setMediaList] = useState<UserMedia[]>(cp?.mediaList ?? [])
+  const [mediaTotalCount, setMediaTotalCount] = useState(cp?.mediaTotalCount ?? cp?.mediaList?.length ?? 0)
   const [loading, setLoading] = useState(!cp)
   const [importingGames, setImportingGames] = useState(false)
   const [reorderingGames, setReorderingGames] = useState(false)
@@ -836,7 +839,11 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
     const [steamResult, mediaResult, fwersResult, fwingResult, followResult] = await Promise.all([
       ownerCheck ? supabase.from('steam_accounts').select('steam_id64, steam_username, avatar_url, created_at, games, last_synced').eq('user_id', user!.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id').eq('user_id', profileData.id).order('display_order', { ascending: false, nullsFirst: false }).limit(10000),
+      supabase.from('user_media_entries')
+        .select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id', { count: 'exact' })
+        .eq('user_id', profileData.id)
+        .order('display_order', { ascending: false, nullsFirst: false })
+        .limit(PROFILE_INITIAL_MEDIA_LIMIT),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
       (user && !ownerCheck) ? supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -845,6 +852,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     const sortedMedia = sortMediaList(mediaResult.data || [])
     if (ownerCheck) setSteamAccount(steamResult.data)
     if (mediaResult.data) setMediaList(sortedMedia)
+    setMediaTotalCount(mediaResult.count ?? sortedMedia.length)
     setFollowersCount(fwersResult.count || 0)
     setFollowingCount(fwingResult.count || 0)
     if (user && !ownerCheck) setIsFollowing(!!followResult.data)
@@ -853,6 +861,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       profile: profileData, mediaList: sortedMedia,
       steamAccount: ownerCheck ? steamResult.data : null,
       followersCount: fwersResult.count || 0, followingCount: fwingResult.count || 0,
+      mediaTotalCount: mediaResult.count ?? sortedMedia.length,
       ts: Date.now(),
     }
     profileCache[username] = entry
@@ -907,7 +916,12 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
     })
 
   const refreshMedia = async (userId: string) => {
-    const { data, error } = await supabase.from('user_media_entries').select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id').eq('user_id', userId).order('display_order', { ascending: false, nullsFirst: false }).limit(10000)
+    const { data, error, count } = await supabase
+      .from('user_media_entries')
+      .select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('display_order', { ascending: false, nullsFirst: false })
+      .limit(PROFILE_INITIAL_MEDIA_LIMIT)
     if (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[Profile] Errore refresh media:', error)
@@ -915,6 +929,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       return
     }
     if (data) setMediaList(sortMediaList(data))
+    setMediaTotalCount(count ?? data?.length ?? 0)
   }
 
   const importSteamGames = async () => {
@@ -1276,7 +1291,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
   const orderedCategories = categoryOrder.filter(cat => grouped[cat]?.length > 0)
 
   const TABS: { id: ProfileTab; label: string; count?: number }[] = [
-    { id: 'collection', label: pc.collection, count: mediaList.length },
+    { id: 'collection', label: pc.collection, count: mediaTotalCount },
     { id: 'activity', label: pc.activity },
     { id: 'comments', label: pc.board },
   ]
@@ -1332,19 +1347,10 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
                   <Link href="/settings/profile">
                     <button
                       data-testid="btn-edit-profile"
-                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-black text-[var(--text-primary)] transition-colors hover:border-[rgba(230,255,61,0.24)] hover:bg-white/[0.07]"
-                    >
-                      <Edit3 size={15} />
-                      {t.profile.editProfile}
-                    </button>
-                  </Link>
-                  <Link href="/settings">
-                    <button
-                      data-testid="btn-open-settings"
-                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.30)] bg-[rgba(230,255,61,0.10)] px-4 text-sm font-black text-[var(--accent)] shadow-[0_12px_30px_rgba(230,255,61,0.10)] transition-colors hover:bg-[rgba(230,255,61,0.16)]"
+                      className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[rgba(230,255,61,0.26)] bg-[rgba(230,255,61,0.08)] px-4 text-sm font-black text-[var(--accent)] transition-colors hover:bg-[rgba(230,255,61,0.12)]"
                     >
                       <Settings size={15} />
-                      {t.nav.settings}
+                      {t.profile.editProfile}
                     </button>
                   </Link>
                   <CopyProfileLink username={profile.username} />
@@ -1368,7 +1374,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
 
           <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/5 pt-4 md:grid-cols-6">
             {[
-              { label: pc.media, value: mediaList.length, accent: true },
+              { label: pc.media, value: mediaTotalCount, accent: true },
               { label: t.profile.follower, value: followersCount },
               { label: t.profile.following, value: followingCount },
               { label: pc.completed, value: completedCount },
