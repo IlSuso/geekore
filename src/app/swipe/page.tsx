@@ -563,10 +563,6 @@ export default function SwipePage() {
       const existingDiversity = typeDiversity(existingRows);
       const allQueueIsDiverseEnough = filter !== "all" || existingDiversity >= 4;
 
-      if (existingRows.length >= REFILL_TRIGGER && allQueueIsDiverseEnough) {
-        return existingRows.map((row: any) => rowToSwipeItem(row, locale));
-      }
-
       try {
         const apiFilter = filter === "all" ? "all" : filter;
         const res = await fetch(
