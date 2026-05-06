@@ -1275,15 +1275,6 @@ export function SwipeMode({
         if (fresh.length) {
           setQueue((prev) => appendMixedQueue(prev, fresh, filter));
           fresh.forEach((i) => seen.add(i.id));
-        } else {
-          // Tutti già visti: svuota seenIds e riprova
-          seen.clear();
-          const retryItems = await onRequestMore(filter);
-          const retryFresh = retryItems.filter((i) => !skipped.has(i.id));
-          if (retryFresh.length) {
-            setQueue((prev) => appendMixedQueue(prev, retryFresh, filter));
-            retryFresh.forEach((i) => seen.add(i.id));
-          }
         }
       } catch { }
       setIsLoadingMore(false);
