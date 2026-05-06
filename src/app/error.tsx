@@ -39,13 +39,13 @@ export default function Error({
             className="px-8 py-3 rounded-full font-semibold transition-all hover:scale-105"
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
-            Riprova
+            {copy.retry}
           </button>
           <a
             href="/"
             className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-full font-semibold transition-all"
           >
-            Torna alla home
+            {copy.home}
           </a>
         </div>
       </div>

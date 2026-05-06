@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Star } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface StarRatingProps {
   value?: number
@@ -16,6 +17,10 @@ export function StarRating({
   size = 22,
   viewOnly = false,
 }: StarRatingProps) {
+  const { locale } = useLocale()
+  const copy = locale === 'en'
+    ? { rating: (value: number) => `Rating ${value} out of 5`, select: 'Select rating', value: (value: number) => `${value} out of 5`, none: 'No rating' }
+    : { rating: (value: number) => `Voto ${value} su 5`, select: 'Seleziona voto', value: (value: number) => `${value} su 5`, none: 'Nessun voto' }
   const [hovered, setHovered] = useState<number | null>(null)
   const [pending, setPending] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -124,11 +129,11 @@ export function StarRating({
         data-no-swipe="true"
         data-interactive="true"
         role={viewOnly ? 'img' : 'slider'}
-        aria-label={viewOnly ? `Voto ${displayed} su 5` : 'Seleziona voto'}
+        aria-label={viewOnly ? copy.rating(displayed) : copy.select}
         aria-valuemin={viewOnly ? undefined : 0}
         aria-valuemax={viewOnly ? undefined : 5}
         aria-valuenow={viewOnly ? undefined : displayed}
-        aria-valuetext={viewOnly ? undefined : displayed > 0 ? `${displayed} su 5` : 'Nessun voto'}
+        aria-valuetext={viewOnly ? undefined : displayed > 0 ? copy.value(displayed) : copy.none}
         tabIndex={viewOnly ? -1 : 0}
         className={`flex items-center gap-1 outline-none ${
           viewOnly

@@ -42,7 +42,7 @@ export function DiscoverMediaCard({
   className = '',
 }: DiscoverMediaCardProps) {
   const { locale } = useLocale()
-  const copy = locale === 'en' ? { openDetails: (title: string) => `Open details for ${title}`, coverAlt: (title: string) => `Cover for ${title}`, removeWishlist: 'Remove from wishlist', addWishlist: 'Add to wishlist', wishlist: 'Wishlist' } : { openDetails: (title: string) => `Apri dettagli di ${title}`, coverAlt: (title: string) => `Copertina di ${title}`, removeWishlist: 'Rimuovi dalla wishlist', addWishlist: 'Aggiungi alla wishlist', wishlist: 'Wishlist' }
+  const copy = locale === 'en' ? { openDetails: (title: string) => `Open details for ${title}`, coverAlt: (title: string) => `Cover for ${title}`, removeWishlist: 'Remove from wishlist', addWishlist: 'Add to wishlist', wishlist: 'Wishlist', completed: 'Completed' } : { openDetails: (title: string) => `Apri dettagli di ${title}`, coverAlt: (title: string) => `Copertina di ${title}`, removeWishlist: 'Rimuovi dalla wishlist', addWishlist: 'Aggiungi alla wishlist', wishlist: 'Wishlist', completed: 'Completato' }
   const visibleScore = hasRealScore(score) ? score : null
   const isInteractive = Boolean(onClick)
 
@@ -72,6 +72,7 @@ export function DiscoverMediaCard({
           score={visibleScore}
           match={match}
           completed={added}
+          completedLabel={copy.completed}
           fallback={placeholderIcon || <Film size={28} />}
           className="transition-transform duration-300 group-hover:scale-[1.015]"
           loading="eager"

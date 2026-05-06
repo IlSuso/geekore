@@ -329,7 +329,7 @@ export default function NotificationsPage() {
           <p className="gk-headline mb-1 text-[var(--text-primary)]">{nc.emptyTitle}</p>
           <p className="gk-body mx-auto mb-6 max-w-sm">{nc.emptyBody}</p>
           <Link href="/friends" data-no-swipe="true" className="inline-flex h-10 items-center justify-center rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02]">
-            Trova amici
+            {nc.findFriends}
           </Link>
         </div>
       ) : (

@@ -24,7 +24,7 @@ import { Avatar, getLocalAvatarSvg } from '@/components/ui/Avatar'
 // PERF: il drawer notifiche non deve stare nel bundle dell'header iniziale.
 const MobileNotificationsDrawer = dynamic(() => import('@/components/feed/MobileNotificationsDrawer').then(m => m.MobileNotificationsDrawer), { ssr: false })
 
-const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup']
+const PUBLIC_NO_HEADER_PATHS = ['/', '/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/profile/setup', '/privacy', '/terms', '/cookies']
 
 function BackButton({ label }: { label: string }) {
   return (
@@ -74,8 +74,51 @@ type HeaderProfileCache = {
 let mobileHeaderProfileCache: HeaderProfileCache | null = null
 let mobileHeaderProfilePromise: Promise<HeaderProfileCache | null> | null = null
 
+const PROFILE_CACHE_PREFIX = 'geekore:own-profile-header:'
+
+function readHeaderProfileCache(userId: string | null | undefined): HeaderProfileCache | null {
+  if (!userId || typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(`${PROFILE_CACHE_PREFIX}${userId}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<HeaderProfileCache>
+    if (parsed.userId !== userId) return null
+    return {
+      userId,
+      username: parsed.username || null,
+      displayName: parsed.displayName || null,
+      avatarUrl: parsed.avatarUrl || null,
+      unread: !!parsed.unread,
+      ts: typeof parsed.ts === 'number' ? parsed.ts : Date.now(),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeHeaderProfileCache(data: HeaderProfileCache) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.userId}`, JSON.stringify(data))
+  } catch {
+    // localStorage può essere non disponibile in privacy mode: ignora.
+  }
+}
+
+function emitHeaderProfileCache(data: HeaderProfileCache) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('geekore:mobile-header-cache', { detail: data }))
+}
+
 async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache | null> {
   if (mobileHeaderProfileCache?.userId === userId) return mobileHeaderProfileCache
+
+  const stored = readHeaderProfileCache(userId)
+  if (stored) {
+    mobileHeaderProfileCache = stored
+    emitHeaderProfileCache(stored)
+  }
+
   if (mobileHeaderProfilePromise) return mobileHeaderProfilePromise
 
   mobileHeaderProfilePromise = (async () => {
@@ -102,6 +145,8 @@ async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache 
       ts: Date.now(),
     }
     mobileHeaderProfileCache = base
+    writeHeaderProfileCache(base)
+    emitHeaderProfileCache(base)
 
     window.setTimeout(() => {
       void (async () => {
@@ -114,7 +159,8 @@ async function loadMobileHeaderData(userId: string): Promise<HeaderProfileCache 
 
           if (mobileHeaderProfileCache?.userId === userId) {
             mobileHeaderProfileCache = { ...mobileHeaderProfileCache, unread: !!count && count > 0, ts: Date.now() }
-            window.dispatchEvent(new CustomEvent('geekore:mobile-header-cache', { detail: mobileHeaderProfileCache }))
+            writeHeaderProfileCache(mobileHeaderProfileCache)
+            emitHeaderProfileCache(mobileHeaderProfileCache)
           }
         } catch {
           // Ignore notification-count failures: the header should still render immediately.
@@ -142,6 +188,10 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
   const isProfilePage = pathname.startsWith('/profile/')
 
   const authUser = useUser()
+  const cachedProfile = authUser ? readHeaderProfileCache(authUser.id) : null
+  const effectiveUsername = username || cachedProfile?.username || null
+  const effectiveDisplayName = displayName || cachedProfile?.displayName || null
+  const effectiveAvatarUrl = avatarUrl || cachedProfile?.avatarUrl || null
   useEffect(() => {
     setMounted(true)
     if (!authUser) return
@@ -155,7 +205,11 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
       setUnread(data.unread)
     }
 
-    apply(mobileHeaderProfileCache?.userId === authUser.id ? mobileHeaderProfileCache : null)
+    const cached = mobileHeaderProfileCache?.userId === authUser.id ? mobileHeaderProfileCache : readHeaderProfileCache(authUser.id)
+    if (cached) {
+      mobileHeaderProfileCache = cached
+      apply(cached)
+    }
     loadMobileHeaderData(authUser.id).then(apply).catch(() => null)
 
     const onCache = (event: Event) => apply((event as CustomEvent).detail as HeaderProfileCache | null)
@@ -166,7 +220,7 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
     }
   }, [authUser?.id]) // eslint-disable-line
 
-  if (pathname === '/' || AUTH_PATHS.some(p => pathname.startsWith(p))) return null
+  if (PUBLIC_NO_HEADER_PATHS.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)))) return null
 
   // Sulle tab keep-alive l'header mobile viene renderizzato dentro ogni panel.
   // Così durante lo swipe orizzontale header e pagina scorrono insieme, senza
@@ -174,7 +228,7 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
   if (!embeddedInTabPanel && KEEP_ALIVE_MOBILE_HEADER_ROUTES.has(pathname)) return null
 
   const isFeed = pathname === '/home'
-  const isOwnProfile = mounted && (pathname === '/profile/me' || (username && pathname === `/profile/${username}`))
+  const isOwnProfile = mounted && (pathname === '/profile/me' || (effectiveUsername && pathname === `/profile/${effectiveUsername}`))
   const PROFILE_RESERVED = new Set(['edit', 'setup', 'me', 'loading'])
   const profileParts = pathname.split('/')
   const profileUsername = isProfilePage ? profileParts[2] : null
@@ -212,7 +266,7 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
     if (isOwnProfile) return (
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="gk-headline truncate text-[var(--text-primary)]">
-          {username || copy.nav.profileFallback}
+          {effectiveUsername || copy.nav.profileFallback}
         </span>
       </div>
     )
@@ -232,8 +286,8 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
   }
 
   const openNotif = () => { setUnread(false); setNotifOpen(true) }
-  const currentUsername = username || 'me'
-  const avatarSrc = avatarUrl || (username ? getLocalAvatarSvg(username, displayName) : undefined)
+  const currentUsername = effectiveUsername || 'me'
+  const avatarSrc = effectiveAvatarUrl || (effectiveUsername ? getLocalAvatarSvg(effectiveUsername, effectiveDisplayName) : undefined)
 
   const NotificationButton = () => (
     <button type="button" data-no-swipe="true" onClick={openNotif} className={`${iconCls} relative`} aria-label={copy.nav.notifications}>
@@ -249,7 +303,11 @@ export function MobileHeader({ pathnameOverride, embeddedInTabPanel = false }: M
       className="flex h-10 w-10 items-center justify-center rounded-2xl transition-colors hover:bg-[var(--bg-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
       aria-label={copy.nav.openProfile}
     >
-      <Avatar src={avatarSrc} username={currentUsername} displayName={displayName || username || copy.nav.profileFallback} size={30} />
+      {avatarSrc ? (
+        <Avatar src={avatarSrc} username={currentUsername} displayName={effectiveDisplayName || effectiveUsername || copy.nav.profileFallback} size={30} />
+      ) : (
+        <span className="h-[30px] w-[30px] rounded-xl bg-[var(--bg-card-hover)]" aria-hidden="true" />
+      )}
     </Link>
   )
 

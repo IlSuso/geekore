@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -40,24 +41,24 @@ function updatePayload(body: any): Record<string, unknown> {
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 80, windowMs: 60_000, prefix: 'collection:add' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const core = normalizeMediaCore(body, { allowLegacyTypes: true })
   const status = cleanString(body?.status, 40) || 'watching'
   const shouldUpsert = body?.upsert === true
 
-  if (!core?.external_id) return NextResponse.json({ error: 'external_id mancante' }, { status: 400, headers: rl.headers })
-  if (!core.title) return NextResponse.json({ error: 'title mancante' }, { status: 400, headers: rl.headers })
-  if (!core.type || !MEDIA_TYPES_WITH_LEGACY.has(core.type)) return NextResponse.json({ error: 'type non valido' }, { status: 400, headers: rl.headers })
-  if (!STATUSES.has(status)) return NextResponse.json({ error: 'status non valido' }, { status: 400, headers: rl.headers })
+  if (!core?.external_id) return NextResponse.json({ error: apiMessage(request, 'missingExternalId') }, { status: 400, headers: rl.headers })
+  if (!core.title) return NextResponse.json({ error: apiMessage(request, 'missingTitle') }, { status: 400, headers: rl.headers })
+  if (!core.type || !MEDIA_TYPES_WITH_LEGACY.has(core.type)) return NextResponse.json({ error: apiMessage(request, 'invalidType') }, { status: 400, headers: rl.headers })
+  if (!STATUSES.has(status)) return NextResponse.json({ error: apiMessage(request, 'invalidStatus') }, { status: 400, headers: rl.headers })
 
   const row = {
     user_id: user.id,
@@ -87,9 +88,9 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Titolo già in collezione' }, { status: 409, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'titleAlreadyInCollection') }, { status: 409, headers: rl.headers })
     }
-    return NextResponse.json({ error: 'Titolo non aggiunto' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'titleNotAdded') }, { status: 500, headers: rl.headers })
   }
 
   return NextResponse.json({ success: true, id: data?.id }, { headers: rl.headers })
@@ -97,19 +98,19 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 80, windowMs: 60_000, prefix: 'collection:delete' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const id = cleanString(body?.id, 100)
   const externalId = cleanString(body?.external_id, 200)
-  if (!id && !externalId) return NextResponse.json({ error: 'id o external_id mancante' }, { status: 400, headers: rl.headers })
+  if (!id && !externalId) return NextResponse.json({ error: apiMessage(request, 'missingIdOrExternalId') }, { status: 400, headers: rl.headers })
 
   let query = supabase
     .from('user_media_entries')
@@ -120,29 +121,29 @@ export async function DELETE(request: NextRequest) {
 
   const { error } = await query
 
-  if (error) return NextResponse.json({ error: 'Titolo non rimosso' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'titleNotRemoved') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }
 
 export async function PATCH(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'collection:update' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const id = cleanString(body?.id, 100)
-  if (!id) return NextResponse.json({ error: 'id mancante' }, { status: 400, headers: rl.headers })
+  if (!id) return NextResponse.json({ error: apiMessage(request, 'missingId') }, { status: 400, headers: rl.headers })
 
   const update = updatePayload(body)
   if (Object.keys(update).length === 0) {
-    return NextResponse.json({ error: 'Nessun campo valido da aggiornare' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'noValidFields') }, { status: 400, headers: rl.headers })
   }
 
   const { error } = await supabase
@@ -151,7 +152,7 @@ export async function PATCH(request: NextRequest) {
     .eq('user_id', user.id)
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: 'Titolo non aggiornato' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'titleNotUpdated') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }

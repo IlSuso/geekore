@@ -44,16 +44,16 @@ export default function EditProfilePage() {
   const { t, locale } = useLocale()
   const pe = t.profileEdit
   const ui = locale === 'it' ? {
-    title: 'Modifica profilo', subtitle: 'Aggiorna identità, avatar e pochi segnali di gusto essenziali.', invalidFile: 'Formato file non valido.', avatarHint: 'JPEG, PNG, GIF o WebP · max 5MB. Usa un avatar leggibile anche in piccolo.', dataSecurity: 'Dati e sicurezza', exporting: 'Esportazione...', exportData: 'Esporta dati', exportHint: 'Scarica una copia JSON dei dati del tuo account.', publicIdentity: 'Identità pubblica', publicIdentityHint: 'Nome, username e bio visibili nel profilo.', quickTaste: 'Gusti rapidi', likedExcluded: (liked: number, disliked: number) => `${liked} amati · ${disliked} esclusi`, like: 'Ami', avoid: 'Eviti', uploadingAvatar: 'Caricamento avatar...'
+    title: 'Modifica profilo', subtitle: 'Aggiorna identità, avatar e pochi segnali di gusto essenziali.', invalidFile: 'Formato file non valido.', avatarHint: 'JPEG, PNG, GIF o WebP · max 5MB. Usa un avatar leggibile anche in piccolo.', dataSecurity: 'Dati e sicurezza', exporting: 'Esportazione...', exportData: 'Esporta dati', exportHint: 'Scarica una copia JSON dei dati del tuo account.', publicIdentity: 'Identità pubblica', publicIdentityHint: 'Nome, username e bio visibili nel profilo.', quickTaste: 'Gusti rapidi', likedExcluded: (liked: number, disliked: number) => `${liked} amati · ${disliked} esclusi`, like: 'Ami', avoid: 'Eviti', uploadingAvatar: 'Caricamento avatar...', account: 'Account', tasteDna: 'Taste DNA →', usernameUnsupported: 'Username contiene caratteri non consentiti', exportError: 'Errore durante l\'esportazione'
   } : {
-    title: 'Edit profile', subtitle: 'Update identity, avatar, and a few essential taste signals.', invalidFile: 'Invalid file format.', avatarHint: 'JPEG, PNG, GIF, or WebP · max 5MB. Use an avatar that stays readable when small.', dataSecurity: 'Data and security', exporting: 'Exporting...', exportData: 'Export data', exportHint: 'Download a JSON copy of your account data.', publicIdentity: 'Public identity', publicIdentityHint: 'Name, username, and bio visible on your profile.', quickTaste: 'Quick taste', likedExcluded: (liked: number, disliked: number) => `${liked} liked · ${disliked} excluded`, like: 'Like', avoid: 'Avoid', uploadingAvatar: 'Uploading avatar...'
+    title: 'Edit profile', subtitle: 'Update identity, avatar, and a few essential taste signals.', invalidFile: 'Invalid file format.', avatarHint: 'JPEG, PNG, GIF, or WebP · max 5MB. Use an avatar that stays readable when small.', dataSecurity: 'Data and security', exporting: 'Exporting...', exportData: 'Export data', exportHint: 'Download a JSON copy of your account data.', publicIdentity: 'Public identity', publicIdentityHint: 'Name, username, and bio visible on your profile.', quickTaste: 'Quick taste', likedExcluded: (liked: number, disliked: number) => `${liked} liked · ${disliked} excluded`, like: 'Like', avoid: 'Avoid', uploadingAvatar: 'Uploading avatar...', account: 'Account', tasteDna: 'Taste DNA →', usernameUnsupported: 'Username contains unsupported characters', exportError: 'Could not export data'
   }
 
   const validateUsername = (value: string): string | null => {
     if (value.length < USERNAME_MIN) return pe.usernameTooShort(USERNAME_MIN)
     if (value.length > USERNAME_MAX) return pe.usernameTooLong(USERNAME_MAX)
     if (!USERNAME_REGEX.test(value)) return pe.usernameInvalid
-    if (hasUnicodeLookalike(value)) return 'Username contiene caratteri non consentiti'
+    if (hasUnicodeLookalike(value)) return ui.usernameUnsupported
     return null
   }
 
@@ -83,7 +83,7 @@ export default function EditProfilePage() {
       const res = await fetch('/api/user/export')
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        alert(err.error || 'Errore durante l\'esportazione')
+        alert(err.error || ui.exportError)
         return
       }
       const blob = await res.blob()
@@ -286,7 +286,7 @@ export default function EditProfilePage() {
       <div className="mx-auto w-full max-w-screen-lg">
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
-            <p className="gk-section-eyebrow mb-2"><Sparkles size={12} /> Account</p>
+            <p className="gk-section-eyebrow mb-2"><Sparkles size={12} /> {ui.account}</p>
             <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.045em] text-[var(--text-primary)] md:text-[42px]">{ui.title}</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--text-muted)]">{ui.subtitle}</p>
           </div>
@@ -316,10 +316,10 @@ export default function EditProfilePage() {
                   type="button"
                   className="group relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--bg-secondary)] ring-1 ring-white/5"
                   onClick={() => fileRef.current?.click()}
-                  aria-label="Cambia avatar"
+                  aria-label={locale === 'it' ? 'Cambia avatar' : 'Change avatar'}
                 >
                   {avatarPreview ? (
-                    <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />
+                    <img src={avatarPreview} alt={locale === 'it' ? 'Avatar profilo' : 'Profile avatar'} className="h-full w-full object-cover" />
                   ) : (
                     <Avatar
                       src={null}
@@ -393,7 +393,7 @@ export default function EditProfilePage() {
                 disabled={isBusy || !!fieldErrors.username || !!fieldErrors.bio}
                 className="hidden h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-[#0B0B0F] transition-transform hover:scale-[1.02] disabled:opacity-50 md:inline-flex"
               >
-                {isBusy ? <><Loader2 size={17} className="animate-spin" /> {uploadingAvatar ? 'Avatar...' : pe.saving}</> : pe.save}
+                {isBusy ? <><Loader2 size={17} className="animate-spin" /> {uploadingAvatar ? ui.uploadingAvatar : pe.saving}</> : pe.save}
               </button>
             </div>
 
@@ -463,7 +463,7 @@ export default function EditProfilePage() {
                     <p className="text-xs text-[var(--text-muted)]">{ui.likedExcluded(likedCount, dislikedCount)}</p>
                   </div>
                 </div>
-                <Link href="/for-you" className="inline-flex h-8 items-center justify-center rounded-full border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-3 text-xs font-black text-[var(--accent)] transition-opacity hover:opacity-80">Taste DNA →</Link>
+                <Link href="/for-you" className="inline-flex h-8 items-center justify-center rounded-full border border-[rgba(230,255,61,0.22)] bg-[rgba(230,255,61,0.07)] px-3 text-xs font-black text-[var(--accent)] transition-opacity hover:opacity-80">{ui.tasteDna}</Link>
               </div>
 
               <div className="grid gap-4 xl:grid-cols-2">

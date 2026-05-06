@@ -18,7 +18,6 @@ export const MEDIA_TYPES_WITH_LEGACY = new Set<string>([
   'movie',
   'boardgame',
   'board_game',
-  'book',
 ])
 
 const BAD_STRING_VALUES = new Set([

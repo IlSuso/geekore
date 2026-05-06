@@ -69,6 +69,7 @@ const DNA_COPY = {
     frequentSearches: "Cerchi spesso",
     fromWishlist: "Dalla wishlist",
     toExplore: "Da esplorare",
+    bingeMode: "binge mode",
   },
   en: {
     badge: "Your DNA",
@@ -88,6 +89,7 @@ const DNA_COPY = {
     frequentSearches: "Frequent searches",
     fromWishlist: "From wishlist",
     toExplore: "To explore",
+    bingeMode: "binge mode",
   },
 } as const;
 
@@ -272,7 +274,7 @@ export const DNAWidget = memo(function DNAWidget({
 
   return (
     <section
-      className={`mb-8 overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.20)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${compact ? "md:mb-6" : ""}`}
+      className={`gk-dna-wide mb-8 w-full max-w-none overflow-hidden rounded-[28px] border border-[rgba(230,255,61,0.20)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] ${compact ? "md:mb-6" : ""}`}
     >
       <button
         type="button"
@@ -300,7 +302,7 @@ export const DNAWidget = memo(function DNAWidget({
               {dc.titlesMonths(resolvedTotalEntries, profile.recentWindow || 6)}
               {profile.bingeProfile?.isBinger && (
                 <span className="ml-2 inline-flex items-center gap-0.5 text-orange-400">
-                  <Flame size={10} className="inline" /> binge mode
+                  <Flame size={10} className="inline" /> {dc.bingeMode}
                 </span>
               )}
             </p>

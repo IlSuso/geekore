@@ -1,4 +1,7 @@
+'use client'
+
 import type { ReactNode } from 'react'
+import { useLocale } from '@/lib/locale'
 import { PosterCard } from '@/components/ui/PosterCard'
 import { RailSection } from '@/components/ui/RailSection'
 import { MediaRailSkeleton } from '@/components/ui/MediaSkeletons'
@@ -60,6 +63,8 @@ export function MediaRail<T extends MediaRailItem = MediaRailItem>({
   renderActions,
   onItemClick,
 }: MediaRailProps<T>) {
+  const { locale } = useLocale()
+  const emptyCopy = locale === 'en' ? 'No items to show.' : '{emptyCopy}'
   const visibleItems = typeof limit === 'number' ? items.slice(0, limit) : items
 
   return (
@@ -96,7 +101,7 @@ export function MediaRail<T extends MediaRailItem = MediaRailItem>({
       ) : (
         emptyState || (
           <div className="flex min-h-[180px] w-full items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-6 text-center text-[13px] text-[var(--text-muted)]">
-            Nessun elemento da mostrare.
+            {emptyCopy}
           </div>
         )
       )}

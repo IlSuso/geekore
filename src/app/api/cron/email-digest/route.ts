@@ -2,6 +2,8 @@
 // Email digest settimanale — Feature #24
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
+import { normalizeLocale, type Locale } from '@/lib/i18n/serverLocale'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
 
@@ -31,22 +33,65 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
+const DIGEST_COPY: Record<Locale, {
+  completed: string
+  trending: string
+  friends: string
+  isWatching: string
+  hello: (name: string) => string
+  subtitle: string
+  topTastes: string
+  cta: string
+  footer: string
+  unsubscribe: string
+  subject: (date: string) => string
+}> = {
+  it: {
+    completed: '✅ Questa settimana hai completato',
+    trending: '🔥 In tendenza nei tuoi generi',
+    friends: '👥 I tuoi amici stanno guardando',
+    isWatching: 'sta guardando',
+    hello: name => `Ciao, ${name}!`,
+    subtitle: 'Il tuo digest settimanale geek',
+    topTastes: 'I tuoi gusti dominanti',
+    cta: 'Scopri i consigli di questa settimana →',
+    footer: 'Ricevi questa email perché hai abilitato il digest settimanale.',
+    unsubscribe: 'Disiscriviti',
+    subject: date => `🎮 Il tuo digest Geekore — ${date}`,
+  },
+  en: {
+    completed: '✅ You completed this week',
+    trending: '🔥 Trending in your genres',
+    friends: '👥 Your friends are watching',
+    isWatching: 'is watching',
+    hello: name => `Hi, ${name}!`,
+    subtitle: 'Your weekly geek digest',
+    topTastes: 'Your dominant tastes',
+    cta: 'Discover this week’s recommendations →',
+    footer: 'You are receiving this email because you enabled the weekly digest.',
+    unsubscribe: 'Unsubscribe',
+    subject: date => `🎮 Your Geekore digest — ${date}`,
+  },
+}
+
 function buildDigestHtml(params: {
   displayName: string
   topGenres: string[]
   completedCount: number
   completedTitles: Array<{ title: string; type: string }>
   trendingInTaste: Array<{ title: string; type: string; score: number }>
-  friendsActivity: Array<{ username: string; title: string; type: string }>
+  friendsActivity: Array<{ username: string; displayName?: string | null; title: string; type: string }>
   unsubscribeUrl: string
+  locale: Locale
 }): string {
-  const { displayName, topGenres, completedTitles, trendingInTaste, friendsActivity, unsubscribeUrl } = params
+  const { displayName, topGenres, completedTitles, trendingInTaste, friendsActivity, unsubscribeUrl, locale } = params
+  const copy = DIGEST_COPY[locale] || DIGEST_COPY.it
   const typeEmoji: Record<string, string> = { anime: '📺', manga: '📚', game: '🎮', movie: '🎬', tv: '📡' }
 
   const completedSection = completedTitles.length > 0 ? `
     <div style="margin-bottom:24px;">
       <h3 style="color:#a78bfa;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">
-        ✅ Questa settimana hai completato
+        ${copy.completed}
       </h3>
       ${completedTitles.slice(0, 5).map(t => `
         <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#18181b;border-radius:12px;margin-bottom:8px;">
@@ -60,7 +105,7 @@ function buildDigestHtml(params: {
   const trendingSection = trendingInTaste.length > 0 ? `
     <div style="margin-bottom:24px;">
       <h3 style="color:#a78bfa;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">
-        🔥 In tendenza nei tuoi generi
+        ${copy.trending}
       </h3>
       ${trendingInTaste.slice(0, 4).map(t => `
         <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#18181b;border-radius:12px;margin-bottom:8px;">
@@ -75,12 +120,12 @@ function buildDigestHtml(params: {
   const friendsSection = friendsActivity.length > 0 ? `
     <div style="margin-bottom:24px;">
       <h3 style="color:#a78bfa;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">
-        👥 I tuoi amici stanno guardando
+        ${copy.friends}
       </h3>
       ${friendsActivity.slice(0, 4).map(f => `
         <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#18181b;border-radius:12px;margin-bottom:8px;">
-          <span style="color:#a78bfa;font-size:13px;font-weight:700;">@${escapeHtml(f.username)}</span>
-          <span style="color:#52525b;font-size:13px;">sta guardando</span>
+          <span style="color:#a78bfa;font-size:13px;font-weight:700;">${escapeHtml(f.displayName || f.username)}</span>
+          <span style="color:#52525b;font-size:13px;">${copy.isWatching}</span>
           <span style="color:#e4e4e7;font-size:13px;font-weight:600;">${escapeHtml(f.title)}</span>
         </div>
       `).join('')}
@@ -89,7 +134,7 @@ function buildDigestHtml(params: {
 
   return `
 <!DOCTYPE html>
-<html lang="it">
+<html lang="${locale}">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:520px;margin:0 auto;padding:32px 16px;">
@@ -97,13 +142,13 @@ function buildDigestHtml(params: {
       <div style="display:inline-flex;align-items:center;gap:8px;background:#E6FF3D;padding:8px 20px;border-radius:999px;margin-bottom:16px;">
         <span style="color:#0B0B0F;font-size:20px;font-weight:900;letter-spacing:-0.5px;">Geekore</span>
       </div>
-      <h1 style="color:#f4f4f5;font-size:22px;font-weight:800;margin:0 0 6px;">Ciao, ${escapeHtml(displayName)}!</h1>
-      <p style="color:#71717a;font-size:14px;margin:0;">Il tuo digest settimanale geek</p>
+      <h1 style="color:#f4f4f5;font-size:22px;font-weight:800;margin:0 0 6px;">${copy.hello(escapeHtml(displayName))}</h1>
+      <p style="color:#71717a;font-size:14px;margin:0;">${copy.subtitle}</p>
     </div>
 
     ${topGenres.length > 0 ? `
     <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:16px;margin-bottom:24px;">
-      <p style="color:#71717a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 10px;">I tuoi gusti dominanti</p>
+      <p style="color:#71717a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 10px;">${copy.topTastes}</p>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${topGenres.slice(0, 5).map(g => `
           <span style="background:rgba(230,255,61,0.12);color:#E6FF3D;border:1px solid rgba(230,255,61,0.25);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">${escapeHtml(g)}</span>
@@ -118,15 +163,15 @@ function buildDigestHtml(params: {
 
     <div style="text-align:center;margin:32px 0;">
       <a href="https://geekore.it/for-you" style="display:inline-block;background:#E6FF3D;color:#0B0B0F;font-size:14px;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;">
-        Scopri i consigli di questa settimana →
+        ${copy.cta}
       </a>
     </div>
 
     <div style="text-align:center;border-top:1px solid #27272a;padding-top:24px;">
       <p style="color:#52525b;font-size:11px;margin:0 0 8px;">
-        Ricevi questa email perché hai abilitato il digest settimanale.
+        ${copy.footer}
       </p>
-      <a href="${escapeHtml(unsubscribeUrl)}" style="color:#71717a;font-size:11px;">Disiscriviti</a>
+      <a href="${escapeHtml(unsubscribeUrl)}" style="color:#71717a;font-size:11px;">${copy.unsubscribe}</a>
     </div>
   </div>
 </body>
@@ -136,10 +181,10 @@ function buildDigestHtml(params: {
 
 export async function GET(request: NextRequest) {
   if (!process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 })
+    return NextResponse.json({ error: apiMessage(request, 'cronSecretMissing') }, { status: 503 })
   }
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: apiMessage(request, 'unauthorized') }, { status: 401 })
   }
 
   const supabase = createServiceClient('cron:email-digest')
@@ -147,7 +192,7 @@ export async function GET(request: NextRequest) {
   try {
     resend = await getResend()
   } catch {
-    return NextResponse.json({ skipped: true, reason: 'RESEND_API_KEY non configurata' }, { status: 200 })
+    return NextResponse.json({ skipped: true, reason: apiMessage(request, 'resendKeyMissing') }, { status: 200 })
   }
 
   const from = process.env.RESEND_FROM || 'digest@geekore.it'
@@ -159,7 +204,7 @@ export async function GET(request: NextRequest) {
     .neq('digest_enabled', false)
 
   if (!prefs?.length) {
-    return NextResponse.json({ sent: 0, message: 'Nessun utente con digest abilitato' })
+    return NextResponse.json({ sent: 0, message: apiMessage(request, 'noDigestUsers') })
   }
 
   let sent = 0
@@ -169,7 +214,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, username, display_name')
+        .select('id, username, display_name, preferred_locale')
         .eq('id', pref.user_id)
         .single()
 
@@ -199,7 +244,7 @@ export async function GET(request: NextRequest) {
         .limit(20)
 
       const friendIds = (follows || []).map(f => f.following_id)
-      let friendsActivity: Array<{ username: string; title: string; type: string }> = []
+      let friendsActivity: Array<{ username: string; displayName?: string | null; title: string; type: string }> = []
 
       if (friendIds.length > 0) {
         const { data: friendEntries } = await supabase
@@ -213,16 +258,17 @@ export async function GET(request: NextRequest) {
         if (friendEntries?.length) {
           const { data: friendProfiles } = await supabase
             .from('profiles')
-            .select('id, username')
+            .select('id, username, display_name')
             .in('id', friendIds)
 
-          const profileMap = Object.fromEntries((friendProfiles || []).map(p => [p.id, p.username]))
+          const profileMap = Object.fromEntries((friendProfiles || []).map(p => [p.id, { username: p.username, displayName: p.display_name }]))
           const seen = new Set<string>()
           for (const e of friendEntries) {
             const key = `${e.user_id}-${e.title}`
             if (!seen.has(key) && profileMap[e.user_id]) {
               seen.add(key)
-              friendsActivity.push({ username: profileMap[e.user_id], title: e.title, type: e.type })
+              const friend = profileMap[e.user_id]
+              friendsActivity.push({ username: friend.username, displayName: friend.displayName, title: e.title, type: e.type })
             }
           }
         }
@@ -250,6 +296,8 @@ export async function GET(request: NextRequest) {
 
       const unsubscribeUrl = `https://geekore.it/settings?digest=off&uid=${encodeURIComponent(pref.user_id)}`
 
+      const userLocale = normalizeLocale(profile.preferred_locale) || 'it'
+
       const html = buildDigestHtml({
         displayName: profile.display_name || profile.username,
         topGenres,
@@ -258,12 +306,13 @@ export async function GET(request: NextRequest) {
         trendingInTaste,
         friendsActivity,
         unsubscribeUrl,
+        locale: userLocale,
       })
 
       await resend.emails.send({
         from,
         to: email,
-        subject: `🎮 Il tuo digest Geekore — ${new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`,
+        subject: DIGEST_COPY[userLocale].subject(new Date().toLocaleDateString(userLocale === 'it' ? 'it-IT' : 'en-US', { day: 'numeric', month: 'long' })),
         html,
       })
 

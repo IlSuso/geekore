@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -7,23 +8,23 @@ import { checkOrigin } from '@/lib/csrf'
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'profile-comment' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppi commenti. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyComments') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const { profile_id, content } = body
-  if (!profile_id || typeof profile_id !== 'string') return NextResponse.json({ error: 'profile_id mancante' }, { status: 400, headers: rl.headers })
-  if (typeof content !== 'string' || !content.trim()) return NextResponse.json({ error: 'content mancante' }, { status: 400, headers: rl.headers })
+  if (!profile_id || typeof profile_id !== 'string') return NextResponse.json({ error: apiMessage(request, 'missingProfileId') }, { status: 400, headers: rl.headers })
+  if (typeof content !== 'string' || !content.trim()) return NextResponse.json({ error: apiMessage(request, 'missingContent') }, { status: 400, headers: rl.headers })
 
   const service = createServiceClient('social:profile-comment')
   const { data: profile } = await service.from('profiles').select('id').eq('id', profile_id).maybeSingle()
-  if (!profile) return NextResponse.json({ error: 'profilo non trovato' }, { status: 404, headers: rl.headers })
+  if (!profile) return NextResponse.json({ error: apiMessage(request, 'profileNotFound') }, { status: 404, headers: rl.headers })
 
   const cleanContent = content.trim().replace(/\n{3,}/g, '\n\n').slice(0, 500)
   const { data: comment, error: insertError } = await service
@@ -32,13 +33,13 @@ export async function POST(request: NextRequest) {
     .select('id, content, created_at, author_id')
     .single()
 
-  if (insertError) return NextResponse.json({ error: 'commento non salvato' }, { status: 500, headers: rl.headers })
+  if (insertError) return NextResponse.json({ error: apiMessage(request, 'commentNotSaved') }, { status: 500, headers: rl.headers })
 
   if (profile_id === user.id) {
     return NextResponse.json({ success: true, comment }, { headers: rl.headers })
   }
 
-  const { data: sender } = await service.from('profiles').select('username').eq('id', user.id).single()
+  const { data: sender } = await service.from('profiles').select('username, display_name').eq('id', user.id).single()
   await service.from('notifications').insert({
     receiver_id: profile_id,
     sender_id: user.id,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (sender?.username) {
     await sendPushToUser(profile_id, {
       title: 'Geekore',
-      body: `@${sender.username} ha scritto sulla tua bacheca`,
+      body: `${sender.display_name || sender.username} ha scritto sulla tua bacheca`,
       url: `/profile/${sender.username}`,
       tag: `profile-comment-${user.id}`,
     }, 'profile-comment', user.id)
@@ -60,18 +61,18 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'profile-comment:delete' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const { comment_id } = body
   if (!comment_id || typeof comment_id !== 'string') {
-    return NextResponse.json({ error: 'comment_id mancante' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'missingCommentId') }, { status: 400, headers: rl.headers })
   }
 
   const service = createServiceClient('social:profile-comment:delete')
@@ -81,13 +82,13 @@ export async function DELETE(request: NextRequest) {
     .eq('id', comment_id)
     .single()
 
-  if (!comment) return NextResponse.json({ error: 'commento non trovato' }, { status: 404, headers: rl.headers })
+  if (!comment) return NextResponse.json({ error: apiMessage(request, 'commentNotFound') }, { status: 404, headers: rl.headers })
   if (comment.author_id !== user.id && comment.profile_id !== user.id) {
-    return NextResponse.json({ error: 'Non autorizzato' }, { status: 403, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'notAuthorized') }, { status: 403, headers: rl.headers })
   }
 
   const { error } = await service.from('profile_comments').delete().eq('id', comment_id)
-  if (error) return NextResponse.json({ error: 'commento non eliminato' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'commentNotRemoved') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }

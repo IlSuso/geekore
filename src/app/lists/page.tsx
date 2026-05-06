@@ -120,7 +120,7 @@ function ListModal({
               data-no-swipe="true"
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] hover:text-white"
-              aria-label="Close list modal"
+              aria-label={copy.closeModalAria}
             >
               <X size={17} />
             </button>
@@ -184,7 +184,7 @@ function ListModal({
               style={{
                 background: isPublic ? "var(--accent)" : "var(--bg-card-hover)",
               }}
-              aria-label="Cambia visibilità lista"
+              aria-label={copy.changeVisibilityAria}
             >
               <div
                 className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${isPublic ? "translate-x-6" : "translate-x-0"}`}

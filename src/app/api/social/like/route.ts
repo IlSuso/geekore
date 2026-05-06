@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -7,25 +8,25 @@ import { checkOrigin } from '@/lib/csrf'
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'like' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppi like. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyLikes') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const { post_id, action = 'like' } = body
-  if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400, headers: rl.headers })
+  if (!post_id || typeof post_id !== 'string') return NextResponse.json({ error: apiMessage(request, 'missingPostId') }, { status: 400, headers: rl.headers })
   if (action !== 'like' && action !== 'unlike') {
-    return NextResponse.json({ error: 'action non valida' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidAction') }, { status: 400, headers: rl.headers })
   }
 
   const service = createServiceClient('social:like')
   const { data: post } = await service.from('posts').select('user_id').eq('id', post_id).single()
-  if (!post) return NextResponse.json({ error: 'post non trovato' }, { status: 404, headers: rl.headers })
+  if (!post) return NextResponse.json({ error: apiMessage(request, 'postNotFound') }, { status: 404, headers: rl.headers })
 
   if (action === 'unlike') {
     await service.from('likes').delete().eq('post_id', post_id).eq('user_id', user.id)
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       .insert({ post_id, user_id: user.id })
       .select('id')
       .single()
-    if (insertError) return NextResponse.json({ error: 'like non salvato' }, { status: 500, headers: rl.headers })
+    if (insertError) return NextResponse.json({ error: apiMessage(request, 'likeNotSaved') }, { status: 500, headers: rl.headers })
     likeId = inserted?.id || null
   }
 

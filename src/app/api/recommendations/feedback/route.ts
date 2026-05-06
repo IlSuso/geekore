@@ -10,7 +10,7 @@ import { checkOrigin } from '@/lib/csrf'
 
 const VALID_ACTIONS = ['added', 'dismissed', 'not_interested', 'already_seen'] as const
 const VALID_REASONS = ['not_genre', 'not_format', 'bad_quality', 'already_seen', 'not_my_genre', 'too_similar', 'already_know', 'bad_rec', null] as const
-const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game', 'all'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'boardgame', 'board_game', 'all'])
 type FeedbackReason = typeof VALID_REASONS[number]
 
 function cleanString(value: unknown, max = 200): string {

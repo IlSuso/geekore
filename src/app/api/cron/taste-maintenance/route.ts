@@ -2,6 +2,7 @@
 // V3: Cron job per manutenzione del Taste Engine
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
 
@@ -18,10 +19,10 @@ function isAuthorized(request: NextRequest): boolean {
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 })
+    return NextResponse.json({ error: apiMessage(request, 'cronSecretMissing') }, { status: 503 })
   }
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: apiMessage(request, 'unauthorized') }, { status: 401 })
   }
 
   const supabase = createServiceClient('cron:taste-maintenance')

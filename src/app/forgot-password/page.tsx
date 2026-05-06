@@ -17,8 +17,10 @@ const FORGOT_COPY = {
 } as const
 
 function AuthWordmark() {
+  const { locale } = useLocale()
+  const copy = FORGOT_COPY[locale] || FORGOT_COPY.it
   return (
-    <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label={FORGOT_COPY.it.homeAria}>
+    <Link href="/" className="inline-flex items-center gap-2 text-[var(--text-primary)]" aria-label={copy.homeAria}>
       <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[var(--accent)] text-sm font-black text-[#0B0B0F]">
         <Zap size={16} fill="currentColor" />
       </span>

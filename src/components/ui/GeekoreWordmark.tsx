@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useLocale } from '@/lib/locale'
 
 interface GeekoreWordmarkProps {
   href?: string
@@ -44,6 +47,8 @@ export function GeekoreWordmark({
   showMark = true,
   className = '',
 }: GeekoreWordmarkProps) {
+  const { locale } = useLocale()
+  const homeLabel = locale === 'it' ? 'Home Geekore' : 'Geekore home'
   const cfg = sizeClasses[size]
   const content = (
     <span className={`inline-flex items-baseline gap-0 py-1 font-display ${className}`} style={{ letterSpacing: '-0.05em' }}>
@@ -63,7 +68,7 @@ export function GeekoreWordmark({
   )
 
   return (
-    <Link href={href} data-no-swipe="true" className="inline-flex items-center" aria-label="Geekore home">
+    <Link href={href} data-no-swipe="true" className="inline-flex items-center" aria-label={homeLabel}>
       {content}
     </Link>
   )

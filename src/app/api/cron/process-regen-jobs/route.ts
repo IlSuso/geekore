@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
 
@@ -131,10 +132,10 @@ async function processJob(request: NextRequest, job: RegenJob) {
 
 export async function GET(request: NextRequest) {
   if (!process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 })
+    return NextResponse.json({ error: apiMessage(request, 'cronSecretMissing') }, { status: 503 })
   }
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: apiMessage(request, 'unauthorized') }, { status: 401 })
   }
 
   const supabase = createServiceClient('cron:process-regen-jobs')

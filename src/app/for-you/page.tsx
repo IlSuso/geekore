@@ -54,10 +54,6 @@ const TYPE_ICONS: Record<MediaType, React.ElementType> = {
   boardgame: Dices,
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV', game: 'Videogioco',
-  boardgame: 'Gioco da Tavolo',
-}
 
 // Colori CSS vars per ogni tipo — coerenti col design system
 const TYPE_COLORS: Record<string, string> = {
@@ -129,7 +125,8 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
   onDetail?: (i: Recommendation) => void
   dismissedIds: Set<string>
 }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
+  const fy = t.forYou
   const visible = items.filter(i => i.isContinuity && !dismissedIds.has(i.id))
   if (!visible.length) return null
 
@@ -140,8 +137,8 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
           <ArrowRight size={16} className="text-white" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-white">Continua a guardare</h2>
-          <p className="text-[10px] text-amber-400">Sequel e capitoli successivi dei tuoi titoli completati</p>
+          <h2 className="text-base font-bold text-white">{fy.continueWatching}</h2>
+          <p className="text-[10px] text-amber-400">{fy.continueWatchingSubtitle}</p>
         </div>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
@@ -156,7 +153,7 @@ const ContinuitySection = memo(function ContinuitySection({ items, onFeedback, o
                 }
                 <div className="absolute inset-0 ring-2 ring-amber-500/40 rounded-2xl pointer-events-none" />
                 <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                  <ArrowRight size={8} />Sequel
+                  <ArrowRight size={8} />{fy.sequel}
                 </div>
                 <div className="absolute top-2 right-2 bg-black/70 text-[9px] text-zinc-300 px-1.5 py-0.5 rounded-full">
                   {typeLabel(item.type, locale)}
@@ -190,19 +187,20 @@ const RecommendationCard = memo(function RecommendationCard({
   onAdd?: (i: Recommendation) => void
   onWishlist?: (i: Recommendation) => void
 }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
+  const fy = t.forYou
   const Icon = TYPE_ICONS[item.type]
   const colorClass = TYPE_COLORS[item.type]
   if (dismissed) return null
 
   const episodeLabel = item.type === 'manga'
-    ? (item.episodes ? `${item.episodes} cap.` : null)
-    : (item.episodes && item.type !== 'movie' ? `${item.episodes} ep.` : null)
+    ? (item.episodes ? `${item.episodes} ${fy.units.chaptersShort}` : null)
+    : (item.episodes && item.type !== 'movie' ? `${item.episodes} ${fy.units.episodesShort}` : null)
 
   const signals = [
-    item.isAwardWinner ? { key: 'award', label: 'Award', icon: Trophy, tone: 'text-amber-300 border-amber-400/25 bg-amber-500/12' } : null,
-    item.isSeasonal ? { key: 'seasonal', label: 'Seasonal', icon: Calendar, tone: 'text-sky-300 border-sky-400/25 bg-sky-500/12' } : null,
-    item.isSerendipity ? { key: 'serendipity', label: 'Serendipity', icon: Compass, tone: 'text-violet-300 border-violet-400/25 bg-violet-500/12' } : null,
+    item.isAwardWinner ? { key: 'award', label: fy.signals.award, icon: Trophy, tone: 'text-amber-300 border-amber-400/25 bg-amber-500/12' } : null,
+    item.isSeasonal ? { key: 'seasonal', label: fy.signals.seasonal, icon: Calendar, tone: 'text-sky-300 border-sky-400/25 bg-sky-500/12' } : null,
+    item.isSerendipity ? { key: 'serendipity', label: fy.signals.serendipity, icon: Compass, tone: 'text-violet-300 border-violet-400/25 bg-violet-500/12' } : null,
     item.friendWatching ? { key: 'friend', label: item.friendWatching, icon: Users, tone: 'text-emerald-300 border-emerald-400/25 bg-emerald-500/12' } : null,
   ].filter(Boolean) as Array<{ key: string; label: string; icon: React.ElementType; tone: string }>
 
@@ -253,16 +251,16 @@ const RecommendationCard = memo(function RecommendationCard({
 
         {/* 3 bottoni tondi glass: ThumbsDown, Eye, Bookmark — fissi in basso centrati */}
         <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title="Non mi interessa"
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'not_interested') }} title={fy.notInterested}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/15 text-zinc-300 backdrop-blur-md transition-all hover:text-red-300 hover:border-red-400/30">
             <ThumbsDown size={11} />
           </button>
-          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title="L'ho già visto"
+          <button onClick={(e) => { e.stopPropagation(); onFeedback(item, 'already_seen') }} title={fy.alreadySeen}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 border border-white/15 text-zinc-300 backdrop-blur-md transition-all hover:text-white hover:border-white/30">
             <Eye size={11} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); onWishlist?.(item) }} disabled={!onWishlist}
-            title={wishlisted ? 'Rimuovi dalla wishlist' : 'Aggiungi alla wishlist'}
+            title={wishlisted ? fy.removeFromWishlist : fy.addToWishlist}
             className={`flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-md border transition-all disabled:opacity-40 ${wishlisted ? 'bg-black/70 border-[rgba(230,255,61,0.45)] text-[var(--accent)]' : 'bg-black/60 border-white/15 text-zinc-300 hover:text-[var(--accent)] hover:border-[rgba(230,255,61,0.35)]'}`}>
             {wishlisted ? <BookmarkCheck size={11} /> : <Bookmark size={11} />}
           </button>
@@ -288,10 +286,6 @@ const RecommendationCard = memo(function RecommendationCard({
 // Sezione "Simili a X" — persiste finché l'utente non la chiude o cerca un altro simile
 // Barra di ricerca "Trova titoli simili a..." — stile identico alla navbar
 // Cerca in tutte le API (AniList, TMDb, IGDB) in parallelo — stesso pattern della discover
-const TYPE_LABEL_SEARCH: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', movie: 'Film', tv: 'Serie TV',
-  game: 'Videogioco', boardgame: 'Gioco da Tavolo',
-}
 
 interface SearchSuggestion {
   id: string; title: string; type: string
@@ -304,7 +298,8 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
   loading: boolean
   actions?: ReactNode
 }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
+  const fy = t.forYou
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [searching, setSearching] = useState(false)
@@ -385,9 +380,9 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
 
   return (
     <div ref={containerRef} className="relative mb-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center">
         {/* Input — stile identico alla navbar */}
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1 lg:max-w-[760px]">
           <Search
             size={14}
             className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${searching || loading ? 'animate-pulse' : 'text-zinc-500'}`}
@@ -405,17 +400,17 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
                 else onSearch(query.trim(), [])
               }
             }}
-            placeholder="Cerca un titolo per trovare contenuti simili…"
+            placeholder={fy.similarSearchPlaceholder}
             className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-8 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none transition-colors"
           />
           {query && (
-            <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors" aria-label="Cancella ricerca simili">
+            <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors" aria-label={fy.clearSimilarSearch}>
               <X size={13} />
             </button>
           )}
         </div>
         {actions && (
-          <div className="flex flex-shrink-0 items-center justify-end gap-2 lg:min-w-[240px]" data-no-swipe="true">
+          <div className="flex flex-shrink-0 items-center justify-end gap-2 lg:ml-auto" data-no-swipe="true">
             {actions}
           </div>
         )}
@@ -447,7 +442,7 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
 
       {open && query.length >= 2 && suggestions.length === 0 && !searching && (
         <div className="absolute top-full left-0 w-full mt-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-zinc-500 shadow-2xl z-[110]">
-          {locale === 'it' ? 'Nessun risultato trovato' : 'No results found'}
+          {fy.noResultsFound}
         </div>
       )}
     </div>
@@ -455,7 +450,7 @@ function SimilarSearchBar({ onSearch, loading, actions }: {
 }
 
 const SIMILAR_TYPE_FILTERS: Array<{ key: MediaType | 'all'; label: string }> = [
-  { key: 'all', label: 'Tutti' },
+  { key: 'all', label: 'all' },
   { key: 'anime', label: 'Anime' },
   { key: 'movie', label: 'Film' },
   { key: 'tv', label: 'Serie TV' },
@@ -482,7 +477,8 @@ const SimilarSection = memo(function SimilarSection({
   onAdd: (i: Recommendation) => void
   onWishlist: (i: Recommendation) => void
 }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
+  const fy = t.forYou
   const [visibleCount, setVisibleCount] = useState(20)
   const [typeFilter, setTypeFilter] = useState<MediaType | 'all'>('all')
 
@@ -513,15 +509,15 @@ const SimilarSection = memo(function SimilarSection({
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-white">
-            Titoli simili a <span style={{ color: 'var(--accent)' }}>"{sourceTitle}"</span>
+            {fy.similarTitlesTo(sourceTitle)}
           </h2>
           <p className="text-[10px] text-zinc-500">
-            {filtered.length} {filtered.length === items.filter(i => !dismissedIds.has(i.id)).length ? 'titoli trovati' : `di ${items.filter(i => !dismissedIds.has(i.id)).length} totali`}
+            {filtered.length === items.filter(i => !dismissedIds.has(i.id)).length ? fy.titlesFound(filtered.length) : fy.titlesFoundFiltered(filtered.length, items.filter(i => !dismissedIds.has(i.id)).length)}
           </p>
         </div>
         <button onClick={onClose}
           className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all"
-          title="Chiudi">
+          title={fy.close}>
           <X size={15} />
         </button>
       </div>
@@ -542,7 +538,7 @@ const SimilarSection = memo(function SimilarSection({
                   }`}
                 style={isActive ? { background: 'var(--accent)', color: '#0B0B0F', borderColor: 'var(--accent)' } : {}}>
                 {key !== 'all' && <span className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[key as MediaType] }} />}
-                {key === 'all' ? (locale === 'it' ? 'Tutti' : 'All') : typeLabel(key, locale)}
+                {key === 'all' ? fy.all : typeLabel(key, locale)}
                 <span className={`text-[10px] ${isActive ? '' : 'text-zinc-600'}`} style={isActive ? { color: 'rgba(11,11,15,0.7)' } : {}}>{count}</span>
               </button>
             )
@@ -551,7 +547,7 @@ const SimilarSection = memo(function SimilarSection({
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-zinc-500 text-center py-6">Nessun titolo trovato per questo filtro.</p>
+        <p className="text-sm text-zinc-500 text-center py-6">{fy.noTitlesForFilter}</p>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
           {shown.map(item => (
@@ -578,7 +574,7 @@ const SimilarSection = memo(function SimilarSection({
                 <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
                   <ChevronDown size={18} />
                 </div>
-                <span className="text-[10px]">+{filtered.length - visibleCount} altri</span>
+                <span className="text-[10px]">{fy.showMore(filtered.length - visibleCount)}</span>
               </button>
             </div>
           )}
@@ -632,6 +628,8 @@ const NetflixRailSection = memo(function NetflixRailSection({
   onAdd: (i: Recommendation) => void
   onWishlist: (i: Recommendation) => void
 }) {
+  const { t } = useLocale()
+  const fy = t.forYou
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
   const visible = rail.items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
@@ -681,7 +679,7 @@ const NetflixRailSection = memo(function NetflixRailSection({
               <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
                 <ChevronDown size={18} />
               </div>
-              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+              <span className="text-[10px]">{fy.showMore(visible.length - visibleCount)}</span>
             </button>
           </div>
         )}
@@ -697,7 +695,8 @@ const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, on
   onDetail?: (i: Recommendation) => void
   isSimilarLoading: boolean
 }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
+  const fy = t.forYou
   const Icon = TYPE_ICONS[item.type]
   const colorClass = TYPE_COLORS[item.type]
 
@@ -725,18 +724,18 @@ const SpotlightRecommendation = memo(function SpotlightRecommendation({ item, on
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => onDetail?.(item)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-bold hover:bg-zinc-200 transition-colors">
-              <Plus size={14} /> Dettagli
+              <Plus size={14} /> {t.forYou.details}
             </button>
             {onSimilar && (
               <button onClick={() => onSimilar(item)} disabled={isSimilarLoading}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-100 text-xs font-semibold hover:bg-zinc-800 transition-colors disabled:opacity-60">
                 {isSimilarLoading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-                Simili
+                {t.forYou.similar}
               </button>
             )}
             <button onClick={() => onFeedback(item, 'not_interested')}
               className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-300 hover:text-red-300 hover:border-red-900/70 transition-colors"
-              title="Non mi interessa">
+              title={fy.notInterested}>
               <ThumbsDown size={14} />
             </button>
           </div>
@@ -762,6 +761,8 @@ const RecommendationSection = memo(function RecommendationSection({
   wishlistIds: Set<string>
   addingIds: Set<string>
 }) {
+  const { t } = useLocale()
+  const fy = t.forYou
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)  // Fix 2.13
   const Icon = TYPE_ICONS[type]; const colorClass = TYPE_COLORS[type]
   const visible = items.filter(i => !dismissedIds.has(i.id))
@@ -779,17 +780,17 @@ const RecommendationSection = memo(function RecommendationSection({
         </div>
         <div>
           <h2 className="text-base font-bold text-white">{label}</h2>
-          <p className="text-[10px] text-zinc-500">{visible.length} titoli</p>
+          <p className="text-[10px] text-zinc-500">{fy.titlesCount(visible.length)}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {isPrimary && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
-              Il tuo tipo principale
+              {fy.primaryType}
             </span>
           )}
           {topScore >= 80 && !isPrimary && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ color: 'var(--accent)', background: 'rgba(230,255,61,0.1)', border: '1px solid rgba(230,255,61,0.2)' }}>
-              <Flame size={9} /> Ottimo match
+              <Flame size={9} /> {fy.greatMatch}
             </span>
           )}
         </div>
@@ -810,7 +811,7 @@ const RecommendationSection = memo(function RecommendationSection({
               <div className="w-10 h-10 rounded-full border border-zinc-700 hover:border-zinc-500 flex items-center justify-center">
                 <ChevronDown size={18} />
               </div>
-              <span className="text-[10px]">+{visible.length - visibleCount} altri</span>
+              <span className="text-[10px]">{fy.showMore(visible.length - visibleCount)}</span>
             </button>
           </div>
         )}
@@ -825,6 +826,9 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   onConfirm: (reason: FeedbackReason) => void
   onDismiss: () => void
 }) {
+  const { t } = useLocale()
+  const fy = t.forYou
+
   useEffect(() => {
     androidBack.push(onDismiss)
     return () => androidBack.pop(onDismiss)
@@ -833,14 +837,14 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
   const options: { reason: FeedbackReason; label: string; sub: string; icon: React.ReactNode }[] = [
     {
       reason: 'not_my_genre',
-      label: 'Non è il mio genere',
-      sub: 'Aiuta a calibrare i tuoi gusti',
+      label: fy.dislikeReasons.notMyGenre,
+      sub: fy.dislikeReasons.notMyGenreSub,
       icon: <X size={15} className="text-zinc-400" />,
     },
     {
       reason: 'bad_rec',
-      label: 'Non fa per me',
-      sub: 'Non suggerirlo più',
+      label: fy.dislikeReasons.notForMe,
+      sub: fy.dislikeReasons.notForMeSub,
       icon: <ThumbsDown size={15} className="text-zinc-400" />,
     },
   ]
@@ -850,7 +854,7 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div className="relative w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-5"
         onClick={e => e.stopPropagation()}>
-        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Perché non ti interessa?</p>
+        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">{fy.whyNotInterested}</p>
         <p className="text-sm font-semibold text-white mb-5 truncate">{item.title}</p>
         <div className="space-y-2">
           {options.map(({ reason, label, sub, icon }) => (
@@ -876,15 +880,17 @@ function QuickReasonSheet({ item, onConfirm, onDismiss }: {
 }
 
 function LowConfidenceBanner({ totalEntries }: { totalEntries: number }) {
+  const { t } = useLocale()
+  const fy = t.forYou
   const needed = 15
   const pct = Math.min(100, Math.round((totalEntries / needed) * 100))
   return (
     <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
       <AlertCircle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-amber-300 mb-1">Consigli in miglioramento</p>
+        <p className="text-sm font-semibold text-amber-300 mb-1">{fy.lowConfidenceTitle}</p>
         <p className="text-xs text-amber-200/70 mb-3">
-          I tuoi consigli migliorano man mano che aggiungi titoli. Hai ancora {needed - totalEntries} titoli per sbloccare i consigli personalizzati.
+          {fy.lowConfidenceBody(Math.max(0, needed - totalEntries))}
         </p>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-amber-500/20 rounded-full overflow-hidden">
@@ -893,7 +899,7 @@ function LowConfidenceBanner({ totalEntries }: { totalEntries: number }) {
           <span className="text-[10px] text-amber-400 font-bold">{totalEntries}/{needed}</span>
         </div>
         <Link href="/discover" className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-amber-400 hover:text-amber-300">
-          <Plus size={13} />Aggiungi dalla libreria
+          <Plus size={13} />{fy.addFromLibrary}
         </Link>
       </div>
     </div>
@@ -901,11 +907,13 @@ function LowConfidenceBanner({ totalEntries }: { totalEntries: number }) {
 }
 
 const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: { items: FriendActivity[] }) {
+  const { t } = useLocale()
+  const fy = t.forYou
   if (!items.length) return null
   const timeAgo = (d: string) => {
     const diff = Date.now() - new Date(d).getTime()
     const h = Math.floor(diff / 3600000), days = Math.floor(diff / 86400000)
-    if (h < 1) return 'ora'; if (h < 24) return `${h}h fa`; return `${days}g fa`
+    if (h < 1) return fy.timeNow; if (h < 24) return fy.hoursAgo(h); return fy.daysAgo(days)
   }
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 mb-10">
@@ -913,7 +921,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent)' }}>
           <Users size={16} className="text-black" />
         </div>
-        <h2 className="text-sm font-bold text-white">Amici che guardano</h2>
+        <h2 className="text-sm font-bold text-white">{fy.friendsWatching}</h2>
         <span className="text-xs text-zinc-500 ml-auto">{items.length}</span>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -930,7 +938,7 @@ const FriendsWatchingSection = memo(function FriendsWatchingSection({ items }: {
               <div className="absolute top-2 right-2 bg-black/70 text-[9px] text-zinc-300 px-1.5 py-0.5 rounded-full">{timeAgo(a.updatedAt)}</div>
             </div>
             <p className="text-[10px] font-semibold text-zinc-300 line-clamp-2 mb-0.5">{a.mediaTitle}</p>
-            <p className="text-[9px] truncate" style={{ color: 'var(--accent)' }}>@{a.username}</p>
+            <p className="text-[9px] truncate" style={{ color: 'var(--accent)' }}>{a.displayName || a.username}</p>
           </Link>
         ))}
       </div>
@@ -982,7 +990,8 @@ const FOR_YOU_MEDIA_LOCALIZATION_OPTIONS = {
   descriptionKeys: ['description'],
   idKeys: ['id', 'external_id'],
   typeKeys: ['type'],
-  mode: 'basic' as const,
+  mode: 'full' as const,
+  requireDescription: true,
 }
 
 function normalizeRecommendationForLocalization(item: Recommendation): Recommendation & { external_id: string; cover_image?: string } {
@@ -999,7 +1008,7 @@ async function localizeRecommendationItems(items: Recommendation[], locale: 'it'
     items.map(normalizeRecommendationForLocalization),
     locale,
     FOR_YOU_MEDIA_LOCALIZATION_OPTIONS,
-    { mode: 'basic' },
+    { mode: 'full' },
   )
   return localized.map((item, index) => ({
     ...items[index],
@@ -1099,10 +1108,10 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
           id: r.external_id, title: r.title, type: r.type,
           coverImage: r.cover_image, cover_image: r.cover_image, year: r.year, genres: r.genres || [],
           score: r.score, description: r.description, why: r.why,
-          matchScore: r.match_score || 0, episodes: r.episodes,
+          matchScore: r.match_score || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
           source: r.source,
         }))
-        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true, mode: 'full' }).catch(() => rawItems)
         setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         setLoading(false)
         return
@@ -1117,10 +1126,10 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
             id: r.id, title: r.title, type: r.type,
             coverImage: r.coverImage, cover_image: r.coverImage, year: r.year, genres: r.genres || [],
             score: r.score, description: r.description, why: r.why,
-            matchScore: r.matchScore || 0, episodes: r.episodes,
+            matchScore: r.matchScore || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
             source: r.source,
           }))
-          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true }).catch(() => rawItems)
+          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true, mode: 'full' }).catch(() => rawItems)
           setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
         }
       } catch { }
@@ -1153,7 +1162,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
         display_order: Date.now(),
         upsert: true,
       }
-      if (item.episodes != null) collectionPayload.episodes = item.episodes
+      if (item.type === 'manga' && item.episodes != null) collectionPayload.episodes = item.episodes
       if (rating != null) collectionPayload.rating = rating
 
       const res = await fetch('/api/collection', {
@@ -1200,7 +1209,7 @@ function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
       id: r.id, title: r.title, type: r.type,
       coverImage: r.coverImage, year: r.year, genres: r.genres || [],
       score: r.score, description: r.description, why: r.why,
-      matchScore: r.matchScore || 0, episodes: r.episodes,
+      matchScore: r.matchScore || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
       source: r.source,
     }))
   }
@@ -1546,7 +1555,7 @@ export default function ForYouPage() {
         authors: isBoardgame ? ((item as any).designers || []) : [],
         achievement_data: bggAchievementData,
         status: (item.type === 'movie' || isBoardgame) ? 'completed' : 'watching',
-        current_episode: isBoardgame ? null : 1,
+        // niente più progress automatico: stagione/episodio non vengono più salvati
         display_order: Date.now(),
       }),
     }).catch(() => null)
@@ -1613,7 +1622,7 @@ export default function ForYouPage() {
       cover_image_it: (item as any).cover_image_it,
       localized: (item as any).localized,
       score: item.score,
-      episodes: item.episodes,
+      ...(item.type === 'manga' ? { episodes: item.episodes } : {}),
       authors: item.authors,
       developers: item.developers,
       platforms: item.platforms,
@@ -1747,7 +1756,7 @@ export default function ForYouPage() {
 
   if (loading) return (
     <div className="gk-for-you-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <div className="pt-2 md:pt-8 pb-28 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+      <div className="pt-2 md:pt-8 pb-28 w-full max-w-none px-3 sm:px-4 md:px-6 lg:px-8">
         {/* Utility bar skeleton */}
         <div className="flex justify-end items-center gap-2 mb-4 animate-pulse">
           <div className="h-8 w-28 bg-zinc-900 border border-zinc-800/80 rounded-xl" />
@@ -1764,7 +1773,7 @@ export default function ForYouPage() {
   return (
     <div className="gk-for-you-page min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <PullToRefreshIndicator distance={pullDistance} refreshing={isPulling} />
-      <div className="pt-2 md:pt-8 pb-24 max-w-screen-2xl mx-auto px-3 sm:px-4 md:px-6">
+      <div className="pt-2 md:pt-8 pb-24 w-full max-w-none px-3 sm:px-4 md:px-6 lg:px-8">
 
         {!hasEnoughData ? (
           <EmptyState
@@ -1792,7 +1801,7 @@ export default function ForYouPage() {
                   <div className="relative">
                     <button onClick={handleRefresh} disabled={refreshing}
                       className="flex h-10 w-10 items-center justify-center rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40"
-                      aria-label="Aggiorna consigli">
+                      aria-label={fy.refreshRecommendations}>
                       <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                     </button>
                     {showNewRecsBadge && (

@@ -5,6 +5,7 @@
 
 import { useCallback, useRef } from 'react'
 import { Share2, Download, X, Trophy, Star } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface CertificateProps {
   title: string
@@ -16,17 +17,27 @@ interface CertificateProps {
   onClose: () => void
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  anime: 'Anime', manga: 'Manga', game: 'Videogioco',
-  movie: 'Film', tv: 'Serie TV',
+const TYPE_LABELS = {
+  it: { anime: 'Anime', manga: 'Manga', game: 'Videogioco', movie: 'Film', tv: 'Serie TV', boardgame: 'Gioco da tavolo' },
+  en: { anime: 'Anime', manga: 'Manga', game: 'Game', movie: 'Movie', tv: 'TV Show', boardgame: 'Board game' },
+} as const
+
+function certificateTypeLabel(type: string, locale: 'it' | 'en') {
+  const labels = TYPE_LABELS[locale] as Record<string, string>
+  return labels[type] || type
 }
 
+const CERT_COPY = {
+  it: { completed: 'Completato!', completedTitle: (title: string) => `Hai completato ${title}`, onGeekore: (username: string) => `${username} su geekore.it`, close: 'Chiudi', share: 'Condividi' },
+  en: { completed: 'Completed!', completedTitle: (title: string) => `You completed ${title}`, onGeekore: (username: string) => `${username} on geekore.it`, close: 'Close', share: 'Share' },
+} as const
+
 const TYPE_COLOR: Record<string, [string, string]> = {
-  anime:     ['#38bdf8', '#0284c7'],
-  manga:     ['#fb923c', '#c2410c'],
-  game:      ['#4ade80', '#15803d'],
-  movie:     ['#f87171', '#dc2626'],
-  tv:        ['#c084fc', '#9333ea'],
+  anime: ['#38bdf8', '#0284c7'],
+  manga: ['#fb923c', '#c2410c'],
+  game: ['#4ade80', '#15803d'],
+  movie: ['#f87171', '#dc2626'],
+  tv: ['#c084fc', '#9333ea'],
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -122,7 +133,7 @@ async function generateCertificateCanvas(props: CertificateProps): Promise<HTMLC
   ctx.fill()
   ctx.fillStyle = '#ffffff'
   ctx.font = 'bold 12px -apple-system, system-ui, sans-serif'
-  ctx.fillText(TYPE_LABEL[props.type] || props.type, W / 2, contentY + 18)
+  ctx.fillText(TYPE_LABELS.it[props.type as keyof typeof TYPE_LABELS.it] || props.type, W / 2, contentY + 18)
 
   // Titolo
   ctx.fillStyle = '#ffffff'
@@ -165,7 +176,7 @@ async function generateCertificateCanvas(props: CertificateProps): Promise<HTMLC
   // Username
   ctx.fillStyle = '#7c6af7'
   ctx.font = 'bold 18px -apple-system, system-ui, sans-serif'
-  ctx.fillText('@' + props.username, W / 2, lineY + 20)
+  ctx.fillText(props.username, W / 2, lineY + 20)
   lineY += 50
 
   // Data
@@ -194,6 +205,8 @@ async function generateCertificateCanvas(props: CertificateProps): Promise<HTMLC
 }
 
 export function CompletionCertificate(props: CertificateProps) {
+  const { locale } = useLocale()
+  const copy = CERT_COPY[locale]
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const handleGenerate = useCallback(async () => {
@@ -228,8 +241,8 @@ export function CompletionCertificate(props: CertificateProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> Completato!</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">Hai completato {props.title}</p>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> {copy.completed}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">{copy.completedTitle(props.title)}</p>
           </div>
           <button
             onClick={props.onClose}
@@ -250,15 +263,15 @@ export function CompletionCertificate(props: CertificateProps) {
             />
           )}
           <p className="text-sm font-bold text-white line-clamp-2 mb-1">{props.title}</p>
-          <p className="text-xs text-zinc-500">{TYPE_LABEL[props.type] || props.type}</p>
+          <p className="text-xs text-zinc-500">{certificateTypeLabel(props.type, locale)}</p>
           {props.rating && props.rating > 0 && (
             <div className="flex justify-center gap-0.5 mt-2">
-              {[1,2,3,4,5].map(s => (
+              {[1, 2, 3, 4, 5].map(s => (
                 <Star key={s} size={14} className={s <= props.rating! ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-700'} />
               ))}
             </div>
           )}
-          <p className="text-[10px] mt-2" style={{ color: 'var(--accent)' }}>@{props.username} su geekore.it</p>
+          <p className="text-[10px] mt-2" style={{ color: 'var(--accent)' }}>{copy.onGeekore(props.username)}</p>
         </div>
 
         {/* Actions */}
@@ -267,7 +280,7 @@ export function CompletionCertificate(props: CertificateProps) {
             onClick={props.onClose}
             className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition-colors"
           >
-            Chiudi
+            {copy.close}
           </button>
           <button
             onClick={handleGenerate}
@@ -275,7 +288,7 @@ export function CompletionCertificate(props: CertificateProps) {
             style={{ background: 'var(--accent)', color: '#0B0B0F' }}
           >
             <Share2 size={14} />
-            Condividi
+            {copy.share}
           </button>
         </div>
       </div>

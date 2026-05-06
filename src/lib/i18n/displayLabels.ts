@@ -9,7 +9,6 @@ const TYPE_LABELS: Record<Locale, Record<string, string>> = {
     game: 'Videogioco',
     boardgame: 'Gioco da Tavolo',
     board_game: 'Gioco da Tavolo',
-    book: 'Libro',
   },
   en: {
     anime: 'Anime',
@@ -19,7 +18,6 @@ const TYPE_LABELS: Record<Locale, Record<string, string>> = {
     game: 'Game',
     boardgame: 'Board Game',
     board_game: 'Board Game',
-    book: 'Book',
   },
 }
 

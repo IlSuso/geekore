@@ -538,7 +538,7 @@ function MediaCard({
           }}
           disabled={!isOwner && !hasNotes}
           title={hasNotes ? copy.note : copy.noNote}
-          aria-label={hasNotes ? 'Open note' : 'No note'}
+          aria-label={hasNotes ? copy.note : copy.noNote}
           className={`inline-flex h-9 w-[42px] items-center justify-center rounded-full border px-0 transition-all
             ${hasNotes
               ? 'border-[rgba(230,255,61,0.42)] bg-[rgba(230,255,61,0.16)] text-[var(--accent)] shadow-[0_0_18px_rgba(230,255,61,0.12)]'
@@ -562,6 +562,10 @@ function MediaCard({
 // ─── CopyProfileLink ─────────────────────────────────────────────────────────
 
 function CopyProfileLink({ username }: { username: string }) {
+  const { locale } = useLocale()
+  const copy = locale === 'it'
+    ? { title: 'Copia link profilo', copied: 'Copiato', copy: 'Copia link' }
+    : { title: 'Copy profile link', copied: 'Copied', copy: 'Copy link' }
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     try {
@@ -574,14 +578,14 @@ function CopyProfileLink({ username }: { username: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      title="Copia link profilo"
+      title={copy.title}
       className="inline-flex h-10 items-center gap-2 rounded-2xl border px-4 text-xs font-black transition-all"
       style={copied
         ? { background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.35)', color: '#6ee7b7' }
         : { background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
     >
       {copied ? <Check size={13} /> : <Copy size={13} />}
-      {copied ? 'Copiato' : 'Copia link'}
+      {copied ? copy.copied : copy.copy}
     </button>
   )
 }

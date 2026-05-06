@@ -2,6 +2,7 @@
 // Cerca titoli simili per GENERI + KEYWORDS/TAGS — mai per titolo.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rateLimit'
 import { translateWithCache } from '@/lib/deepl'
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
   const sourceTitle = cleanParam(searchParams.get('title'), 300)

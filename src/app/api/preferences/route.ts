@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -47,19 +48,19 @@ function cleanJsonValue(key: string, value: unknown): unknown {
 
 export async function PATCH(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'preferences' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: Record<string, unknown>
   try {
     const parsed = await request.json()
     body = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   } catch {
-    return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers })
   }
 
   const update: Record<string, unknown> = {
@@ -83,7 +84,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { error } = await supabase.from('user_preferences').upsert(update, { onConflict: 'user_id' })
-  if (error) return NextResponse.json({ error: 'Preferenze non salvate' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'preferencesNotSaved') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }

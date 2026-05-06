@@ -38,8 +38,6 @@ type MediaItem = {
   external_id?: string
   year?: number
   episodes?: number
-  totalSeasons?: number
-  seasons?: Record<number, { episode_count: number }>
   genres?: string[]
   source: 'anilist' | 'tmdb' | 'igdb' | 'bgg'
   tags?: string[]
@@ -266,7 +264,8 @@ const DISCOVER_LOCALIZE_OPTIONS = {
   idKeys: ['external_id', 'id'],
   typeKeys: ['type'],
   descriptionKeys: ['description'],
-  mode: 'basic' as const,
+  mode: 'full' as const,
+  requireDescription: true,
 }
 
 function normalize(s: string): string {
@@ -294,9 +293,7 @@ function toMediaDetails(item: MediaItem): MediaDetails {
     type: item.type,
     coverImage: item.coverImage,
     year: item.year,
-    episodes: item.episodes,
-    totalSeasons: item.totalSeasons,
-    seasons: item.seasons,
+    ...(item.type === 'manga' ? { episodes: item.episodes } : {}),
     description: item.description,
     genres: item.genres,
     source: item.source,
@@ -578,10 +575,9 @@ export default function DiscoverPage() {
         return true
       }).map(normalizeMediaItem)
 
-      // Fast path: per le card servono titolo + cover. La descrizione completa
-      // viene richiesta dal drawer quando serve davvero. Niente force=true:
-      // così session cache + cache persistente Supabase evitano richieste duplicate.
-      const localized = await localizeMediaRows(deduped, lang === 'en' ? 'en' : 'it', DISCOVER_LOCALIZE_OPTIONS, { mode: 'basic' })
+      // Localizziamo subito anche la descrizione: il drawer deve aprirsi già con
+      // descrizione/titolo/cover nella lingua corrente, senza skeleton o cambio tardivo.
+      const localized = await localizeMediaRows(deduped, lang === 'en' ? 'en' : 'it', DISCOVER_LOCALIZE_OPTIONS, { mode: 'full' })
         .then(items => items.map(normalizeMediaItem))
         .catch(() => deduped)
 

@@ -15,6 +15,8 @@ interface CompactMediaRowProps {
     total?: number | null
     label?: string
   }
+  coverAltPrefix?: string
+  openAriaLabel?: (title: string) => string
   trailing?: ReactNode
   onClick?: () => void
   className?: string
@@ -28,6 +30,7 @@ function CompactMediaRowContent({
   score,
   status,
   progress,
+  coverAltPrefix = 'Cover of',
   trailing,
 }: Omit<CompactMediaRowProps, 'onClick' | 'className'>) {
   const color = getMediaTypeColor(type)
@@ -42,7 +45,7 @@ function CompactMediaRowContent({
         {coverImage ? (
           <img
             src={coverImage}
-            alt={`Copertina di ${title}`}
+            alt={`${coverAltPrefix} ${title}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
             decoding="async"
@@ -88,6 +91,8 @@ export function CompactMediaRow({
   score,
   status,
   progress,
+  coverAltPrefix = 'Cover of',
+  openAriaLabel = (value: string) => `Open ${value}`,
   trailing,
   onClick,
   className = '',
@@ -105,6 +110,7 @@ export function CompactMediaRow({
         score={score}
         status={status}
         progress={progress}
+        coverAltPrefix={coverAltPrefix}
         trailing={trailing}
       />
     </>
@@ -118,7 +124,7 @@ export function CompactMediaRow({
         onClick={(event) => { event.stopPropagation(); onClick() }}
         onPointerDown={event => event.stopPropagation()}
         className={classes}
-        aria-label={`Apri ${title}`}
+        aria-label={openAriaLabel(title)}
       >
         {content}
       </button>

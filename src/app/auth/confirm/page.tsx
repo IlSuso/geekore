@@ -24,6 +24,8 @@ const confirmCopy = {
     errorTitle: 'Problema con il link',
     sentTo: 'Nuova email inviata a',
     resend: 'Invia di nuovo l’email',
+    sending: 'Invio in corso...',
+    newLink: 'Invia un nuovo link',
     registerAgain: 'Registrati di nuovo',
     backToLogin: 'Torna al login',
     sendError: 'Errore nell’invio. Riprova tra qualche secondo.',
@@ -41,6 +43,8 @@ const confirmCopy = {
     errorTitle: 'Link problem',
     sentTo: 'New email sent to',
     resend: 'Send the email again',
+    sending: 'Sending...',
+    newLink: 'Send a new link',
     registerAgain: 'Sign up again',
     backToLogin: 'Back to login',
     sendError: 'Could not send the email. Try again in a few seconds.',
@@ -218,17 +222,17 @@ function ConfirmContent() {
                     className="flex h-13 w-full items-center justify-center gap-2 rounded-[18px] bg-[var(--accent)] px-4 font-black text-[#0B0B0F] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {resendStatus === 'sending' ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={17} />}
-                    {resendStatus === 'sending' ? 'Invio in corso...' : 'Invia un nuovo link'}
+                    {resendStatus === 'sending' ? copy.sending : copy.newLink}
                   </button>
                 )
               ) : (
                 <Link href="/register" className="flex h-13 w-full items-center justify-center rounded-[18px] bg-[var(--accent)] px-4 font-black text-[#0B0B0F] transition hover:brightness-105">
-                  Registrati di nuovo
+                  {copy.registerAgain}
                 </Link>
               )}
 
               <Link href="/login" className="flex h-12 w-full items-center justify-center rounded-[18px] bg-white/[0.055] px-4 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-white/[0.075]">
-                Torna al login
+                {copy.backToLogin}
               </Link>
             </div>
 

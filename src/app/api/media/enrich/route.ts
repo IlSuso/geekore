@@ -3,6 +3,7 @@
 // Supporta: TV via TMDB, anime/manga via Jikan (MAL ID) e AniList GraphQL.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
@@ -84,17 +85,17 @@ async function fetchAniList(id: number, mediaType: 'ANIME' | 'MANGA'): Promise<{
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'media-enrich' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthorized') }, { status: 401, headers: rl.headers })
 
   const body = await request.json().catch(() => ({}))
   const { user_media_id } = body
 
-  if (!user_media_id) return NextResponse.json({ error: 'user_media_id mancante' }, { status: 400, headers: rl.headers })
+  if (!user_media_id) return NextResponse.json({ error: apiMessage(request, 'missingUserMediaId') }, { status: 400, headers: rl.headers })
 
   const { data: entry } = await supabase
     .from('user_media_entries')
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!entry) return NextResponse.json({ error: 'Non trovato' }, { status: 404, headers: rl.headers })
+  if (!entry) return NextResponse.json({ error: apiMessage(request, 'notFound') }, { status: 404, headers: rl.headers })
 
   const { type, external_id, title } = entry
   let result: { episodes?: number; season_episodes?: Record<number, { episode_count: number }> } | null = null
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (!result) return NextResponse.json({ error: 'Nessun dato trovato' }, { status: 404, headers: rl.headers })
+  if (!result) return NextResponse.json({ error: apiMessage(request, 'noDataFound') }, { status: 404, headers: rl.headers })
 
   const dbUpdate: Record<string, unknown> = {}
   if (result.episodes) dbUpdate.episodes = result.episodes
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     dbUpdate.season_episodes = result.season_episodes
   }
 
-  if (Object.keys(dbUpdate).length === 0) return NextResponse.json({ error: 'Nessun dato utile trovato' }, { status: 404, headers: rl.headers })
+  if (Object.keys(dbUpdate).length === 0) return NextResponse.json({ error: apiMessage(request, 'noUsefulDataFound') }, { status: 404, headers: rl.headers })
 
   const { error: dbErr } = await supabase
     .from('user_media_entries')
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     .eq('id', user_media_id)
     .eq('user_id', user.id)
 
-  if (dbErr) return NextResponse.json({ error: 'Errore DB' }, { status: 500, headers: rl.headers })
+  if (dbErr) return NextResponse.json({ error: apiMessage(request, 'dbError') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json(dbUpdate, { headers: rl.headers })
 }

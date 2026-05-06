@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { checkOrigin } from '@/lib/csrf'
@@ -107,12 +108,12 @@ async function fetchIgdbMetaBatch(
 }
 
 export async function POST(request: NextRequest) {
-  if (!checkOrigin(request)) return NextResponse.json({ success: false, error: 'Origin non consentito' }, { status: 403 })
+  if (!checkOrigin(request)) return NextResponse.json({ success: false, error: apiMessage(request, 'originNotAllowed') }, { status: 403 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ success: false, error: 'Non autenticato' }, { status: 401 })
+    return NextResponse.json({ success: false, error: apiMessage(request, 'notAuthenticated') }, { status: 401 })
   }
 
   const rl = await rateLimitAsync(request, { limit: 3, windowMs: RATE_LIMIT_WINDOW_MS, prefix: 'steam-import', userId: user.id })
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'STEAM_API_KEY not configured' }, { status: 500, headers: rl.headers })
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ success: false, error: 'Configurazione Supabase server mancante' }, { status: 503, headers: rl.headers })
+    return NextResponse.json({ success: false, error: apiMessage(request, 'supabaseServerMissing') }, { status: 503, headers: rl.headers })
   }
 
   const supabaseService = createServiceClient('steam-games:import-library')

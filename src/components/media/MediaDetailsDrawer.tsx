@@ -1,9 +1,10 @@
 "use client";
 // DESTINAZIONE: src/components/media/MediaDetailsDrawer.tsx
-// V5: + boardgame (meccaniche, designer, link BGG) + book (autori, pagine, ISBN, link Google Books)
+// V5: + boardgame (meccaniche, designer, link BGG)
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { gestureState } from "@/hooks/gestureState";
 import { androidBack } from "@/hooks/androidBack";
 import {
@@ -64,8 +65,6 @@ export interface MediaDetails {
   coverImage?: string;
   year?: number;
   episodes?: number;
-  totalSeasons?: number;
-  seasons?: Record<number, { episode_count: number }>;
   description?: string;
   genres?: string[];
   source?: string;
@@ -129,6 +128,7 @@ const IS_IOS =
 // Su Android: la back gesture è un evento di sistema — non intercettiamo il touch.
 const IOS_EDGE_SWIPE_ZONE = 30; // px dal bordo sinistro che attiva lo swipe su iOS
 const IOS_DISMISS_THRESHOLD = 80; // px di dx per confermare chiusura
+const MOBILE_SWIPE_DOWN_THRESHOLD = 86; // px verso il basso per chiudere il drawer su mobile
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -235,6 +235,13 @@ function firstNumber(...values: unknown[]): number | undefined {
   return undefined;
 }
 
+function shouldHideSeriesProgressInfo(type?: string): boolean {
+  return type === "tv" || type === "anime";
+}
+
+function shouldShowChapterCount(type?: string): boolean {
+  return type === "manga";
+}
 
 function normalizeDrawerDetailMedia(base: MediaDetails, original: MediaDetails): MediaDetails {
   const b: any = base || {};
@@ -266,7 +273,7 @@ function normalizeDrawerDetailMedia(base: MediaDetails, original: MediaDetails):
 
   const genres = firstArray(b.genres, details.genres, bgg.genres, o.genres);
 
-  return {
+  const normalized = {
     ...o,
     ...b,
     genres: genres.length ? genres : b.genres,
@@ -286,6 +293,14 @@ function normalizeDrawerDetailMedia(base: MediaDetails, original: MediaDetails):
     complexity: firstNumber(b.complexity, details.complexity, bgg.complexity, o.complexity),
     pages: firstNumber(b.pages, details.pages, o.pages),
   } as MediaDetails;
+
+  if (shouldHideSeriesProgressInfo(normalized.type)) {
+    delete (normalized as any).episodes;
+    delete (normalized as any).totalSeasons;
+    delete (normalized as any).seasons;
+  }
+
+  return normalized;
 }
 
 function pickLocalizedField(media: MediaDetails, locale: "it" | "en", field: "title" | "description" | "coverImage"): string | undefined {
@@ -459,6 +474,7 @@ export function MediaDetailsDrawer({
   const drawerUi = appCopy[locale].drawer;
   const ui = appCopy[locale].drawer;
   const commonUi = appCopy[locale].common;
+  const pathname = usePathname();
 
   const [localizedMedia, setLocalizedMedia] = useState<MediaDetails | null>(null);
   const [localizingMedia, setLocalizingMedia] = useState(false);
@@ -512,10 +528,12 @@ export function MediaDetailsDrawer({
   const closingRef = useRef(false); // true while our own history.back() is in flight
   const isClosingRef = useRef(false); // guards against double-close
   const onCloseRef = useRef(onClose);
+  const routeAtOpenRef = useRef<string | null>(null);
   onCloseRef.current = onClose;
   const [drawerOffset, setDrawerOffset] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 450,
   );
+  const [drawerYOffset, setDrawerYOffset] = useState(0);
   const [drawerAnimate, setDrawerAnimate] = useState(false);
 
   // iOS edge-swipe refs (dichiarati dentro il componente come richiesto da React)
@@ -524,23 +542,60 @@ export function MediaDetailsDrawer({
   const iosSwipeStartY = useRef(0);
   const iosSwipeConfirmed = useRef(false);
 
-  const handleClose = useCallback(() => {
+  // Mobile swipe-down refs
+  const verticalSwipeTouchId = useRef<number | null>(null);
+  const verticalSwipeStartX = useRef(0);
+  const verticalSwipeStartY = useRef(0);
+  const verticalSwipeConfirmed = useRef(false);
+
+  const closeInstant = useCallback((options?: { syncHistory?: boolean }) => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
-    const isAndroid = /android/i.test(navigator.userAgent);
-    if (!isAndroid && historyPushedRef.current) {
-      // iOS: avevamo fatto pushState, dobbiamo tornare indietro
+
+    const syncHistory = options?.syncHistory !== false;
+    const shouldPopDrawerHistory =
+      syncHistory &&
+      typeof window !== "undefined" &&
+      historyPushedRef.current &&
+      Boolean(window.history.state?.gkDrawer);
+
+    // Chiudi prima la UI. La X non deve aspettare la History API.
+    setDrawerAnimate(false);
+    setDrawerOffset(typeof window !== "undefined" ? window.innerWidth : 450);
+    setDrawerYOffset(0);
+    routeAtOpenRef.current = null;
+    onCloseRef.current();
+
+    if (shouldPopDrawerHistory) {
       historyPushedRef.current = false;
       closingRef.current = true;
-      history.back();
+      window.setTimeout(() => {
+        try {
+          window.history.back();
+        } catch {
+          closingRef.current = false;
+        }
+      }, 0);
     }
+
+    window.setTimeout(() => {
+      isClosingRef.current = false;
+    }, 0);
+  }, []);
+
+  const closeWithSwipeDownAnimation = useCallback(() => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
     setDrawerAnimate(true);
-    setDrawerOffset(typeof window !== "undefined" ? window.innerWidth : 450);
-    setTimeout(() => {
+    setDrawerYOffset(typeof window !== "undefined" ? window.innerHeight : 760);
+    window.setTimeout(() => {
+      routeAtOpenRef.current = null;
       isClosingRef.current = false;
       onCloseRef.current();
-    }, 260);
+    }, 180);
   }, []);
+
+  const handleClose = useCallback(() => closeInstant(), [closeInstant]);
 
   useEffect(() => {
     if (media) {
@@ -552,6 +607,22 @@ export function MediaDetailsDrawer({
       document.body.style.overflow = "";
     };
   }, [media]);
+
+  useEffect(() => {
+    if (!media) {
+      routeAtOpenRef.current = null;
+      return;
+    }
+
+    if (routeAtOpenRef.current === null) {
+      routeAtOpenRef.current = pathname;
+      return;
+    }
+
+    if (routeAtOpenRef.current !== pathname) {
+      closeInstant({ syncHistory: false });
+    }
+  }, [media?.id, pathname, closeInstant]);
 
   useEffect(() => {
     setShowAddForm(false);
@@ -569,11 +640,11 @@ export function MediaDetailsDrawer({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") closeInstant();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []); // onClose via ref — stable
+  }, [closeInstant]);
 
   useEffect(() => {
     if (!media) {
@@ -780,44 +851,25 @@ export function MediaDetailsDrawer({
     }
   }, [media, inWishlist, wishlistBusy]);
 
-  // gestureState + androidBack registration
-  // Su Android: niente pushState — usiamo androidBack.push/pop per registrare
-  // la callback di chiusura. Il cuscinetto globale in AndroidBackHandler intercetta
-  // la back gesture e chiama la nostra callback senza mostrare l'anteprima.
-  // Su iOS: manteniamo il popstate listener per lo swipe interattivo.
+  // Back action: quando il drawer è aperto, indietro deve chiudere SOLO il drawer.
   useEffect(() => {
-    if (!media) {
+    if (!media || typeof window === "undefined") {
       gestureState.drawerActive = false;
       return;
     }
+
     gestureState.drawerActive = true;
 
-    const isAndroid = /android/i.test(navigator.userAgent);
-
-    if (isAndroid) {
-      // Android: registra callback, niente pushState
-      const closeDrawer = () => {
-        if (isClosingRef.current) return;
-        isClosingRef.current = true;
-        setDrawerAnimate(true);
-        setDrawerOffset(
-          typeof window !== "undefined" ? window.innerWidth : 450,
-        );
-        setTimeout(() => {
-          isClosingRef.current = false;
-          onCloseRef.current();
-        }, 260);
-      };
-      androidBack.push(closeDrawer);
-      return () => {
-        gestureState.drawerActive = false;
-        androidBack.pop(closeDrawer);
-      };
-    }
-
-    // iOS: pushState + popstate listener per swipe interattivo
-    history.pushState({ gkDrawer: true }, "", location.href);
+    window.history.pushState({ ...(window.history.state || {}), gkDrawer: true }, "", window.location.href);
     historyPushedRef.current = true;
+
+    const closeDrawerFromBack = () => {
+      if (!historyPushedRef.current) return;
+      historyPushedRef.current = false;
+      closeInstant({ syncHistory: false });
+    };
+
+    androidBack.push(closeDrawerFromBack);
 
     const onPop = (e: PopStateEvent) => {
       if (closingRef.current) {
@@ -825,25 +877,22 @@ export function MediaDetailsDrawer({
         e.stopImmediatePropagation();
         return;
       }
+
       if (!historyPushedRef.current) return;
+
       e.stopImmediatePropagation();
-      historyPushedRef.current = false;
-      isClosingRef.current = true;
-      setDrawerAnimate(true);
-      setDrawerOffset(typeof window !== "undefined" ? window.innerWidth : 450);
-      setTimeout(() => {
-        isClosingRef.current = false;
-        onCloseRef.current();
-      }, 260);
+      closeDrawerFromBack();
     };
+
     window.addEventListener("popstate", onPop, { capture: true });
 
     return () => {
       gestureState.drawerActive = false;
+      androidBack.pop(closeDrawerFromBack);
       window.removeEventListener("popstate", onPop, { capture: true });
       historyPushedRef.current = false;
     };
-  }, [media?.id]);
+  }, [media?.id, closeInstant]);
 
   // Slide-in animation whenever a new item opens
   useEffect(() => {
@@ -853,9 +902,11 @@ export function MediaDetailsDrawer({
     }
     setDrawerAnimate(false);
     setDrawerOffset(typeof window !== "undefined" ? window.innerWidth : 450);
+    setDrawerYOffset(0);
     const frame = requestAnimationFrame(() => {
       setDrawerAnimate(true);
       setDrawerOffset(0);
+      setDrawerYOffset(0);
     });
     return () => cancelAnimationFrame(frame);
   }, [media?.id]);
@@ -910,7 +961,7 @@ export function MediaDetailsDrawer({
 
       const dx = ended.clientX - iosSwipeStartX.current;
       if (iosSwipeConfirmed.current && dx >= IOS_DISMISS_THRESHOLD) {
-        handleClose();
+        closeInstant();
       } else {
         // Snap back
         setDrawerAnimate(true);
@@ -929,7 +980,7 @@ export function MediaDetailsDrawer({
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [media?.id, handleClose]);
+  }, [media?.id, closeInstant]);
 
   if (!media || typeof document === "undefined") return null;
 
@@ -952,7 +1003,7 @@ export function MediaDetailsDrawer({
   const externalUrl = buildExternalUrl(detailMedia);
   const sourceLabel = buildSourceLabel(detailMedia);
 
-  const isManga = detailMedia.type === "manga" || detailMedia.type === "novel";
+  const isManga = detailMedia.type === "manga";
   const isBoardgame = detailMedia.type === "boardgame";
   // Autori/creatori priorità per tipo
   const creatorList = isManga
@@ -994,6 +1045,68 @@ export function MediaDetailsDrawer({
       ? commonUi.minutesPerEpisode
       : commonUi.minutesShort;
 
+  const isMobileViewport =
+    typeof window !== "undefined" && window.innerWidth < 768;
+
+  const handleDrawerTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobileViewport) return;
+    const touch = event.touches[0];
+    verticalSwipeTouchId.current = touch.identifier;
+    verticalSwipeStartX.current = touch.clientX;
+    verticalSwipeStartY.current = touch.clientY;
+    verticalSwipeConfirmed.current = false;
+  };
+
+  const handleDrawerTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobileViewport || verticalSwipeTouchId.current === null) return;
+    const touch = Array.from(event.touches).find(
+      (item) => item.identifier === verticalSwipeTouchId.current,
+    );
+    if (!touch) return;
+
+    const dx = touch.clientX - verticalSwipeStartX.current;
+    const dy = touch.clientY - verticalSwipeStartY.current;
+    if (dy <= 0) return;
+
+    const target = event.target as Element | null;
+    const scrollRoot = target?.closest?.('[data-scroll-root="media-details"]') as HTMLElement | null;
+    const canDismissFromScroll = !scrollRoot || scrollRoot.scrollTop <= 2;
+
+    if (!verticalSwipeConfirmed.current) {
+      if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
+      if (Math.abs(dx) > Math.abs(dy) || !canDismissFromScroll) {
+        verticalSwipeTouchId.current = null;
+        return;
+      }
+      verticalSwipeConfirmed.current = true;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setDrawerAnimate(false);
+    setDrawerYOffset(Math.min(dy, 260));
+  };
+
+  const handleDrawerTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobileViewport || verticalSwipeTouchId.current === null) return;
+    const touch = Array.from(event.changedTouches).find(
+      (item) => item.identifier === verticalSwipeTouchId.current,
+    );
+    verticalSwipeTouchId.current = null;
+    if (!touch) return;
+
+    const dy = touch.clientY - verticalSwipeStartY.current;
+    if (verticalSwipeConfirmed.current && dy >= MOBILE_SWIPE_DOWN_THRESHOLD) {
+      verticalSwipeConfirmed.current = false;
+      closeWithSwipeDownAnimation();
+      return;
+    }
+
+    verticalSwipeConfirmed.current = false;
+    setDrawerAnimate(true);
+    setDrawerYOffset(0);
+  };
+
   // Portal to body so the drawer is in the root stacking context.
   // z-[80]: below MobileHeader (z-99) and Navbar (z-100) — they overlay the edges.
   // top/bottom in the style prop account for header + bottom-nav heights so
@@ -1017,6 +1130,10 @@ export function MediaDetailsDrawer({
         aria-modal
         aria-label={displayTitle}
         onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={handleDrawerTouchStart}
+        onTouchMove={handleDrawerTouchMove}
+        onTouchEnd={handleDrawerTouchEnd}
+        onTouchCancel={handleDrawerTouchEnd}
         style={{
           background: "var(--bg-primary)",
           border: "1px solid rgba(230,255,61,0.13)",
@@ -1030,11 +1147,11 @@ export function MediaDetailsDrawer({
           left: "auto",
           top: "calc(env(safe-area-inset-top, 0px) + 10px)",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
-          transform: `translateX(${drawerOffset}px)`,
+          transform: `translate3d(${drawerOffset}px, ${drawerYOffset}px, 0)`,
           transition: drawerAnimate
             ? "transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)"
             : "none",
-          willChange: drawerOffset > 0 ? "transform" : "auto",
+          willChange: drawerOffset > 0 || drawerYOffset > 0 ? "transform" : "auto",
         }}
       >
         <MediaDetailsHero
@@ -1058,10 +1175,9 @@ export function MediaDetailsDrawer({
           }
           meta={
             <>
-              {detailMedia.episodes != null && detailMedia.episodes > 1 && (
+              {shouldShowChapterCount(detailMedia.type) && detailMedia.episodes != null && detailMedia.episodes > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-black/20 px-2 py-0.5 font-mono-data text-[10px] font-bold text-[var(--text-secondary)]">
-                  <Layers size={10} /> {detailMedia.episodes}{" "}
-                  {detailMedia.type === "manga" ? "cap." : "ep."}
+                  <Layers size={10} /> {detailMedia.episodes} {commonUi.chapters}
                 </span>
               )}
               {(detailMedia.min_players != null || detailMedia.max_players != null) && (
@@ -1094,7 +1210,7 @@ export function MediaDetailsDrawer({
           data-scroll-root="media-details"
           data-no-swipe="true"
           onWheel={(event) => event.stopPropagation()}
-          onTouchMove={(event) => event.stopPropagation()}
+          onTouchMove={(event) => { handleDrawerTouchMove(event); event.stopPropagation(); }}
         >
           <div className="gk-media-details-content grid gap-2.5 p-3 md:grid-cols-1">
             {/* Generi */}
@@ -1119,7 +1235,7 @@ export function MediaDetailsDrawer({
                     key="match"
                     className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
                   >
-                    <p className="gk-label mb-1">Match</p>
+                    <p className="gk-label mb-1">{commonUi.match}</p>
                     <p
                       className="font-mono-data text-[18px] font-black"
                       style={{ color: "var(--accent)" }}
@@ -1161,31 +1277,17 @@ export function MediaDetailsDrawer({
                     </p>
                   </div>,
                 );
-              if (detailMedia.episodes != null && detailMedia.episodes > 1)
+              if (shouldShowChapterCount(detailMedia.type) && detailMedia.episodes != null && detailMedia.episodes > 1)
                 cells.push(
                   <div
                     key="eps"
                     className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
                   >
                     <p className="gk-label mb-1">
-                      {detailMedia.type === "manga"
-                        ? commonUi.chapters
-                        : commonUi.episodes}
+                      {commonUi.chapters}
                     </p>
                     <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
                       {detailMedia.episodes}
-                    </p>
-                  </div>,
-                );
-              if (detailMedia.totalSeasons != null && detailMedia.totalSeasons > 1)
-                cells.push(
-                  <div
-                    key="seasons"
-                    className="rounded-2xl bg-black/18 p-3 text-center ring-1 ring-white/5"
-                  >
-                    <p className="gk-label mb-1">{commonUi.seasons}</p>
-                    <p className="font-mono-data text-[18px] font-black text-[var(--text-primary)]">
-                      {detailMedia.totalSeasons}
                     </p>
                   </div>,
                 );
@@ -1260,7 +1362,7 @@ export function MediaDetailsDrawer({
                 la descrizione nella lingua sbagliata: resta uno skeleton breve. */}
             {(displayDescription || localizingMedia) && (
               <MediaDetailsSection
-                title={drawerUi?.description || "Descrizione"}
+                title={drawerUi?.description || commonUi.description}
                 icon={<FileText size={13} />}
               >
                 {displayDescription ? (
@@ -1322,7 +1424,7 @@ export function MediaDetailsDrawer({
             {/* ── BOARDGAME: Designer ───────────────────────────────── */}
             {isBoardgame && detailMedia.designers && detailMedia.designers.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">Designer</h3>
+                <h3 className="gk-label mb-2.5">{ui.designers}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {detailMedia.designers.map((d) => (
                     <span
@@ -1356,7 +1458,7 @@ export function MediaDetailsDrawer({
             {/* Cast */}
             {detailMedia.cast && detailMedia.cast.length > 0 && (
               <div>
-                <h3 className="gk-label mb-2.5">Cast</h3>
+                <h3 className="gk-label mb-2.5">{ui.cast}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {detailMedia.cast.map((name) => (
                     <span
@@ -1405,7 +1507,7 @@ export function MediaDetailsDrawer({
                   ))}
                 </div>
                 <p className="gk-mono text-[var(--text-muted)] mt-1.5">
-                  Powered by JustWatch
+                  {ui.poweredBy("JustWatch")}
                 </p>
               </div>
             )}
@@ -1456,7 +1558,7 @@ export function MediaDetailsDrawer({
                           </div>
                         )}
                         <div className="absolute top-1 left-1 bg-amber-500/90 text-[7px] font-bold px-1 py-0.5 rounded text-white">
-                          {RELATION_LABEL[rel.relationType] || rel.relationType}
+                          {relationLabels[locale]?.[rel.relationType] || rel.relationType}
                         </div>
                       </div>
                       <p className="line-clamp-2 text-[10px] font-bold leading-tight text-[var(--text-secondary)]">
@@ -1528,7 +1630,7 @@ export function MediaDetailsDrawer({
             </div>
           ) : !checkDone && getKnownCollectionState(media) === undefined ? (
             <div
-              aria-label={locale === "it" ? "Verifica stato collezione" : "Checking collection status"}
+              aria-label={commonUi.collectionStatusCheck}
               className="flex h-[42px] w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] opacity-80"
             >
               <span className="h-3 w-32 animate-pulse rounded-full bg-white/10" />
@@ -1566,7 +1668,7 @@ export function MediaDetailsDrawer({
                 size={12}
                 fill={inWishlist ? "currentColor" : "none"}
               />
-              {inWishlist ? "In wishlist" : "Wishlist"}
+              {inWishlist ? ui.inWishlist : ui.wishlist}
             </button>
 
             {externalUrl && (

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { CheckCircle, XCircle, X } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 type ToastType = 'success' | 'error'
 
@@ -20,6 +21,8 @@ export function showToast(message: string, type: ToastType = 'success') {
 }
 
 export function ToastProvider() {
+  const { locale } = useLocale()
+  const closeLabel = locale === 'it' ? 'Chiudi notifica' : 'Close notification'
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
   const addToast = useCallback((message: string, type: ToastType = 'success') => {
@@ -59,7 +62,7 @@ export function ToastProvider() {
             <button
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
               className="ml-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition shrink-0"
-              aria-label="Chiudi notifica"
+              aria-label={closeLabel}
             >
               <X size={14} />
             </button>

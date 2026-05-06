@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -36,14 +37,14 @@ async function getUser() {
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'post-create' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppi post. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyPosts') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const user = await getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const content = cleanContent(body.content)
   const imageUrl = cleanImageUrl(body.image_url)
@@ -57,24 +58,24 @@ export async function POST(request: NextRequest) {
     .select('id, content, image_url, created_at, category')
     .single()
 
-  if (error) return NextResponse.json({ error: 'post non salvato' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'postNotSaved') }, { status: 500, headers: rl.headers })
   return NextResponse.json({ success: true, post: data }, { headers: rl.headers })
 }
 
 export async function PATCH(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'post-edit' })
   if (!rl.ok) return NextResponse.json({ error: 'Troppe modifiche. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const user = await getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const postId = body.post_id
   const content = cleanContent(body.content)
-  if (!postId || typeof postId !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400, headers: rl.headers })
+  if (!postId || typeof postId !== 'string') return NextResponse.json({ error: apiMessage(request, 'missingPostId') }, { status: 400, headers: rl.headers })
   if (!content) return NextResponse.json({ error: 'contenuto mancante' }, { status: 400, headers: rl.headers })
 
   const service = createServiceClient('social:post:edit')
@@ -86,24 +87,24 @@ export async function PATCH(request: NextRequest) {
     .select('id, content, is_edited')
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: 'post non modificato' }, { status: 500, headers: rl.headers })
-  if (!data) return NextResponse.json({ error: 'post non trovato' }, { status: 404, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'postNotEdited') }, { status: 500, headers: rl.headers })
+  if (!data) return NextResponse.json({ error: apiMessage(request, 'postNotFound') }, { status: 404, headers: rl.headers })
   return NextResponse.json({ success: true, post: data }, { headers: rl.headers })
 }
 
 export async function DELETE(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'post-delete' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe cancellazioni. Rallenta.' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyDeletes') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const user = await getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const postId = body.post_id
-  if (!postId || typeof postId !== 'string') return NextResponse.json({ error: 'post_id mancante' }, { status: 400, headers: rl.headers })
+  if (!postId || typeof postId !== 'string') return NextResponse.json({ error: apiMessage(request, 'missingPostId') }, { status: 400, headers: rl.headers })
 
   const service = createServiceClient('social:post:delete')
   const { data: post } = await service
@@ -113,13 +114,13 @@ export async function DELETE(request: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!post) return NextResponse.json({ error: 'post non trovato' }, { status: 404, headers: rl.headers })
+  if (!post) return NextResponse.json({ error: apiMessage(request, 'postNotFound') }, { status: 404, headers: rl.headers })
 
   await service.from('notifications').delete().eq('post_id', postId)
   await service.from('comments').delete().eq('post_id', postId)
   await service.from('likes').delete().eq('post_id', postId)
   const { error } = await service.from('posts').delete().eq('id', postId).eq('user_id', user.id)
-  if (error) return NextResponse.json({ error: 'post non cancellato' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'postNotDeleted') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }

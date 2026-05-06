@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 
-const AUTH_PATHS = ['/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/']
+const AUTH_PATHS = ['/', '/login', '/register', '/auth/', '/forgot-password', '/onboarding', '/privacy', '/terms', '/cookies']
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

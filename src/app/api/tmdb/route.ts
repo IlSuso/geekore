@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { getRequestLocale, localeToTmdbLanguage, type AppLocale } from '@/lib/i18n/serverLocale'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 
@@ -135,7 +136,7 @@ async function fetchKeywords(type: 'movie' | 'tv', id: number | string): Promise
 
 export async function GET(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'tmdb-search' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || searchParams.get('search') || ''
@@ -178,24 +179,14 @@ export async function GET(request: NextRequest) {
             const itItem = currentLanguage === 'it-IT' ? m : itMap.get(m.id)
 
             // Se la search parallela non ha trovato la stessa ID, dettaglio diretto.
-            const [enDetail, itDetail, currentDetail, images, keywords] = await Promise.all([
+            // Nota: non richiamiamo più i dettagli TMDb solo per stagioni/episodi.
+            // Il drawer non usa più queste informazioni per le serie TV.
+            const [enDetail, itDetail, images, keywords] = await Promise.all([
               enItem ? Promise.resolve(enItem) : fetchTmdbDetails(mediaType, m.id, 'en'),
               itItem ? Promise.resolve(itItem) : fetchTmdbDetails(mediaType, m.id, 'it'),
-              fetchTmdbDetails(mediaType, m.id, locale),
               fetchTmdbImages(mediaType, m.id),
               fetchKeywords(mediaType, m.id),
             ])
-
-            let seasons: Record<number, { episode_count: number }> | undefined
-            let totalEpisodes: number | undefined
-
-            if (mediaType === 'tv' && currentDetail) {
-              totalEpisodes = currentDetail.number_of_episodes
-              seasons = {}
-              for (const s of (currentDetail.seasons || [])) {
-                if (s.season_number > 0) seasons[s.season_number] = { episode_count: s.episode_count || 0 }
-              }
-            }
 
             const titleEn = pickTitle(enDetail, mediaType) || pickOriginalTitle(m, mediaType) || pickTitle(m, mediaType)
             const titleIt = pickTitle(itDetail, mediaType) || pickTitle(m, mediaType) || titleEn
@@ -246,9 +237,6 @@ export async function GET(request: NextRequest) {
                 } : {}),
               },
               genres: resolveGenreNames(m.genre_ids || [], mediaType),
-              episodes: totalEpisodes,
-              totalSeasons: seasons ? Object.keys(seasons).length : undefined,
-              seasons,
               keywords,
               score: m.vote_average ? Math.min(Math.round(m.vote_average * 10) / 20, 5) : undefined,
               source: 'tmdb',

@@ -2,6 +2,7 @@ interface MediaProgressProps {
   current?: number | null
   total?: number | null
   label?: string
+  titleLabel?: string
   compact?: boolean
   className?: string
 }
@@ -11,7 +12,7 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value))
 }
 
-export function MediaProgress({ current, total, label, compact = false, className = '' }: MediaProgressProps) {
+export function MediaProgress({ current, total, label, titleLabel = 'Progress', compact = false, className = '' }: MediaProgressProps) {
   const hasCurrent = typeof current === 'number' && Number.isFinite(current)
   const hasTotal = typeof total === 'number' && Number.isFinite(total) && total > 0
   const percent = hasCurrent && hasTotal ? clampPercent((current / total) * 100) : 0
@@ -43,7 +44,7 @@ export function MediaProgress({ current, total, label, compact = false, classNam
   return (
     <div className={`min-w-0 ${className}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="gk-caption uppercase tracking-[0.08em]">Progresso</span>
+        <span className="gk-caption uppercase tracking-[0.08em]">{titleLabel}</span>
         <span className="font-mono-data text-[11px] font-bold text-[var(--text-secondary)]">
           {progressLabel}
         </span>

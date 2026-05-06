@@ -76,7 +76,7 @@ export function FeedLeftSidebar({ profile }: { profile: Profile | null }) {
               <p className="text-[15px] font-semibold text-white truncate leading-tight">
                 {profile.display_name || profile.username}
               </p>
-              <p className="text-[13px] text-zinc-500 truncate">@{profile.username}</p>
+              <p className="text-[13px] text-zinc-500 truncate">{profile.display_name || profile.username}</p>
             </div>
           </Link>
         )}

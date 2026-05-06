@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
           <span style={{ color:'white', fontSize:'52px', fontWeight:900, letterSpacing:'-0.04em', lineHeight:1 }}>{displayName}</span>
-          <span style={{ color:'#7c6af7', fontSize:'24px', fontWeight:600 }}>@{profile?.username || normalizedUsername}</span>
+          <span style={{ color:'#7c6af7', fontSize:'24px', fontWeight:600 }}>{displayName}</span>
           {profile?.bio && <span style={{ color:'#71717a', fontSize:'18px', marginTop:'4px' }}>{profile.bio.slice(0,80)}</span>}
         </div>
         <div style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>

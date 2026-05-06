@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger'
 //   • S1: CSRF check via Origin header
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { verifyCsrf } from '@/lib/csrf'
@@ -67,7 +68,7 @@ export async function PATCH(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
     }
 
     const csrf = verifyCsrf(request, user.id)
@@ -79,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers })
     }
 
     const { username, display_name, bio, avatar_url } = body
@@ -154,6 +155,6 @@ export async function PATCH(request: NextRequest) {
     )
   } catch (err) {
     logger.error('[Profile Update]', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'internalError') }, { status: 500, headers: rl.headers })
   }
 }

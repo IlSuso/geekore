@@ -89,7 +89,6 @@ function PodiumCard({ leader, rank, tab, locale, copy }: { leader: Leader; rank:
         </div>
         <Avatar src={leader.avatar_url} username={leader.username} displayName={leader.display_name} size={rank === 1 ? 70 : 58} className="rounded-[22px] shadow-[0_16px_38px_rgba(0,0,0,0.26)]" />
         <p className="mt-3 max-w-full truncate text-[15px] font-black text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">{leader.display_name || leader.username}</p>
-        <p className="gk-mono text-[var(--text-muted)]">@{leader.username}</p>
         <div className="mt-3 rounded-2xl border border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.08)] px-3 py-1.5">
           <p className="font-mono-data text-[15px] font-black text-[var(--accent)]">{formatValue(leader, tab, locale, copy)}</p>
         </div>
@@ -112,7 +111,6 @@ function LeaderRow({ leader, rank, tab, locale, copy }: { leader: Leader; rank: 
       <Avatar src={leader.avatar_url} username={leader.username} displayName={leader.display_name} size={42} className="rounded-2xl" />
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">{leader.display_name || leader.username}</p>
-        <p className="gk-mono text-[var(--text-muted)]">@{leader.username}</p>
       </div>
       <div className="text-right">
         <p className="font-mono-data text-sm font-black text-[var(--text-primary)]">{formatValue(leader, tab, locale, copy)}</p>

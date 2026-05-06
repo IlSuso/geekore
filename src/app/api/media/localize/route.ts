@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { getRequestLocale, type Locale } from '@/lib/i18n/serverLocale'
 import { translateWithCache } from '@/lib/deepl'
 import { readMediaLocaleAssets, mergeCachedLocaleAsset, writeMediaLocaleAssets, mediaLocaleKeyFor, mediaLocaleItemIsComplete } from '@/lib/i18n/mediaLocalePersistentCache'
@@ -807,7 +808,7 @@ function applyDetailFields(item: MediaLike, details: MediaLike) {
 
 export async function POST(request: NextRequest) {
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400 }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400 }) }
 
   const locale = await getRequestLocale(request)
   const mode: 'basic' | 'full' = body?.mode === 'full' ? 'full' : 'basic'

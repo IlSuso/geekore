@@ -176,10 +176,10 @@ function EmailChangeContent() {
           <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">{errorMessage}</p>
           <div className="mt-8 space-y-3 text-left">
             <Link href="/settings/profile" className="flex h-13 w-full items-center justify-center rounded-[18px] bg-[var(--accent)] px-4 font-black text-[#0B0B0F] transition hover:brightness-105">
-              Torna alle impostazioni
+              {copy.backSettings}
             </Link>
             <Link href="/login" className="flex h-12 w-full items-center justify-center rounded-[18px] bg-white/[0.055] px-4 text-sm font-bold text-[var(--text-secondary)] transition hover:bg-white/[0.075]">
-              Vai al login
+              {copy.login}
             </Link>
           </div>
         </>

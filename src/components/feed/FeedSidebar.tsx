@@ -51,6 +51,7 @@ const FEED_SIDEBAR_COPY = {
     friend: "amico",
     friends: "amici",
     trendingFriends: "Trending dagli amici",
+    communityPulse: "Battito community",
   },
   en: {
     see: "see",
@@ -64,6 +65,7 @@ const FEED_SIDEBAR_COPY = {
     friend: "friend",
     friends: "friends",
     trendingFriends: "Trending from friends",
+    communityPulse: "Community pulse",
   },
 } as const;
 
@@ -167,7 +169,7 @@ function PulseCard({ currentUserId }: { currentUserId: string | null }) {
     <RailCard className="bg-[linear-gradient(135deg,rgba(230,255,61,0.055),rgba(18,18,25,0.72))]">
       <RailHeader
         icon={<Radio size={14} />}
-        title="Community pulse"
+        title={copy.communityPulse}
         seeLabel={copy.see}
       />
       <div className="grid grid-cols-2 gap-2">

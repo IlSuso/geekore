@@ -3,6 +3,7 @@
 // Restituisce un JSON con tutti i dati dell'utente: media, post, commenti, wishlist
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
     }
 
     const [
@@ -82,6 +83,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (err) {
     logger.error('[User Export]', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'internalError') }, { status: 500, headers: rl.headers })
   }
 }

@@ -566,7 +566,7 @@ function UserSuggestionCard({
           </p>
           {user.username && (
             <p className="truncate font-mono-data text-[10px] text-[var(--text-muted)]">
-              @{user.username}
+              {name}
             </p>
           )}
         </div>

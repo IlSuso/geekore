@@ -9,6 +9,7 @@
 //   3. Search IGDB fuzzy: cerca il titolo con l'endpoint /search e prende il primo risultato
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logger } from '@/lib/logger'
@@ -215,23 +216,23 @@ export async function POST(request: NextRequest) {
       { status: 429, headers: rl.headers }
     )
   }
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
   }
 
   const clientId = process.env.IGDB_CLIENT_ID
   const token = await getIgdbToken()
 
   if (!clientId || !token) {
-    return NextResponse.json({ error: 'IGDB non configurato' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'igdbNotConfigured') }, { status: 500, headers: rl.headers })
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'Configurazione Supabase server mancante' }, { status: 503, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'supabaseServerMissing') }, { status: 503, headers: rl.headers })
   }
 
   const supabaseService = createServiceClient('steam-enrich-genres:update-owned-games')

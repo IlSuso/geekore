@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -110,18 +111,18 @@ async function upsertQueueRows(supabase: Awaited<ReturnType<typeof createClient>
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 120, windowMs: 60_000, prefix: 'swipe:queue' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const queue = cleanString(body?.queue, 40) || 'all'
-  if (!QUEUE_TYPES.has(queue)) return NextResponse.json({ error: 'queue non valida' }, { status: 400, headers: rl.headers })
+  if (!QUEUE_TYPES.has(queue)) return NextResponse.json({ error: apiMessage(request, 'invalidQueue') }, { status: 400, headers: rl.headers })
   if (!Array.isArray(body?.rows)) return NextResponse.json({ error: 'rows mancanti' }, { status: 400, headers: rl.headers })
 
   const now = Date.now()

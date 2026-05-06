@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 
-const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'boardgame'])
 
 function cleanString(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null

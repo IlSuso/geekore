@@ -264,6 +264,8 @@ function LoadingScreen({
 }: {
   message?: string;
 }) {
+  const { locale } = useLocale();
+  const swipeUi = appCopy[locale].swipe;
   return (
     <div
       className="flex flex-col items-center justify-center gap-7 px-8 text-center"
@@ -338,7 +340,7 @@ function LoadingScreen({
           {message}
         </p>
         <p className="text-zinc-600 text-[12px]">
-          Stiamo preparando le card per te
+          {swipeUi.preparingCards}
         </p>
       </div>
     </div>
@@ -536,6 +538,7 @@ function SwipeCard({
   const Icon = TYPE_ICONS[item.type];
   const { locale } = useLocale();
   const swipeUi = appCopy[locale].swipe;
+  const commonUi = appCopy[locale].common;
   const displayGenres = cleanDisplayGenres(item.genres).map((g) => genreLabel(g, locale));
   const episodeCount = normalizePositiveNumber(item.episodes);
 
@@ -639,8 +642,8 @@ function SwipeCard({
               onClose();
             }}
             data-testid="swipe-close"
-            aria-label="Chiudi swipe"
-            title="Chiudi"
+            aria-label={swipeUi.close}
+            title={swipeUi.close}
             className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-[transform,background-color] duration-150 z-20 ${closePress.pressed
               ? "scale-90 bg-white/20 text-white"
               : "bg-zinc-900 text-white/80 hover:text-white"
@@ -707,7 +710,7 @@ function SwipeCard({
                 ...TEXT_SHADOW,
               }}
             >
-              Skip ✗
+              {swipeUi.skip} ✗
             </div>
           </>
         )}
@@ -727,8 +730,8 @@ function SwipeCard({
             {episodeCount && item.type !== "movie" && (
               <span>
                 {item.type === "manga"
-                  ? `${episodeCount} cap.`
-                  : `${episodeCount} ep.`}
+                  ? `${episodeCount} ${commonUi.chapters}`
+                  : `${episodeCount} ${commonUi.episodes}`}
               </span>
             )}
             {displayGenres.length > 0 && (
@@ -1435,7 +1438,7 @@ export function SwipeMode({
       genres: item.genres,
       description: item.description,
       score: item.score,
-      episodes: item.episodes,
+      ...(item.type === "manga" ? { episodes: item.episodes } : {}),
       authors: item.authors,
       developers: item.developers,
       platforms: item.platforms,
@@ -2027,7 +2030,7 @@ export function SwipeMode({
                 localized: (media as any).localized,
                 why: (media as any).why,
                 matchScore: (media as any).matchScore || 0,
-                episodes: (media as any).episodes,
+                ...((media as any).type === "manga" ? { episodes: (media as any).episodes } : {}),
                 authors: (media as any).authors,
                 developers: (media as any).developers,
                 platforms: (media as any).platforms,

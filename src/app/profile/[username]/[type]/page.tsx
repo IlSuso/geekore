@@ -299,14 +299,6 @@ type StatusFilter = 'all' | 'completed' | 'watching' | 'paused' | 'dropped' | 'w
 
 // ─── Mapping tipo → label ─────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = {
-  anime: 'Anime',
-  manga: 'Manga',
-  game: 'Videogiochi',
-  tv: 'Serie TV',
-  movie: 'Film',
-  boardgame: 'Giochi da Tavolo',
-}
 
 const PAGE_SIZE = 48
 
@@ -530,6 +522,7 @@ const MediaRow = memo(function MediaRow({
   onStatusChange?: (id: string, status: string) => void
   onDelete?: (id: string) => void
 }) {
+  const { t } = useLocale()
   return (
     <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl transition-colors group">
       <div className="w-10 h-14 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
@@ -575,7 +568,7 @@ const MediaRow = memo(function MediaRow({
           )
         })()}
         {media.episodes && media.episodes > 1 && media.type !== 'game' && (
-          <p className="text-xs text-zinc-500">{media.current_episode}/{media.episodes} ep.</p>
+          <p className="text-xs text-zinc-500">{media.current_episode}/{media.episodes} {t.forYou.units.episodesShort}</p>
         )}
       </div>
       <StarRating
@@ -590,11 +583,11 @@ const MediaRow = memo(function MediaRow({
           onChange={e => onStatusChange?.(media.id, e.target.value)}
           className="text-[10px] bg-transparent text-zinc-500 focus:outline-none cursor-pointer"
         >
-          <option value="watching">In corso</option>
-          <option value="completed">Completato</option>
-          <option value="paused">Pausa</option>
-          <option value="dropped">Abbandonato</option>
-          <option value="wishlist">Wishlist</option>
+          <option value="watching">{t.profile.statusFilters.watching}</option>
+          <option value="completed">{t.profile.statusFilters.completed}</option>
+          <option value="paused">{t.profile.statusFilters.paused}</option>
+          <option value="dropped">{t.profile.statusFilters.dropped}</option>
+          <option value="wishlist">{t.profile.statusFilters.wishlist}</option>
         </select>
       )}
       {isOwner && (
@@ -633,7 +626,8 @@ export default function ProfileTypePage() {
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
 
-  const typeLabel = TYPE_LABELS[type] || type
+  const typeLabels = { anime: t.profile.categories.anime, manga: t.profile.categories.manga, game: t.profile.categories.games, tv: t.profile.categories.tv, movie: t.profile.categories.movies, boardgame: t.profile.categories.boardgames } as Record<string, string>
+  const typeLabel = typeLabels[type] || type
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -905,7 +899,7 @@ export default function ProfileTypePage() {
           className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white mb-6 transition"
         >
           <ArrowLeft size={14} />
-          Profilo di @{username}
+          {t.profile.backToProfileOf(username)}
         </Link>
 
         {/* Header */}
@@ -916,9 +910,9 @@ export default function ProfileTypePage() {
             </div>
             <h1 className="text-4xl font-black tracking-tighter">{typeLabel}</h1>
             <p className="text-zinc-500 mt-1 text-sm">
-              {mediaList.length} titoli
-              {completed > 0 && ` · ${completed} completati`}
-              {avgRating && ` · voto medio ${avgRating}`}
+              {t.profile.titlesCount(mediaList.length)}
+              {completed > 0 && ` · ${t.profile.completedCount(completed)}`}
+              {avgRating && ` · ${t.profile.averageRating(avgRating)}`}
             </p>
           </div>
         </div>
@@ -932,7 +926,7 @@ export default function ProfileTypePage() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={`Cerca in ${typeLabel}...`}
+              placeholder={t.profile.searchIn(typeLabel)}
               className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none transition"
             />
           </div>
@@ -944,12 +938,12 @@ export default function ProfileTypePage() {
               onChange={e => setStatusFilter(e.target.value as StatusFilter)}
               className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
             >
-              <option value="all">Tutti gli stati</option>
-              <option value="completed">Completati</option>
-              <option value="watching">In corso</option>
-              <option value="paused">In pausa</option>
-              <option value="dropped">Abbandonati</option>
-              <option value="wishlist">Wishlist</option>
+              <option value="all">{t.profile.statusFilters.all}</option>
+              <option value="completed">{t.profile.statusFilters.completed}</option>
+              <option value="watching">{t.profile.statusFilters.watching}</option>
+              <option value="paused">{t.profile.statusFilters.paused}</option>
+              <option value="dropped">{t.profile.statusFilters.dropped}</option>
+              <option value="wishlist">{t.profile.statusFilters.wishlist}</option>
             </select>
 
             <select
@@ -957,14 +951,14 @@ export default function ProfileTypePage() {
               onChange={e => setSortMode(e.target.value as SortMode)}
               className="flex-1 md:flex-none md:w-44 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-2xl px-4 py-2.5 text-sm text-zinc-300 focus:outline-none transition cursor-pointer"
             >
-              <option value="default">Ordine personalizzato</option>
-              <option value="rating_desc">Voto (↓)</option>
-              <option value="rating_asc">Voto (↑)</option>
-              <option value="title_asc">Titolo (A-Z)</option>
-              <option value="title_desc">Titolo (Z-A)</option>
-              <option value="date_desc">Aggiunto di recente</option>
+              <option value="default">{t.profile.sortModes.default}</option>
+              <option value="rating_desc">{t.profile.sortModes.ratingDesc}</option>
+              <option value="rating_asc">{t.profile.sortModes.ratingAsc}</option>
+              <option value="title_asc">{t.profile.sortModes.titleAsc}</option>
+              <option value="title_desc">{t.profile.sortModes.titleDesc}</option>
+              <option value="date_desc">{t.profile.sortModes.dateDesc}</option>
               {type === 'game' && (
-                <option value="progress_desc">Ore (↓)</option>
+                <option value="progress_desc">{t.profile.sortModes.progressDesc}</option>
               )}
             </select>
 
@@ -980,7 +974,7 @@ export default function ProfileTypePage() {
                 style={isDragEnabled ? { background: 'var(--accent)', color: '#0B0B0F' } : {}}
               >
                 <GripVertical size={14} />
-                {isDragEnabled ? 'Fine' : 'Riordina'}
+                {isDragEnabled ? t.profile.done : t.profile.reorder}
               </button>
             )}
           </div>
@@ -990,8 +984,8 @@ export default function ProfileTypePage() {
         {filtered.length === 0 ? (
           <div className="text-center py-24 text-zinc-600">
             <Search size={40} className="mx-auto mb-4 opacity-30" />
-            <p className="text-lg font-medium">Nessun titolo trovato</p>
-            {search && <p className="text-sm mt-1">Prova con un altro termine di ricerca</p>}
+            <p className="text-lg font-medium">{t.profile.noTitlesFound}</p>
+            {search && <p className="text-sm mt-1">{t.profile.tryAnotherSearch}</p>}
           </div>
         ) : (() => {
             const visible = filtered.slice(0, visibleCount)
@@ -1055,8 +1049,8 @@ export default function ProfileTypePage() {
         {/* Contatore risultati */}
         {filtered.length > 0 && (
           <p className="text-center text-zinc-700 text-xs mt-8">
-            {Math.min(visibleCount, filtered.length)} di {filtered.length} {filtered.length === 1 ? 'titolo' : 'titoli'}
-            {filtered.length !== mediaList.length && ` (filtrati su ${mediaList.length} totali)`}
+            {t.profile.resultsCounter(Math.min(visibleCount, filtered.length), filtered.length)}
+            {filtered.length !== mediaList.length && ` ${t.profile.filteredCounter(filtered.length, mediaList.length)}`}
           </p>
         )}
       </div>

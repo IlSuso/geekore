@@ -383,7 +383,7 @@ export function PreferencesModal({
           <div className="mb-3 flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="mb-2 gk-section-eyebrow">
-                <Brain size={12} /> Taste tuning
+                <Brain size={12} /> {pc.tasteTuning}
               </div>
               <h2 className="gk-title text-[var(--text-primary)]">
                 {step === 0

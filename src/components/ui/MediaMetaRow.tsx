@@ -13,6 +13,7 @@ interface MediaMetaRowProps {
     current?: number | null
     total?: number | null
     label?: string
+    titleLabel?: string
   }
   trailing?: ReactNode
   dense?: boolean
@@ -69,6 +70,7 @@ export function MediaMetaRow({
           current={progress.current}
           total={progress.total}
           label={progress.label}
+          titleLabel={progress.titleLabel}
           compact={dense}
         />
       )}

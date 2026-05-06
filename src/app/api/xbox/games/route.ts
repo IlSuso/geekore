@@ -2,6 +2,7 @@
 // Feature #22: Integrazione Xbox via OpenXBL API
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
   let xuid: string | null = searchParams.get('xuid')?.trim() ?? null

@@ -64,7 +64,7 @@ export function SettingsControlHero({
     <section className="mb-5 overflow-hidden rounded-[30px] border border-[rgba(230,255,61,0.18)] bg-[linear-gradient(160deg,rgba(230,255,61,0.07),var(--bg-secondary))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] md:p-5">
       <div className="mb-2 gk-section-eyebrow">
         <Sparkles size={12} />
-        Control center
+        {c.eyebrow}
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

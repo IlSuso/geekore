@@ -28,7 +28,7 @@ interface ProfileDelta {
 }
 
 const DELTA_ACTIONS = new Set<DeltaAction>(['rating', 'status_change', 'wishlist_add', 'rewatch', 'progress'])
-const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'boardgame'])
 const STATUSES = new Set(['completed', 'dropped', 'watching', 'paused', 'planned'])
 
 function cleanString(value: unknown, max: number): string | null {

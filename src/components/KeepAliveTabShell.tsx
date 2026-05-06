@@ -118,7 +118,10 @@ function PanelWrapper({
           {!isSwipePanel && (
             <MobileHeader pathnameOverride={KA_TO_PATH[panelTab]} embeddedInTabPanel />
           )}
-          <div style={isSwipePanel ? undefined : { paddingTop: HEADER_TOP }}>
+          <div
+            className={isSwipePanel ? undefined : 'gk-tab-panel-scroll-offset'}
+            style={isSwipePanel ? undefined : ({ '--gk-panel-header-offset': HEADER_TOP } as CSSProperties)}
+          >
             {children}
           </div>
         </div>

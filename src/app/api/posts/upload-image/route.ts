@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
@@ -41,33 +42,33 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 12, windowMs: 10 * 60_000, prefix: 'post-image-upload' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: 'Troppi upload. Attendi qualche minuto.' },
+      { error: apiMessage(request, 'tooManyUploads') },
       { status: 429, headers: rl.headers }
     )
   }
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let formData: FormData
   try {
     formData = await request.formData()
   } catch {
-    return NextResponse.json({ error: 'FormData non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidFormData') }, { status: 400, headers: rl.headers })
   }
 
   const file = formData.get('image')
   if (!file || !(file instanceof Blob)) {
-    return NextResponse.json({ error: 'File mancante' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'missingFile') }, { status: 400, headers: rl.headers })
   }
 
   if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: 'File troppo grande (max 6MB)' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'fileTooLarge6') }, { status: 400, headers: rl.headers })
   }
   if (file.size < 12) {
-    return NextResponse.json({ error: 'File non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidFile') }, { status: 400, headers: rl.headers })
   }
 
   const headerBuffer = new Uint8Array(await file.slice(0, 16).arrayBuffer())
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
   if (!detectedMime) {
     logger.warn('PostImageUpload', 'Rejected file with invalid magic bytes')
     return NextResponse.json(
-      { error: 'Formato non supportato. Usa JPEG, PNG, GIF o WebP.' },
+      { error: apiMessage(request, 'unsupportedImageFormat') },
       { status: 415, headers: rl.headers }
     )
   }
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   if (uploadError) {
     logger.error('PostImageUpload', 'Storage error')
-    return NextResponse.json({ error: 'Errore durante il caricamento' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'uploadError') }, { status: 500, headers: rl.headers })
   }
 
   const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)

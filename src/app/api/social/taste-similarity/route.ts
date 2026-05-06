@@ -2,6 +2,7 @@
 // V3: Taste Similarity Score tra utenti
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
   const targetUserId = searchParams.get('userId')
@@ -179,5 +180,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ profiles: similarities }, { headers: rl.headers })
   }
 
-  return NextResponse.json({ error: 'Parametri non validi' }, { status: 400, headers: rl.headers })
+  return NextResponse.json({ error: apiMessage(request, 'invalidParams') }, { status: 400, headers: rl.headers })
 }

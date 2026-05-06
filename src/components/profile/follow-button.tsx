@@ -16,7 +16,10 @@ export function FollowButton({
 }) {
   const [isFollowing, setIsFollowing] = useState(isFollowingInitial)
   const [loading, setLoading] = useState(false)
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const followCopy = (t as any).follow || (locale === 'it'
+    ? { follow: 'Segui', following: 'Seguito' }
+    : { follow: 'Follow', following: 'Following' })
 
   if (targetId === currentUserId) return null
 
@@ -64,7 +67,7 @@ export function FollowButton({
       ) : (
         <UserPlus size={14} strokeWidth={2.4} />
       )}
-      <span>{isFollowing ? t.follow.following : t.follow.follow}</span>
+      <span>{isFollowing ? followCopy.following : followCopy.follow}</span>
     </button>
   )
 }

@@ -8,6 +8,7 @@ import { checkOrigin } from "@/lib/csrf";
 import { logger } from "@/lib/logger";
 import { translateWithCache } from "@/lib/deepl";
 import { getRequestLocale } from "@/lib/i18n/serverLocale";
+import { apiMessage } from '@/lib/i18n/apiErrors'
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -42,10 +43,11 @@ async function getIgdbToken(
 const SAFE_SEARCH_RE = /^[\p{L}\p{N}\s\-_:.,'!?&()]+$/u;
 
 function validateSearch(
+  request: NextRequest,
   search: unknown,
 ): { ok: true; value: string } | { ok: false; error: string } {
   if (!search || typeof search !== "string")
-    return { ok: false, error: "Parametro search mancante" };
+    return { ok: false, error: apiMessage(request, 'missingSearchParam') };
 
   const trimmed = search.trim();
   if (trimmed.length < 2)
@@ -59,6 +61,7 @@ function validateSearch(
 }
 
 async function searchIgdb(
+  request: NextRequest,
   cleanSearch: string,
   headers: Record<string, string>,
 ) {
@@ -67,7 +70,7 @@ async function searchIgdb(
 
   if (!clientId || !clientSecret) {
     return NextResponse.json(
-      { error: "Configurazione IGDB mancante" },
+      { error: apiMessage(request, 'missingIgdbConfig') },
       { status: 500, headers },
     );
   }
@@ -75,7 +78,7 @@ async function searchIgdb(
   const accessToken = await getIgdbToken(clientId, clientSecret);
   if (!accessToken) {
     return NextResponse.json(
-      { error: "Impossibile ottenere token IGDB" },
+      { error: apiMessage(request, 'igdbTokenFailed') },
       { status: 500, headers },
     );
   }
@@ -104,7 +107,7 @@ async function searchIgdb(
 
   if (!igdbRes.ok) {
     return NextResponse.json(
-      { error: "Errore risposta IGDB" },
+      { error: apiMessage(request, 'igdbResponseError') },
       { status: 502, headers },
     );
   }
@@ -112,7 +115,7 @@ async function searchIgdb(
   const games = await igdbRes.json();
   if (!Array.isArray(games)) {
     return NextResponse.json(
-      { error: "Risposta IGDB non valida" },
+      { error: apiMessage(request, 'invalidIgdbResponse') },
       { status: 502, headers },
     );
   }
@@ -161,36 +164,36 @@ export async function POST(request: NextRequest) {
   });
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Troppe richieste. Riprova tra qualche secondo." },
+      { error: apiMessage(request, 'tooManyRequests') },
       { status: 429, headers: rl.headers },
     );
   }
   if (!checkOrigin(request))
     return NextResponse.json(
-      { error: "Origin non consentito" },
+      { error: apiMessage(request, 'originNotAllowed') },
       { status: 403, headers: rl.headers },
     );
 
   try {
     const body = await request.json();
-    const validated = validateSearch(body?.search);
+    const validated = validateSearch(request, body?.search);
     if (!validated.ok)
       return NextResponse.json(
         { error: validated.error },
         { status: 400, headers: rl.headers },
       );
-    return await searchIgdb(validated.value, rl.headers);
+    return await searchIgdb(request, validated.value, rl.headers);
   } catch (error: any) {
     if (error?.name === "TimeoutError") {
       logger.error("igdb", "Timeout richiesta IGDB");
       return NextResponse.json(
-        { error: "Timeout API IGDB" },
+        { error: apiMessage(request, 'igdbTimeout') },
         { status: 504, headers: rl.headers },
       );
     }
     logger.error("igdb", error);
     return NextResponse.json(
-      { error: "Errore interno del server" },
+      { error: apiMessage(request, 'serverInternalError') },
       { status: 500, headers: rl.headers },
     );
   }
@@ -204,7 +207,7 @@ export async function GET(request: NextRequest) {
   });
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Troppe richieste. Riprova tra qualche secondo." },
+      { error: apiMessage(request, 'tooManyRequests') },
       { status: 429, headers: rl.headers },
     );
   }
@@ -213,11 +216,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") || searchParams.get("search") || "";
     const lang = searchParams.get("lang") || "it";
-    const validated = validateSearch(q);
+    const validated = validateSearch(request, q);
     if (!validated.ok) return NextResponse.json([], { headers: rl.headers });
 
     const locale = await getRequestLocale(request);
-    const response = await searchIgdb(validated.value, rl.headers);
+    const response = await searchIgdb(request, validated.value, rl.headers);
     if (!response.ok || locale !== "it") return response;
 
     const games: any[] = await response.json();
@@ -248,13 +251,13 @@ export async function GET(request: NextRequest) {
     if (error?.name === "TimeoutError") {
       logger.error("igdb", "Timeout richiesta IGDB");
       return NextResponse.json(
-        { error: "Timeout API IGDB" },
+        { error: apiMessage(request, 'igdbTimeout') },
         { status: 504, headers: rl.headers },
       );
     }
     logger.error("igdb", error);
     return NextResponse.json(
-      { error: "Errore interno del server" },
+      { error: apiMessage(request, 'serverInternalError') },
       { status: 500, headers: rl.headers },
     );
   }

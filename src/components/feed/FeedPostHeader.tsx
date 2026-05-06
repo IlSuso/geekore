@@ -76,7 +76,7 @@ export function FeedPostHeader({
           data-no-swipe="true"
           onClick={() => onPostOptions(post.id)}
           className="rounded-2xl p-2 text-[var(--text-muted)] transition-all hover:bg-[var(--bg-card-hover)] hover:text-white"
-          aria-label="Opzioni post"
+          aria-label={locale === 'en' ? 'Post options' : 'Opzioni post'}
         >
           <MoreHorizontal size={18} aria-hidden="true" />
         </button>

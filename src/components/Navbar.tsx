@@ -15,7 +15,48 @@ import { useLocale } from '@/lib/locale'
 import { GeekoreWordmark } from '@/components/ui/GeekoreWordmark'
 import { appCopy } from '@/lib/i18n/appCopy'
 
-const AUTH_PATHS = ['/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding']
+const PUBLIC_NO_NAV_PATHS = ['/', '/login', '/register', '/auth/confirm', '/forgot-password', '/auth/reset-password', '/onboarding', '/privacy', '/terms', '/cookies']
+
+type OwnProfileCache = {
+  userId: string
+  username: string | null
+  displayName: string | null
+  avatarUrl: string | null
+  unread?: boolean
+  ts: number
+}
+
+const PROFILE_CACHE_PREFIX = 'geekore:own-profile-header:'
+
+function readOwnProfileCache(userId: string | null | undefined): OwnProfileCache | null {
+  if (!userId || typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(`${PROFILE_CACHE_PREFIX}${userId}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<OwnProfileCache>
+    if (parsed.userId !== userId) return null
+    return {
+      userId,
+      username: parsed.username || null,
+      displayName: parsed.displayName || null,
+      avatarUrl: parsed.avatarUrl || null,
+      unread: !!parsed.unread,
+      ts: typeof parsed.ts === 'number' ? parsed.ts : Date.now(),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeOwnProfileCache(data: OwnProfileCache) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.userId}`, JSON.stringify(data))
+    window.dispatchEvent(new CustomEvent('geekore:mobile-header-cache', { detail: data }))
+  } catch {
+    // localStorage non disponibile: ignora.
+  }
+}
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -53,7 +94,8 @@ export default function Navbar() {
     router.push('/login')
   }
 
-  const isAuthPage = AUTH_PATHS.some(p => pathname.startsWith(p))
+  const isPublicPageWithoutNav = PUBLIC_NO_NAV_PATHS.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)))
+  const isAuthPage = isPublicPageWithoutNav
   const isPublicLanding = pathname === '/'
 
   const NAV_ITEMS = [
@@ -104,14 +146,38 @@ export default function Navbar() {
     }
     setIsLoggedIn(true)
     let cancelled = false
+
+    const applyCache = (cache: OwnProfileCache | null) => {
+      if (cancelled || !cache || cache.userId !== authUser.id) return
+      setAvatarUrl(cache.avatarUrl || null)
+      setDisplayName(cache.displayName || null)
+      setUsername(cache.username || null)
+    }
+
+    applyCache(readOwnProfileCache(authUser.id))
+
+    const onProfileCache = (event: Event) => applyCache((event as CustomEvent).detail as OwnProfileCache | null)
+    window.addEventListener('geekore:mobile-header-cache', onProfileCache)
+
     supabase.from('profiles').select('avatar_url, display_name, username').eq('id', authUser.id).single()
       .then(({ data }) => {
         if (cancelled || !data) return
-        setAvatarUrl(data.avatar_url || null)
-        setDisplayName(data.display_name || null)
-        setUsername(data.username || null)
+        const cache: OwnProfileCache = {
+          userId: authUser.id,
+          username: data.username || null,
+          displayName: data.display_name || null,
+          avatarUrl: data.avatar_url || null,
+          ts: Date.now(),
+        }
+        setAvatarUrl(cache.avatarUrl)
+        setDisplayName(cache.displayName)
+        setUsername(cache.username)
+        writeOwnProfileCache(cache)
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      window.removeEventListener('geekore:mobile-header-cache', onProfileCache)
+    }
   }, [authUser, isAuthPage]) // eslint-disable-line
 
   const searchUsers = useCallback(async (val: string) => {
@@ -153,10 +219,12 @@ export default function Navbar() {
   if (isPublicLanding && isLoggedIn === null) return null
   if (isLoggedIn === null) return null
 
-  const currentUsername = username || ''
-  const currentDisplayName = displayName || username || ''
-  const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, displayName) : undefined
-  const avatarSrc = avatarUrl || localAvatarSrc
+  const cachedProfile = authUser ? readOwnProfileCache(authUser.id) : null
+  const currentUsername = username || cachedProfile?.username || ''
+  const currentDisplayName = displayName || cachedProfile?.displayName || currentUsername || ''
+  const currentAvatarUrl = avatarUrl || cachedProfile?.avatarUrl || null
+  const localAvatarSrc = currentUsername ? getLocalAvatarSvg(currentUsername, currentDisplayName) : undefined
+  const avatarSrc = currentAvatarUrl || localAvatarSrc
 
   return (
     <>
@@ -223,7 +291,7 @@ export default function Navbar() {
                   <Avatar src={res.avatar_url} username={res.username} displayName={res.display_name} size={32} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-[var(--text-primary)]">{res.display_name || res.username}</p>
-                    <p className="gk-mono truncate text-[var(--text-muted)]">@{res.username}</p>
+                    <p className="gk-mono truncate text-[var(--text-muted)]">{res.display_name ? res.display_name : res.username}</p>
                   </div>
                 </Link>
               )) : searchQuery.length >= 2 && !searchLoading ? (
@@ -269,10 +337,14 @@ export default function Navbar() {
               className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35 ${menuOpen ? 'border-[rgba(230,255,61,0.18)] bg-[rgba(230,255,61,0.06)]' : 'border-transparent hover:bg-[var(--bg-card-hover)]'}`}
               aria-label={copy.nav.accountMenu}
             >
-              <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={36} />
+              {avatarSrc ? (
+                <Avatar src={avatarSrc} username={currentUsername || 'me'} displayName={currentDisplayName || 'Utente'} size={36} />
+              ) : (
+                <span className="h-9 w-9 flex-shrink-0 rounded-xl bg-[var(--bg-card-hover)]" aria-hidden="true" />
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-bold leading-snug text-[var(--text-primary)]">{currentDisplayName || currentUsername || copy.nav.userFallback}</p>
-                {currentUsername && <p className="gk-mono truncate text-[var(--text-muted)]">@{currentUsername}</p>}
+                {currentDisplayName && <p className="gk-mono truncate text-[var(--text-muted)]">{currentDisplayName}</p>}
               </div>
               <ChevronDown size={14} className={`flex-shrink-0 text-[var(--text-muted)] transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>

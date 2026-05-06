@@ -1,4 +1,7 @@
+'use client'
+
 import type { ReactNode } from 'react'
+import { useLocale } from '@/lib/locale'
 import { PosterCard } from '@/components/ui/PosterCard'
 import { MediaGridSkeleton } from '@/components/ui/MediaSkeletons'
 import type { MediaRailItem } from '@/components/ui/MediaRail'
@@ -28,6 +31,9 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
   onItemClick,
   variant = 'default',
 }: MediaGridProps<T>) {
+  const { locale } = useLocale()
+  const emptyCopy = locale === 'en' ? 'No items to show.' : '{emptyCopy}'
+
   if (loading) {
     return <MediaGridSkeleton count={skeletonCount} showMeta={showMetaRow} className={className} />
   }
@@ -37,7 +43,7 @@ export function MediaGrid<T extends MediaRailItem = MediaRailItem>({
       <div data-no-swipe="true">
         {emptyState || (
           <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-card)] px-6 text-center text-[13px] text-[var(--text-muted)]">
-            Nessun elemento da mostrare.
+            {emptyCopy}
           </div>
         )}
       </div>

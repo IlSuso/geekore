@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -708,7 +709,7 @@ function buildDebugPayload(section: string, locale: Locale, result: any) {
 
 export async function GET(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'trending' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
 
   const { searchParams } = new URL(request.url)
   const requestedSection = (searchParams.get('section') || 'anime').toLowerCase()

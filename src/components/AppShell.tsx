@@ -10,7 +10,7 @@ import { KeepAliveTabShell } from '@/components/KeepAliveTabShell'
 import { MainShell } from '@/components/MainShell'
 import type { ReactNode } from 'react'
 
-const BYPASS_ROUTES = ['/', '/login', '/register', '/forgot-password', '/onboarding']
+const BYPASS_ROUTES = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/privacy', '/terms', '/cookies']
 const KEEP_ALIVE_TAB_ROUTES = new Set(['/home', '/for-you', '/swipe', '/discover', '/friends'])
 
 function isBypassRoute(pathname: string): boolean {

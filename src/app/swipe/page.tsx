@@ -644,11 +644,11 @@ export default function SwipePage() {
     return (
       <div className="gk-swipe-loading-shell" data-no-swipe="true">
         <div className="gk-swipe-loading-filters" aria-hidden="true">
-          <span className="is-active">All</span>
+          <span className="is-active">{locale === "en" ? "All" : "Tutto"}</span>
           <span>Anime</span>
           <span>Manga</span>
-          <span>Movie</span>
-          <span>TV</span>
+          <span>{locale === "en" ? "Movie" : "Film"}</span>
+          <span>{locale === "en" ? "TV" : "Serie TV"}</span>
         </div>
         <div className="gk-swipe-loading-card" aria-hidden="true">
           <div className="gk-swipe-loading-poster" />

@@ -72,7 +72,7 @@ export interface UserMediaEntry {
   rewatch_count?: number    // V3: numero di rewatch
   studios?: string[]        // V3: studio (anime)
   directors?: string[]      // V3: regista (anime)
-  authors?: string[]        // V3: autore (manga/book)
+  authors?: string[]        // autore/creator (manga)
   developer?: string        // V3: sviluppatore (game)
 }
 

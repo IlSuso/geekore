@@ -265,7 +265,7 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
             </p>
           </Link>
           <p className="gk-mono mt-0.5 text-[var(--text-muted)]">
-            @{profile?.username || 'anon'} · {timeAgo}
+            {timeAgo}
           </p>
         </div>
         {showReport && (
@@ -349,8 +349,8 @@ export const FeedCard = memo(function FeedCard({ post, onLikeChange, currentUser
                   </Link>
                   <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl px-3.5 py-2 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <Link href={`/profile/${comment.profiles?.username}`} className="gk-mono truncate hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-                        @{comment.profiles?.username || 'user'}
+                      <Link href={`/profile/${comment.profiles?.username}`} className="truncate font-black hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                        {comment.profiles?.display_name || comment.profiles?.username || 'user'}
                       </Link>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {user?.id === comment.user_id ? (

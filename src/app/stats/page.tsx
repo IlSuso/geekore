@@ -259,7 +259,7 @@ export default function StatsPage() {
             <h1 className="font-display text-[34px] font-black leading-none tracking-[-0.05em] text-[var(--text-primary)] md:text-[44px]">{formatReadable(stats.totalMinutes, copy)}</h1>
             <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">{copy.estimateDescription}</p>
             <div className="mt-4 rounded-2xl border border-[rgba(230,255,61,0.12)] bg-black/18 px-4 py-3 text-[13px] font-semibold leading-5 text-[var(--text-secondary)]">
-              <span className="text-[var(--accent)]">Insight:</span> {insight}
+              <span className="text-[var(--accent)]">{copy.insightLabel}:</span> {insight}
             </div>
           </div>
 

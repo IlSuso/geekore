@@ -5,7 +5,7 @@ import { checkOrigin } from '@/lib/csrf'
 import { rateLimit } from '@/lib/rateLimit'
 
 const ACTIVITY_TYPES = new Set(['media_completed', 'rating_given', 'progress_update'])
-const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'boardgame'])
 
 function cleanString(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null

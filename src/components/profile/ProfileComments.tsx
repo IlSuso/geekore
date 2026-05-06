@@ -45,7 +45,7 @@ function CommentAvatar({ author }: { author: Comment['author'] }) {
 export function ProfileComments({ profileId, profileUsername, isOwner }: ProfileCommentsProps) {
   const { locale } = useLocale()
   const dateLocale = locale === 'it' ? it : enUS
-  const copy = locale === 'it' ? { user: 'utente', publish: 'Pubblica', emptyTitle: 'Nessun messaggio ancora', emptyBody: 'Sii il primo a lasciare un commento su questo profilo.', commentOptions: 'Opzioni commento', deleteTitle: 'Eliminare il commento?', deleteHint: 'L’azione non può essere annullata.', delete: 'Elimina', cancel: 'Annulla' } : { user: 'user', publish: 'Post', emptyTitle: 'No messages yet', emptyBody: 'Be the first to leave a comment on this profile.', commentOptions: 'Comment options', deleteTitle: 'Delete this comment?', deleteHint: 'This action cannot be undone.', delete: 'Delete', cancel: 'Cancel' }
+  const copy = locale === 'it' ? { user: 'utente', publish: 'Pubblica', wallEyebrow: 'Bacheca profilo', wallTitle: 'Bacheca', wallSubtitle: 'Messaggi pubblici lasciati dalla community.', placeholder: 'Lascia un messaggio su questo profilo...', emptyTitle: 'Nessun messaggio ancora', emptyBody: 'Sii il primo a lasciare un commento su questo profilo.', commentOptions: 'Opzioni commento', deleteTitle: 'Eliminare il commento?', deleteHint: 'L’azione non può essere annullata.', delete: 'Elimina', cancel: 'Annulla' } : { user: 'user', publish: 'Post', wallEyebrow: 'Profile wall', wallTitle: 'Wall', wallSubtitle: 'Public messages left by the community.', placeholder: 'Leave a message on this profile...', emptyTitle: 'No messages yet', emptyBody: 'Be the first to leave a comment on this profile.', commentOptions: 'Comment options', deleteTitle: 'Delete this comment?', deleteHint: 'This action cannot be undone.', delete: 'Delete', cancel: 'Cancel' }
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
   const [newComment, setNewComment] = useState('')
@@ -152,10 +152,10 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
           <div>
             <div className="mb-1 gk-section-eyebrow">
               <Sparkles size={12} />
-              Profile wall
+              {copy.wallEyebrow}
             </div>
-            <h3 className="gk-title text-[var(--text-primary)]">Bacheca</h3>
-            <p className="gk-caption">Messaggi pubblici lasciati dalla community.</p>
+            <h3 className="gk-title text-[var(--text-primary)]">{copy.wallTitle}</h3>
+            <p className="gk-caption">{copy.wallSubtitle}</p>
           </div>
           <span className="rounded-full border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1 font-mono-data text-xs font-black text-[var(--text-secondary)]">
             {comments.length}
@@ -167,7 +167,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
             <textarea
               value={newComment}
               onChange={e => setNewComment(e.target.value.slice(0, 500))}
-              placeholder={`Lascia un messaggio su @${profileUsername}...`}
+              placeholder={copy.placeholder}
               rows={3}
               className="mb-3 w-full resize-none bg-transparent px-1 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
@@ -212,7 +212,7 @@ export function ProfileComments({ profileId, profileUsername, isOwner }: Profile
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <Link href={`/profile/${comment.author?.username}`} className="truncate text-sm font-black text-[var(--text-primary)] transition-colors hover:text-[var(--accent)]">
-                      @{comment.author?.username || copy.user}
+                      {comment.author?.display_name || comment.author?.username || copy.user}
                     </Link>
                     <div className="flex flex-shrink-0 items-center gap-2">
                       <span className="gk-mono text-[var(--text-muted)]">

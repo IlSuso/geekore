@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
 
-const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'book', 'boardgame', 'board_game'])
+const MEDIA_TYPES = new Set(['anime', 'manga', 'game', 'movie', 'tv', 'boardgame', 'board_game'])
 
 function cleanUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null

@@ -3,6 +3,7 @@
 // BGG restituisce 202 se la richiesta è in coda (va riprovata dal client).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { logger } from '@/lib/logger'
 
 const BGG_BASE = 'https://boardgamegeek.com/xmlapi2'
@@ -85,7 +86,7 @@ function parseCollectionXML(xml: string): BGGCollectionItem[] {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const username = searchParams.get('username')?.trim()
-  if (!username) return NextResponse.json({ error: 'Username mancante' }, { status: 400 })
+  if (!username) return NextResponse.json({ error: apiMessage(req, 'missingUsername') }, { status: 400 })
 
   const url = `${BGG_BASE}/collection?username=${encodeURIComponent(username)}&stats=1&own=1&excludesubtype=boardgameexpansion`
 
@@ -198,6 +199,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: enrichedItems, total, enriched: Object.values(enriched) })
   } catch (err) {
     logger.error('BGG Collection', 'Import failed', err)
-    return NextResponse.json({ error: 'Errore di rete' }, { status: 500 })
+    return NextResponse.json({ error: apiMessage(req, 'networkError') }, { status: 500 })
   }
 }

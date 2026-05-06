@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -20,15 +21,15 @@ function cleanUpdates(value: unknown): DisplayOrderUpdate[] {
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 60, windowMs: 60_000, prefix: 'collection:reorder' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const updates = cleanUpdates(body?.updates)
   if (updates.length === 0) return NextResponse.json({ error: 'updates mancanti' }, { status: 400, headers: rl.headers })
@@ -38,14 +39,14 @@ export async function POST(request: NextRequest) {
     .select('id')
     .eq('user_id', user.id)
     .in('id', updates.map(update => update.id))
-  if (ownedError) return NextResponse.json({ error: 'Titoli non verificati' }, { status: 500, headers: rl.headers })
+  if (ownedError) return NextResponse.json({ error: apiMessage(request, 'titlesNotVerified') }, { status: 500, headers: rl.headers })
 
   const ownedIds = new Set((ownedRows || []).map(row => row.id))
   const safeUpdates = updates.filter(update => ownedIds.has(update.id))
-  if (safeUpdates.length === 0) return NextResponse.json({ error: 'Nessun titolo modificabile' }, { status: 403, headers: rl.headers })
+  if (safeUpdates.length === 0) return NextResponse.json({ error: apiMessage(request, 'noEditableTitles') }, { status: 403, headers: rl.headers })
 
   const { error } = await supabase.rpc('update_display_orders', { updates: safeUpdates })
-  if (error) return NextResponse.json({ error: 'Ordine non aggiornato' }, { status: 500, headers: rl.headers })
+  if (error) return NextResponse.json({ error: apiMessage(request, 'orderNotUpdated') }, { status: 500, headers: rl.headers })
 
   return NextResponse.json({ success: true, updated: safeUpdates.length }, { headers: rl.headers })
 }

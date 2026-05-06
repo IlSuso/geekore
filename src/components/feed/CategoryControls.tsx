@@ -30,6 +30,9 @@ const CATEGORY_CONTROLS_COPY = {
     filterByMedium: "Filtra per medium",
     use: "Usa",
     useOnlyMedium: (label: string) => `Usa solo medium “${label}”`,
+    allActivitiesIn: (label: string) => `Tutte le activity di ${label}`,
+    titleSearchIn: (label: string) => `Cerca titolo in ${label}...`,
+    searchExactIn: (query: string, label: string) => `Cerca «${query}» in ${label}`,
     placeholders: {
       movie: "Cerca un film...",
       tv: "Cerca una serie TV...",
@@ -47,6 +50,9 @@ const CATEGORY_CONTROLS_COPY = {
     filterByMedium: "Filter by medium",
     use: "Use",
     useOnlyMedium: (label: string) => `Use only “${label}”`,
+    allActivitiesIn: (label: string) => `All activity in ${label}`,
+    titleSearchIn: (label: string) => `Search title in ${label}...`,
+    searchExactIn: (query: string, label: string) => `Search “${query}” in ${label}`,
     placeholders: {
       movie: "Search for a movie...",
       tv: "Search for a TV show...",
@@ -858,7 +864,7 @@ export function CategoryFilter({
                 onClick={() => applyFilter(activeMacro)}
                 className="w-full text-left px-3 py-2 rounded-xl text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition mb-2"
               >
-                Tutte le activity di <strong>{activeMacro}</strong>
+                {copy.allActivitiesIn(activeMacro).replace(activeMacro, "")}<strong>{activeMacro}</strong>
               </button>
 
               <div className="relative mb-2">
@@ -875,7 +881,7 @@ export function CategoryFilter({
                     if (e.key === "Enter" && subSearch.trim())
                       applyFilter(`${activeMacro}:${subSearch.trim()}`);
                   }}
-                  placeholder={`Cerca titolo in ${activeMacro}...`}
+                  placeholder={copy.titleSearchIn(activeMacro)}
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-zinc-500 focus:outline-none rounded-xl pl-8 pr-8 py-2 text-sm text-white placeholder-zinc-500 transition"
                 />
                 {isSearching && (
@@ -924,7 +930,7 @@ export function CategoryFilter({
                     color: "var(--accent)",
                   }}
                 >
-                  Cerca «{subSearch.trim()}» in {activeMacro}
+                  {copy.searchExactIn(subSearch.trim(), activeMacro)}
                 </button>
               )}
             </>

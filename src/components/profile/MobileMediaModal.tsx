@@ -92,7 +92,7 @@ export function MobileMediaModal({
   onNotes?: (media: ModalMedia) => void
 }) {
   const { locale } = useLocale()
-  const copy = locale === 'it' ? { rating: 'Valutazione', status: 'Stato', watching: 'In corso', completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', wishlist: 'Wishlist', playHours: 'Ore di gioco', chapters: 'Capitoli', recovering: 'Recupero…', fetchTotalChapters: 'Recupera totale capitoli', episodes: 'Episodi', fetchEpisodes: 'Recupera dati episodi', season: 'Stagione', episode: 'Episodio', noProgress: 'Nessun progresso da modificare per questo media.', editNotes: 'Modifica note', addNotes: 'Aggiungi note', cancel: 'Annulla', confirmRemove: 'Conferma rimozione', removeFromLibrary: 'Rimuovi dalla libreria' } : { rating: 'Rating', status: 'Status', watching: 'In progress', completed: 'Completed', paused: 'Paused', dropped: 'Dropped', wishlist: 'Wishlist', playHours: 'Play time', chapters: 'Chapters', recovering: 'Fetching…', fetchTotalChapters: 'Fetch total chapters', episodes: 'Episodes', fetchEpisodes: 'Fetch episode data', season: 'Season', episode: 'Episode', noProgress: 'No progress to edit for this media.', editNotes: 'Edit notes', addNotes: 'Add notes', cancel: 'Cancel', confirmRemove: 'Confirm removal', removeFromLibrary: 'Remove from library' }
+  const copy = locale === 'it' ? { rating: 'Valutazione', status: 'Stato', watching: 'In corso', completed: 'Completato', paused: 'In pausa', dropped: 'Abbandonato', wishlist: 'Wishlist', playHours: 'Ore di gioco', chapters: 'Capitoli', recovering: 'Recupero…', fetchTotalChapters: 'Recupera totale capitoli', episodes: 'Episodi', fetchEpisodes: 'Recupera dati episodi', season: 'Stagione', episode: 'Episodio', noProgress: 'Nessun progresso da modificare per questo media.', editNotes: 'Modifica note', addNotes: 'Aggiungi note', cancel: 'Annulla', confirmRemove: 'Conferma rimozione', removeFromLibrary: 'Rimuovi dalla libreria', quickEdit: 'modifica rapida', close: 'Chiudi', achievement: 'Achievement' } : { rating: 'Rating', status: 'Status', watching: 'In progress', completed: 'Completed', paused: 'Paused', dropped: 'Dropped', wishlist: 'Wishlist', playHours: 'Play time', chapters: 'Chapters', recovering: 'Fetching…', fetchTotalChapters: 'Fetch total chapters', episodes: 'Episodes', fetchEpisodes: 'Fetch episode data', season: 'Season', episode: 'Episode', noProgress: 'No progress to edit for this media.', editNotes: 'Edit notes', addNotes: 'Add notes', cancel: 'Cancel', confirmRemove: 'Confirm removal', removeFromLibrary: 'Remove from library', quickEdit: 'quick edit', close: 'Close', achievement: 'Achievements' }
   const [visible, setVisible] = useState(false)
   const [closing, setClosing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -297,17 +297,17 @@ export function MobileMediaModal({
                 <MediaTypeBadge type={media.type} size="xs" className="flex-shrink-0" />
                 {isCompleted && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                    <CheckCircle size={10} /> completato
+                    <CheckCircle size={10} /> {copy.completed}
                   </span>
                 )}
               </div>
               <h3 className="line-clamp-2 text-[16px] font-black leading-tight text-[var(--text-primary)]">{media.title}</h3>
-              <p className="gk-mono mt-1 text-[var(--text-muted)]">quick edit</p>
+              <p className="gk-mono mt-1 text-[var(--text-muted)]">{copy.quickEdit}</p>
             </div>
             <button
               onClick={doClose}
               onTouchStart={e => e.stopPropagation()}
-              aria-label="Chiudi"
+              aria-label={copy.close}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-black/20 text-[var(--text-secondary)] transition hover:text-white"
             >
               <X size={16} />
@@ -342,7 +342,7 @@ export function MobileMediaModal({
                 <option value="completed">{copy.completed}</option>
                 <option value="paused">{copy.paused}</option>
                 <option value="dropped">{copy.dropped}</option>
-                <option value="wishlist">Wishlist</option>
+                <option value="wishlist">{copy.wishlist}</option>
               </select>
             </div>
           )}
@@ -364,7 +364,7 @@ export function MobileMediaModal({
                   {ach && ach.tot > 0 && (
                     <div>
                       <div className="mb-1.5 flex justify-between text-xs font-bold text-[var(--text-muted)]">
-                        <span>Achievement</span>
+                        <span>{copy.achievement}</span>
                         <span className="font-mono-data text-[var(--text-secondary)]">{ach.curr}/{ach.tot}</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-black/30">

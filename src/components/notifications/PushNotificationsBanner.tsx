@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Bell, X } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 const SKIP_PATHS = ['/login', '/register', '/forgot-password', '/onboarding', '/auth']
 
@@ -18,6 +19,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function PushNotificationsBanner() {
   const pathname = usePathname()
+  const { t } = useLocale()
+  const copy = t.notifications
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -95,19 +98,19 @@ export function PushNotificationsBanner() {
             <Bell size={16} className="text-zinc-300" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white">Abilita le notifiche</p>
+            <p className="text-sm font-semibold text-white">{copy.enableTitle}</p>
             <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-              Ricevi avvisi per follow, like e commenti anche con l'app chiusa.
+              {copy.enableBody}
             </p>
             <div className="flex gap-2 mt-3">
               <button onClick={handleEnable} disabled={loading}
                 className="flex-1 py-2 disabled:opacity-60 rounded-xl text-xs font-semibold transition-colors"
                 style={{ background: 'var(--accent)', color: '#0B0B0F' }}>
-                {loading ? 'Attivazione…' : 'Attiva'}
+                {loading ? copy.enabling : copy.enable}
               </button>
               <button onClick={dismiss}
                 className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs text-zinc-400 transition-colors">
-                Dopo
+                {copy.later}
               </button>
             </div>
           </div>

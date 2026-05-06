@@ -10,6 +10,8 @@ interface MediaCoverProps {
   match?: number | string | null
   progress?: number | null
   completed?: boolean
+  completedLabel?: string
+  typeLabelPrefix?: string
   fallback?: ReactNode
   fallbackSrcs?: string[]
   className?: string
@@ -79,6 +81,8 @@ export function MediaCover({
   match,
   progress,
   completed,
+  completedLabel = 'Completed',
+  typeLabelPrefix = '',
   fallback,
   fallbackSrcs = [],
   className = '',
@@ -166,7 +170,7 @@ export function MediaCover({
 
       {resolvedTypeLabel && (
         <span className="gk-cover-tag" style={typeColor ? { color: typeColor } : undefined}>
-          <span className="sr-only">Tipo media: </span>{resolvedTypeLabel}
+          {typeLabelPrefix ? <span className="sr-only">{typeLabelPrefix}: </span> : null}{resolvedTypeLabel}
         </span>
       )}
 
@@ -174,7 +178,7 @@ export function MediaCover({
       {score != null && <span className="gk-cover-score">{score}</span>}
 
       {completed && (
-        <span className="gk-cover-check" aria-label="Completato">
+        <span className="gk-cover-check" aria-label={completedLabel}>
           <Check size={9} strokeWidth={3} />
         </span>
       )}

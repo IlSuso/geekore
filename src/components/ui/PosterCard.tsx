@@ -18,6 +18,9 @@ interface PosterCardProps {
     total?: number | null
     label?: string
   }
+  coverAltPrefix?: string
+  wishlistLabel?: string
+  openAriaLabel?: (title: string) => string
   showMetaRow?: boolean
   isInCollection?: boolean
   isWishlisted?: boolean
@@ -46,6 +49,8 @@ function PosterCardContent({
   score,
   status,
   progress,
+  coverAltPrefix = 'Cover of',
+  wishlistLabel = 'Wishlist',
   showMetaRow,
   isInCollection,
   isWishlisted,
@@ -69,7 +74,7 @@ function PosterCardContent({
         {hasCover ? (
           <img
             src={coverImage || undefined}
-            alt={`Copertina di ${title}`}
+            alt={`${coverAltPrefix} ${title}`}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035] ${imageClassName || ''}`}
@@ -100,7 +105,7 @@ function PosterCardContent({
           <div className="pointer-events-none absolute right-2 top-2">
             <div className="gk-status-pill !static">
               <BookmarkCheck size={10} strokeWidth={2.2} />
-              Wishlist
+              {wishlistLabel}
             </div>
           </div>
         )}
@@ -143,6 +148,9 @@ export function PosterCard({
   score,
   status,
   progress,
+  coverAltPrefix = 'Cover of',
+  wishlistLabel = 'Wishlist',
+  openAriaLabel = (value: string) => `Open ${value}`,
   showMetaRow = false,
   isInCollection = false,
   isWishlisted = false,
@@ -165,6 +173,8 @@ export function PosterCard({
       score={score}
       status={status}
       progress={progress}
+      coverAltPrefix={coverAltPrefix}
+      wishlistLabel={wishlistLabel}
       showMetaRow={showMetaRow}
       isInCollection={isInCollection}
       isWishlisted={isWishlisted}
@@ -184,7 +194,7 @@ export function PosterCard({
         onClick={(event) => { event.stopPropagation(); onClick() }}
         onPointerDown={event => event.stopPropagation()}
         style={style}
-        aria-label={`Apri ${title}`}
+        aria-label={openAriaLabel(title)}
       >
         {content}
       </button>

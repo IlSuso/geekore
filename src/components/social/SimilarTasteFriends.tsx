@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Users, Zap } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
+import { useLocale } from '@/lib/locale'
 
 interface SimilarFriend {
   userId: string
@@ -51,6 +52,8 @@ function SimilarityRing({ score }: { score: number }) {
 }
 
 export function SimilarTasteFriends() {
+  const { t } = useLocale()
+  const copy = t.social
   const [friends, setFriends] = useState<SimilarFriend[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -88,8 +91,8 @@ export function SimilarTasteFriends() {
           <Zap size={16} className="text-black" />
         </div>
         <div>
-          <h2 className="gk-headline text-[var(--text-primary)]">Gusti simili ai tuoi</h2>
-          <p className="gk-caption">Amici con cui condividi più gusti</p>
+          <h2 className="gk-headline text-[var(--text-primary)]">{copy.similarTasteTitle}</h2>
+          <p className="gk-caption">{copy.similarTasteSubtitle}</p>
         </div>
       </div>
 

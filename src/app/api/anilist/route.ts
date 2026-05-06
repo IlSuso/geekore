@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimitAsync } from "@/lib/rateLimit";
 import { translateWithCache } from "@/lib/deepl";
 import { getRequestLocale } from "@/lib/i18n/serverLocale";
+import { apiMessage } from '@/lib/i18n/apiErrors'
 
 const ANILIST_API = "https://graphql.anilist.co";
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
   });
   if (!rl.ok)
     return NextResponse.json(
-      { error: "Troppe richieste" },
+      { error: apiMessage(request, 'tooManyRequests') },
       { status: 429, headers: rl.headers },
     );
 

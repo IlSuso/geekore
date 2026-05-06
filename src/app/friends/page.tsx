@@ -276,7 +276,7 @@ function StatusAvatar({
         />
       </div>
       <p className="mt-2 w-full truncate text-center text-[11px] font-black text-[var(--text-primary)]">
-        {username}
+        {label}
       </p>
       <p
         className={`mt-0.5 text-[8px] font-black uppercase tracking-[0.16em] ${
@@ -304,7 +304,7 @@ function FriendsStatusRail({
     const ao = onlineIds.has(a.id) ? 1 : 0;
     const bo = onlineIds.has(b.id) ? 1 : 0;
     if (bo !== ao) return bo - ao;
-    return (a.username || a.id).localeCompare(b.username || b.id);
+    return profileDisplayName(a, copy).localeCompare(profileDisplayName(b, copy));
   });
   const onlineCount = sorted.filter((profile) => onlineIds.has(profile.id)).length;
 
@@ -408,7 +408,7 @@ function ActivityCard({
               href={`/profile/${username}`}
               className="font-black text-[var(--text-primary)] hover:text-[var(--accent)]"
             >
-              @{username}
+              {name}
             </Link>{" "}
             <span>{verb}</span>{" "}
             <span className="font-black italic text-[var(--text-primary)]">
@@ -477,9 +477,6 @@ function ProfileSuggestionCard({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-black text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">
             {label}
-          </p>
-          <p className="gk-mono truncate text-[var(--text-muted)]">
-            @{username}
           </p>
           {profile.bio ? (
             <p className="mt-0.5 line-clamp-1 text-[12px] text-[var(--text-muted)]">

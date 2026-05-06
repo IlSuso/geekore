@@ -2,6 +2,7 @@
 // Salva il mood dell'utente come cookie (4 ore TTL) e aggiorna user_preferences.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -11,19 +12,19 @@ type Mood = typeof VALID_MOODS[number]
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 30, windowMs: 60_000, prefix: 'recommendations:mood' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const mood: Mood = body.mood ?? null
   if (!VALID_MOODS.includes(mood)) {
-    return NextResponse.json({ error: 'Mood non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidMood') }, { status: 400, headers: rl.headers })
   }
 
   const expiresAt = mood ? new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString() : null
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
   if (error) {
-    return NextResponse.json({ error: 'Mood non salvato' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'moodNotSaved') }, { status: 500, headers: rl.headers })
   }
 
   // Risposta con cookie per accesso rapido lato server (TTL 4 ore)

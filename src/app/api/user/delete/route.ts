@@ -4,13 +4,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { verifyCsrf } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { rateLimit } from '@/lib/rateLimit'
 
 export async function DELETE(request: NextRequest) {
   const rl = rateLimit(request, { limit: 3, windowMs: 60 * 60_000, prefix: 'user:delete' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
 
   // SEC2: Guard esplicita — se la chiave non è configurata, abortiamo subito
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -26,7 +27,7 @@ export async function DELETE(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
     }
 
     const csrf = verifyCsrf(request, user.id)

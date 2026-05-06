@@ -37,3 +37,16 @@
     margin-top: 0 !important;
   }
 }
+
+/* For You DNA: override old polish rules loaded before this file.
+   The previous CSS capped `section:first-of-type`, so the DNA card could not
+   reach the same right edge as Preferences / Refresh. */
+@media (min-width: 768px) {
+  .gk-for-you-page > div > section.gk-dna-wide,
+  .gk-for-you-page section.gk-dna-wide:first-of-type {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}

@@ -10,6 +10,7 @@
 
 import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
@@ -345,15 +346,15 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'mal-import' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
+      { error: apiMessage(request, 'tooManyImports') },
       { status: 429, headers: rl.headers }
     )
   }
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   // ── Lettura file (prima dello stream) ────────────────────────────────────
   let xmlContent: string
@@ -362,22 +363,22 @@ export async function POST(request: NextRequest) {
   if (contentType.includes('multipart/form-data')) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    if (!file) return NextResponse.json({ error: 'File non trovato' }, { status: 400, headers: rl.headers })
-    if (file.size > MAX_XML_BYTES) return NextResponse.json({ error: 'File troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
+    if (!file) return NextResponse.json({ error: apiMessage(request, 'fileNotFound') }, { status: 400, headers: rl.headers })
+    if (file.size > MAX_XML_BYTES) return NextResponse.json({ error: apiMessage(request, 'fileTooLarge5') }, { status: 400, headers: rl.headers })
     xmlContent = await file.text()
   } else {
     let body: any
     try { body = await request.json() } catch {
-      return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers })
     }
     xmlContent = typeof body?.xml === 'string' ? body.xml : ''
     if (new TextEncoder().encode(xmlContent).length > MAX_XML_BYTES) {
-      return NextResponse.json({ error: 'XML troppo grande (max 5MB)' }, { status: 400, headers: rl.headers })
+      return NextResponse.json({ error: apiMessage(request, 'xmlTooLarge') }, { status: 400, headers: rl.headers })
     }
   }
 
   if (!xmlContent || !xmlContent.includes('<myanimelist>')) {
-    return NextResponse.json({ error: "File non valido. Carica l'export XML di MyAnimeList." }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidXmlFile') }, { status: 400, headers: rl.headers })
   }
 
   let parsed: ReturnType<typeof parseMALXML>
@@ -386,7 +387,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (parsed.animeList.length === 0 && parsed.mangaList.length === 0) {
-    return NextResponse.json({ error: 'Nessun titolo trovato nel file.' }, { status: 422, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'noTitlesInFile') }, { status: 422, headers: rl.headers })
   }
 
   // ── Streaming response ────────────────────────────────────────────────────
@@ -433,7 +434,7 @@ export async function POST(request: NextRequest) {
         ].filter(Boolean) as any[]
 
         if (toInsert.length === 0) {
-          send({ type: 'error', message: 'Nessun titolo valido trovato nel file.' }); return
+          send({ type: 'error', message: apiMessage(request, 'noValidTitlesInFile') }); return
         }
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[MAL Import]')

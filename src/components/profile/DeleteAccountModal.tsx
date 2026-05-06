@@ -18,6 +18,7 @@ const DELETE_COPY = {
     cancel: "Annulla",
     deleting: "Eliminazione...",
     deleteForever: "Elimina definitivamente",
+    confirmWord: "elimina",
   },
   en: {
     title: "Delete account",
@@ -29,6 +30,7 @@ const DELETE_COPY = {
     cancel: "Cancel",
     deleting: "Deleting...",
     deleteForever: "Delete permanently",
+    confirmWord: "delete",
   },
 } as const;
 
@@ -52,7 +54,7 @@ export function DeleteAccountModal({
   }, [onClose]);
 
   const handleDelete = async () => {
-    if (confirmText !== "elimina") return;
+    if (confirmText !== dc.confirmWord) return;
     setDeleting(true);
     await onConfirm();
     setDeleting(false);
@@ -75,14 +77,14 @@ export function DeleteAccountModal({
         <div className="mb-6">
           <label className="block text-sm text-zinc-500 mb-2">
             {dc.labelBefore}{" "}
-            <span className="text-red-400 font-mono font-bold">elimina</span>{" "}
+            <span className="text-red-400 font-mono font-bold">{dc.confirmWord}</span>{" "}
             {dc.labelAfter}
           </label>
           <input
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="elimina"
+            placeholder={dc.confirmWord}
             className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white focus:outline-none focus:border-red-500 transition-colors"
           />
         </div>
@@ -98,7 +100,7 @@ export function DeleteAccountModal({
           </button>
           <button
             onClick={handleDelete}
-            disabled={confirmText !== "elimina" || deleting}
+            disabled={confirmText !== dc.confirmWord || deleting}
             className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-30 rounded-2xl transition-colors font-medium text-white flex items-center justify-center gap-2"
           >
             {deleting ? (

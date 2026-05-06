@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger'
 // Nessuna cache aggiuntiva necessaria (nessun lookup per-item extra).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
@@ -135,30 +136,30 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'anilist-import' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
+      { error: apiMessage(request, 'tooManyImports') },
       { status: 429, headers: rl.headers }
     )
   }
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
   try { body = await request.json() } catch {
-    return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers })
   }
 
   const { anilist_username, types = ['ANIME', 'MANGA'] } = body
 
   if (!anilist_username || typeof anilist_username !== 'string') {
-    return NextResponse.json({ error: 'Username AniList mancante' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'missingAnilistUsername') }, { status: 400, headers: rl.headers })
   }
 
   const username = anilist_username.trim()
   if (username.length < 2 || username.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
-    return NextResponse.json({ error: 'Username AniList non valido' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'invalidAnilistUsername') }, { status: 400, headers: rl.headers })
   }
 
   const requestedTypes = Array.isArray(types) ? types : []
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (allItems.length === 0 && errors.length > 0) {
-          send({ type: 'error', message: 'Impossibile recuperare i dati. Il profilo AniList è pubblico?' }); return
+          send({ type: 'error', message: apiMessage(request, 'anilistFetchFailed') }); return
         }
 
         // ── Cross-reference MAL per titoli italiani ─────────────────────
@@ -265,7 +266,7 @@ export async function POST(request: NextRequest) {
 
         if (toInsert.length === 0) {
           send({ type: 'done', imported: 0, merged: 0, skipped: 0, total: 0,
-            message: 'Nessun titolo valido trovato nel profilo AniList' }); return
+            message: apiMessage(request, 'noValidAnilistTitles') }); return
         }
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[AniList Import]')

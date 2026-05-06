@@ -9,6 +9,7 @@ import { gestureState } from '@/hooks/gestureState'
 import { androidBack } from '@/hooks/androidBack'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useLocale } from '@/lib/locale'
 
 interface BottomSheetProps {
   open: boolean
@@ -37,6 +38,8 @@ export function BottomSheet({
   children,
   persistent = false,
 }: BottomSheetProps) {
+  const { locale } = useLocale()
+  const closeLabel = locale === 'it' ? 'Chiudi' : 'Close'
   const sheetRef = useRef<HTMLDivElement>(null)
   const dragStartY = useRef<number | null>(null)
   const dragCurrentY = useRef<number>(0)
@@ -289,7 +292,7 @@ export function BottomSheet({
                 <button
                   onClick={onClose}
                   className="ml-auto p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                  aria-label="Chiudi"
+                  aria-label={closeLabel}
                 >
                   <X size={18} />
                 </button>

@@ -4,6 +4,7 @@
 export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { memCacheGet, memCacheSet, memCacheInvalidate } from '@/lib/reco/cache'
@@ -237,7 +238,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload, { headers: { 'X-Cache': 'MISS' } })
   } catch (err) {
     console.error('[Recommendations] error:', err)
-    return NextResponse.json({ error: 'Errore interno' }, { status: 500 })
+    return NextResponse.json({ error: apiMessage(request, 'internalError') }, { status: 500 })
   }
 }
 

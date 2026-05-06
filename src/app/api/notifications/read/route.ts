@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -9,13 +10,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Troppe richieste. Rallenta.' }, { status: 429, headers: rl.headers })
   }
   if (!checkOrigin(request)) {
-    return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
   }
 
   let body: unknown
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
   const { error } = await query
   if (error) {
-    return NextResponse.json({ error: 'Notifiche non aggiornate' }, { status: 500, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'notificationNotUpdated') }, { status: 500, headers: rl.headers })
   }
 
   return NextResponse.json({ success: true }, { headers: rl.headers })

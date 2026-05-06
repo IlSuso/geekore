@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
@@ -27,15 +28,15 @@ function normalizeItem(raw: any) {
 
 export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'onboarding:complete' })
-  if (!rl.ok) return NextResponse.json({ error: 'Troppe richieste' }, { status: 429, headers: rl.headers })
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!rl.ok) return NextResponse.json({ error: apiMessage(request, 'tooManyRequests') }, { status: 429, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   let body: any
-  try { body = await request.json() } catch { return NextResponse.json({ error: 'Body non valido' }, { status: 400, headers: rl.headers }) }
+  try { body = await request.json() } catch { return NextResponse.json({ error: apiMessage(request, 'invalidBody') }, { status: 400, headers: rl.headers }) }
 
   const accepted = Array.isArray(body?.accepted) ? body.accepted.slice(0, 100) : []
   const wishlist = Array.isArray(body?.wishlist) ? body.wishlist.slice(0, 100) : []
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('user_media_entries')
       .upsert(mediaRows, { onConflict: 'user_id,external_id' })
-    if (error) return NextResponse.json({ error: 'Collezione onboarding non salvata' }, { status: 500, headers: rl.headers })
+    if (error) return NextResponse.json({ error: apiMessage(request, 'onboardingCollectionNotSaved') }, { status: 500, headers: rl.headers })
   }
 
   const wishlistRows = wishlist
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('wishlist')
       .upsert(wishlistRows, { onConflict: 'user_id,external_id' })
-    if (error) return NextResponse.json({ error: 'Wishlist onboarding non salvata' }, { status: 500, headers: rl.headers })
+    if (error) return NextResponse.json({ error: apiMessage(request, 'onboardingWishlistNotSaved') }, { status: 500, headers: rl.headers })
   }
 
   const skippedRows = skipped
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from('swipe_skipped')
       .upsert(skippedRows, { onConflict: 'user_id,external_id' })
-    if (error) return NextResponse.json({ error: 'Skip onboarding non salvati' }, { status: 500, headers: rl.headers })
+    if (error) return NextResponse.json({ error: apiMessage(request, 'onboardingSkipsNotSaved') }, { status: 500, headers: rl.headers })
   }
 
   const profileUpdate: Record<string, unknown> = { onboarding_done: true, onboarding_step: 3 }
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     .from('profiles')
     .update(profileUpdate)
     .eq('id', user.id)
-  if (profileError) return NextResponse.json({ error: 'Profilo onboarding non aggiornato' }, { status: 500, headers: rl.headers })
+  if (profileError) return NextResponse.json({ error: apiMessage(request, 'onboardingProfileNotUpdated') }, { status: 500, headers: rl.headers })
 
   await Promise.all(QUEUE_TABLES.map(table => supabase.from(table).delete().eq('user_id', user.id)))
 

@@ -7,6 +7,7 @@ export const maxDuration = 60
 import { NextRequest, NextResponse, after } from 'next/server'
 import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const INTERNAL_REGEN_FETCH_TIMEOUT_MS = 55_000
@@ -15,7 +16,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('X-Cron-Secret')
   if (!CRON_SECRET || secret !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: apiMessage(request, 'unauthorized') }, { status: 401 })
   }
 
   const body = await request.json().catch(() => null)

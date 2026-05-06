@@ -236,13 +236,13 @@ export function SwipeableCard({
               onClick={() => setShowDeleteConfirm(false)}
               className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium transition-colors"
             >
-              Annulla
+              {copy.cancel}
             </button>
             <button
               onClick={handleDeleteConfirm}
               className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-2xl text-sm font-semibold transition-colors"
             >
-              Elimina
+              {copy.delete}
             </button>
           </div>
         </div>

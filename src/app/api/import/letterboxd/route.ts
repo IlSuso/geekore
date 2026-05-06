@@ -14,6 +14,7 @@
 // nel campo `title`; viene usato al posto del titolo originale Letterboxd quando disponibile.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
@@ -316,19 +317,19 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 3, windowMs: 60 * 60 * 1000, prefix: 'letterboxd-import' })
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Troppe importazioni. Attendi un'ora prima di riprovare." },
+      { error: apiMessage(request, 'tooManyImports') },
       { status: 429, headers: rl.headers }
     )
   }
-  if (!checkOrigin(request)) return NextResponse.json({ error: 'Origin non consentito' }, { status: 403, headers: rl.headers })
+  if (!checkOrigin(request)) return NextResponse.json({ error: apiMessage(request, 'originNotAllowed') }, { status: 403, headers: rl.headers })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autenticato' }, { status: 401, headers: rl.headers })
+  if (!user) return NextResponse.json({ error: apiMessage(request, 'notAuthenticated') }, { status: 401, headers: rl.headers })
 
   const contentType = request.headers.get('content-type') || ''
   if (!contentType.includes('multipart/form-data')) {
-    return NextResponse.json({ error: 'Invia i file CSV via form-data.' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'uploadCsvForm') }, { status: 400, headers: rl.headers })
   }
 
   const formData = await request.formData()
@@ -339,7 +340,7 @@ export async function POST(request: NextRequest) {
   const listName      = (formData.get('list_name') as string | null)?.trim() || ''
 
   if (!watchedFile && !ratingsFile && !watchlistFile && !listFile) {
-    return NextResponse.json({ error: 'Carica almeno un file CSV.' }, { status: 400, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'uploadAtLeastCsv') }, { status: 400, headers: rl.headers })
   }
 
   const MAX = 10 * 1024 * 1024
@@ -370,7 +371,7 @@ export async function POST(request: NextRequest) {
   if (listMetaRow) listRows = listRows.filter(r => !(r['letterboxd uri'] || '').includes('/list/'))
 
   if (!watchedRows.length && !ratingsRows.length && !watchlistRows.length && !listRows.length) {
-    return NextResponse.json({ error: 'Nessun film trovato nei file caricati.' }, { status: 422, headers: rl.headers })
+    return NextResponse.json({ error: apiMessage(request, 'noMoviesInFiles') }, { status: 422, headers: rl.headers })
   }
 
   // ── Streaming response ────────────────────────────────────────────────────
@@ -445,7 +446,7 @@ export async function POST(request: NextRequest) {
         const allEntries     = [...mainBuilt, ...watchlistBuilt, ...listBuilt]
 
         if (allEntries.length === 0) {
-          send({ type: 'error', message: 'Nessun film valido trovato.' }); return
+          send({ type: 'error', message: apiMessage(request, 'noValidMovies') }); return
         }
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, allEntries, user.id, '[Letterboxd Import]')

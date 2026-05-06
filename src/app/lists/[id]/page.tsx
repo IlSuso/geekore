@@ -220,7 +220,7 @@ export default function ListDetailPage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="gk-section-eyebrow">
             <Sparkles size={12} />
-            Curated list
+            {copy.listDetail.curatedList}
           </div>
           <div className="flex items-center gap-2">
             {list.is_public && (
@@ -257,10 +257,10 @@ export default function ListDetailPage() {
         {list.description && <p className="gk-body max-w-2xl">{list.description}</p>}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
-          <span className="gk-caption">{locale === "en" ? "by" : "di"}</span>
+          <span className="gk-caption">{copy.listDetail.by}</span>
           {list.owner?.username ? (
-            <Link href={`/profile/${list.owner.username}`} data-no-swipe="true" className="gk-mono text-[var(--accent)] transition-opacity hover:opacity-80">
-              @{list.owner.username}
+            <Link href={`/profile/${list.owner.username}`} data-no-swipe="true" className="font-bold text-[var(--accent)] transition-opacity hover:opacity-80">
+              {list.owner.display_name || list.owner.username}
             </Link>
           ) : (
             <span className="gk-mono text-[var(--text-muted)]">{copy.listDetail.userFallback}</span>
@@ -269,8 +269,8 @@ export default function ListDetailPage() {
 
         <div className="mt-4 grid grid-cols-3 gap-2">
           <CollectionStat label={copy.listDetail.items} value={localizedItems.length} accent />
-          <CollectionStat label="medium" value={typeCount} />
-          <CollectionStat label={locale === "en" ? "visibility" : "visibilità"} value={list.is_public ? copy.listDetail.publicLabel.toLowerCase() : copy.listDetail.privateLabel.toLowerCase()} />
+          <CollectionStat label={copy.listDetail.medium} value={typeCount} />
+          <CollectionStat label={copy.listDetail.visibility} value={list.is_public ? copy.listDetail.publicLabel.toLowerCase() : copy.listDetail.privateLabel.toLowerCase()} />
         </div>
       </div>
 
@@ -337,7 +337,7 @@ export default function ListDetailPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--bg-secondary)]">
             <Film size={28} className="text-[var(--text-muted)]" />
           </div>
-          <p className="gk-headline mb-1 text-[var(--text-primary)]">{locale === "en" ? "This list is empty" : "Questa lista è vuota"}</p>
+          <p className="gk-headline mb-1 text-[var(--text-primary)]">{copy.listDetail.emptyTitle}</p>
           <p className="gk-body mx-auto mb-5 max-w-sm">{copy.listDetail.emptyBody}</p>
           {isOwner && (
             <button

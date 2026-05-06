@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 
-export type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame' | 'book'
+export type MediaType = 'anime' | 'manga' | 'movie' | 'tv' | 'game' | 'boardgame'
 
 export const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
   anime: 'Anime',
@@ -9,7 +9,6 @@ export const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
   tv: 'Serie TV',
   game: 'Videogiochi',
   boardgame: 'Giochi da tavolo',
-  book: 'Libri',
 }
 
 export const MEDIA_TYPE_COLORS: Record<MediaType, string> = {
@@ -19,7 +18,6 @@ export const MEDIA_TYPE_COLORS: Record<MediaType, string> = {
   tv: 'var(--type-tv)',
   game: 'var(--type-game)',
   boardgame: 'var(--type-board)',
-  book: 'var(--accent)',
 }
 
 export function normalizeMediaType(type?: string | null): MediaType | null {

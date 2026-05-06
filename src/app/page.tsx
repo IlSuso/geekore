@@ -147,12 +147,12 @@ export default async function LandingPage() {
     login: 'Log in', register: 'Sign up', badge: 'Your geek universe',
     title: 'Everything you love, in one profile.',
     subtitle: 'Anime, manga, video games, TV shows, movies and board games in one place: library, recommendations, swipe and social feed without splitting everything across a thousand apps.',
-    registerFree: 'Sign up free', communityLive: 'Live community', connected: 'Connected universes', connectedTitle: 'One place, more signals.', footer: 'Geekore — made with passion for geeks'
+    registerFree: 'Sign up free', communityLive: 'Live community', connected: 'Connected universes', connectedTitle: 'One place, more signals.'
   } : {
     login: 'Accedi', register: 'Registrati', badge: 'Il tuo universo geek',
     title: 'Tutto ciò che ami, in un profilo.',
     subtitle: 'Anime, manga, videogiochi, serie TV, film e board game nello stesso posto: library, consigli, swipe e feed sociale senza duplicare tutto tra mille app.',
-    registerFree: 'Registrati gratis', communityLive: 'Community live', connected: 'Universi collegati', connectedTitle: 'Un solo posto, più segnali.', footer: 'Geekore — fatto con passione per i geek'
+    registerFree: 'Registrati gratis', communityLive: 'Community live', connected: 'Universi collegati', connectedTitle: 'Un solo posto, più segnali.'
   }
   const featureLinks = getFeatureLinks(locale)
   const supabase = await createClient()
@@ -189,7 +189,7 @@ export default async function LandingPage() {
       </header>
 
       <main className="relative z-10">
-        <section className="mx-auto grid min-h-[calc(100vh-72px)] max-w-6xl items-center gap-12 px-5 py-12 md:grid-cols-[1fr_0.9fr] md:px-10 md:py-16 xl:px-0">
+        <section className="mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl items-center gap-12 px-5 py-12 md:grid-cols-[1.08fr_0.92fr] md:px-10 md:py-16 xl:px-8">
           <div>
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[rgba(230,255,61,0.24)] bg-[rgba(230,255,61,0.075)] px-4 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
@@ -227,7 +227,7 @@ export default async function LandingPage() {
           <AppPreview locale={locale} />
         </section>
 
-        <section className="relative mx-auto max-w-6xl px-5 pb-20 md:px-10 xl:px-0">
+        <section className="relative mx-auto max-w-7xl px-5 pb-20 md:px-10 xl:px-8">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">{landing.connected}</p>
@@ -248,10 +248,6 @@ export default async function LandingPage() {
           </div>
         </section>
       </main>
-
-      <footer className="relative z-10 border-t border-white/6 py-5 text-center text-[12px] text-[var(--text-muted)]">
-        {landing.footer}
-      </footer>
     </div>
   )
 }
