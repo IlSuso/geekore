@@ -683,6 +683,17 @@ export default function OnboardingPage() {
     source: r.source ?? null,
   });
 
+  const mergeSwipeItemsById = (base: SwipeItem[], extra: SwipeItem[]) => {
+    const seen = new Set(base.map((item) => item.id));
+    const merged = [...base];
+    for (const item of extra) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+    return merged;
+  };
+
   const descriptionLooksMostlyEnglish = (text?: string | null) => {
     if (!text) return false;
     const sample = ` ${text.toLowerCase()} `;
@@ -817,7 +828,10 @@ export default function OnboardingPage() {
           POOL_QUICK,
           locale,
         );
-        if (items.length > 0)
+        if (items.length > 0) {
+          // Anche l'onboarding deve avere le queue categoria già in memoria:
+          // quando l'utente passa ad Anime/Movie/Game non deve partire nessun loader.
+          setSwipePool((prev) => mergeSwipeItemsById(prev, items));
           await fetch("/api/swipe/queue", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -826,11 +840,13 @@ export default function OnboardingPage() {
               rows: items.map((i) => toQueueRow(i, uid)),
             }),
           }).catch(() => null);
+        }
       }
       for (const cat of specificTypes)
         fetchCategoryTitles(cat, [], new Set(), POOL_TARGET, locale)
           .then(async (items) => {
-            if (items.length)
+            if (items.length) {
+              setSwipePool((prev) => mergeSwipeItemsById(prev, items));
               await fetch("/api/swipe/queue", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -839,6 +855,7 @@ export default function OnboardingPage() {
                   rows: items.map((i) => toQueueRow(i, uid)),
                 }),
               }).catch(() => null);
+            }
           })
           .catch(() => {});
     };
@@ -937,7 +954,7 @@ export default function OnboardingPage() {
       // Non fidarti di queue piene ma vecchie: le prime versioni potevano aver
       // salvato boardgame senza dati ricchi o descrizioni game/manga in inglese.
       // In quel caso rifacciamo fetch e permettiamo l'upsert sugli stessi external_id.
-      if (existingRows.length > 20 && !needsQueueRefresh)
+      if (existingRows.length >= 20 && !needsQueueRefresh)
         return localizeSwipeItems(existingRows.map(rowToSwipeItem), locale);
 
       const items = await fetchCategoryTitles(

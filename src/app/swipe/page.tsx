@@ -58,6 +58,8 @@ const MIXED_SWIPE_TYPES = [
   "boardgame",
 ] as const;
 
+const QUEUE_KEYS = ["all", ...MIXED_SWIPE_TYPES] as const;
+
 type MixedSwipeType = (typeof MIXED_SWIPE_TYPES)[number];
 
 function isMixedSwipeType(type: unknown): type is MixedSwipeType {
@@ -149,30 +151,16 @@ function rowToSwipeItem(row: any, locale: "it" | "en"): SwipeItem {
   };
 }
 
-
-const SWIPE_BOOT_CACHE_PREFIX = "gk:swipe:boot:";
-
-function readSwipeBootCache(locale: "it" | "en"): SwipeItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.sessionStorage.getItem(`${SWIPE_BOOT_CACHE_PREFIX}${locale}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.items)) return [];
-    return parsed.items.filter((item: any) => item?.id && item?.title && item?.type).slice(0, 50);
-  } catch {
-    return [];
+function mergeQueueRowsById(rows: any[]): any[] {
+  const seen = new Set<string>();
+  const merged: any[] = [];
+  for (const row of rows) {
+    const id = String(row?.external_id || "");
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    merged.push(row);
   }
-}
-
-function writeSwipeBootCache(locale: "it" | "en", items: SwipeItem[]) {
-  if (typeof window === "undefined" || items.length === 0) return;
-  try {
-    window.sessionStorage.setItem(
-      `${SWIPE_BOOT_CACHE_PREFIX}${locale}`,
-      JSON.stringify({ savedAt: Date.now(), items: items.slice(0, 50) }),
-    );
-  } catch {}
+  return merged;
 }
 
 function toQueueRow(r: any, userId: string) {
@@ -239,8 +227,8 @@ export default function SwipePage() {
   const addedIdsRef = useRef<Set<string>>(new Set());
   const requestSeqRef = useRef(0);
   const userIdRef = useRef<string | null>(null);
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>(() => readSwipeBootCache(locale));
-  const [loading, setLoading] = useState(() => readSwipeBootCache(locale).length === 0);
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.body.classList.toggle("gk-swipe-route-active", isTabActive);
@@ -267,7 +255,7 @@ export default function SwipePage() {
       addedTitlesRef.current = new Set();
       addedIdsRef.current = new Set();
 
-      const [{ data: entries }, { data: skippedRows }, { data: queueRows }] = await Promise.all([
+      const [{ data: entries }, { data: skippedRows }, ...queueResults] = await Promise.all([
         supabase
           .from("user_media_entries")
           .select("external_id, title")
@@ -276,12 +264,21 @@ export default function SwipePage() {
           .from("swipe_skipped")
           .select("external_id")
           .eq("user_id", user.id),
-        supabase
-          .from("swipe_queue_all")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("inserted_at", { ascending: true }),
+        ...QUEUE_KEYS.map((queueKey) =>
+          supabase
+            .from(QUEUE_TABLE_MAP[queueKey])
+            .select("*")
+            .eq("user_id", user.id)
+            .order("inserted_at", { ascending: true }),
+        ),
       ]);
+
+      // La Swipe normale NON deve aspettare il cambio categoria per leggere Supabase.
+      // All'apertura leggiamo già tutte le tabelle queue categorizzate:
+      // all, anime, manga, movie, tv, game, boardgame.
+      const queueRows = mergeQueueRowsById(
+        queueResults.flatMap((result: any) => result?.data || []),
+      );
 
       for (const e of entries || []) {
         if (e.title)
@@ -304,12 +301,10 @@ export default function SwipePage() {
       const existingItems = existingRows.map((row: any) => rowToSwipeItem(row, locale));
 
       // Fast path vero: se la queue esiste, Swipe deve solo leggerla e basta.
-      // Niente /api/recommendations, niente /api/media/localize, niente refill bloccante al mount.
-      // In più salviamo una mini-cache di sessione: quando l'utente rientra nella Swipe,
-      // le card già pronte compaiono subito mentre Supabase risponde in background.
+      // Niente /api/recommendations, niente /api/media/localize, niente refill al mount.
+      // Il master pool/queue generation è il punto corretto in cui preparare mixing e asset lingua.
       if (existingItems.length > 0) {
         if (requestSeq !== requestSeqRef.current) return;
-        writeSwipeBootCache(locale, existingItems);
         setInitialItems(existingItems);
         setLoading(false);
         return;
@@ -394,7 +389,6 @@ export default function SwipePage() {
                 merged.push(item);
               }
             }
-            writeSwipeBootCache(locale, merged);
             return merged;
           });
         }

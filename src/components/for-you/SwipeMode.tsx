@@ -177,7 +177,7 @@ const SWIPE_COMPLETE_RATIO = 0.32;
 const SWIPE_FLING_MIN_DISTANCE = 82;
 const SWIPE_FLING_VELOCITY = 1.15; // px/ms: solo un gesto veloce e intenzionale completa sotto soglia
 const ROTATION_FACTOR = 0.08;
-const REFILL_THRESHOLD = 20;
+const REFILL_THRESHOLD = 25;
 const PRELOAD_TARGET = 50;
 // GPU-friendly: text-shadow via CSS class, no filter: drop-shadow (each one = offscreen GPU buffer)
 // TEXT_SHADOW kept as lightweight single shadow only (no stacked multi-shadow)
@@ -1266,15 +1266,7 @@ export function SwipeMode({
       }
 
       // ── Slow path: fetch from network ─────────────────────────────────────────
-      // Il loader deve essere visibile SOLO quando non c'è davvero nessuna card
-      // mostrabile per il filtro attivo. Se il deck ha ancora card, il refill è
-      // background/invisibile e le nuove card vengono appese in fondo.
-      const visibleNow = (filter === "all"
-        ? queueRef.current
-        : queueRef.current.filter((item) => item.type === filter)
-      ).filter((item) => !skipped.has(item.id));
-      const shouldShowBlockingLoader = visibleNow.length === 0;
-      if (shouldShowBlockingLoader) setIsLoadingMore(true);
+      setIsLoadingMore(true);
       try {
         const items = await onRequestMore(filter);
         const fresh = items.filter(
@@ -1316,24 +1308,6 @@ export function SwipeMode({
     if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
       loadMore(activeFilter);
   }, [filteredQueue.length, activeFilter]); // eslint-disable-line
-
-  // Se l'utente finisce il deck prima del refill, non mostrare mai uno stato
-  // “finito”: tieni il loader e continua a chiedere card finché Supabase/API
-  // non restituisce nuove righe. Questo vale anche per l'onboarding.
-  useEffect(() => {
-    if (!didArmAutoRefillRef.current) return;
-    if (filteredQueue.length !== 0) return;
-    if (!onRequestMore) return;
-
-    loadMore(activeFilter);
-    const retry = window.setInterval(() => {
-      if (queueRef.current.filter((item) => activeFilter === "all" || item.type === activeFilter).length === 0) {
-        loadMore(activeFilter);
-      }
-    }, 1800);
-
-    return () => window.clearInterval(retry);
-  }, [filteredQueue.length, activeFilter, onRequestMore, loadMore]);
 
   const handleFilterChange = useCallback(
     (filter: CategoryFilter) => {
