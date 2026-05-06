@@ -105,6 +105,19 @@ export interface SwipeItem {
   authors?: string[];
   developers?: string[];
   platforms?: string[];
+  totalSeasons?: number;
+  min_players?: number;
+  max_players?: number;
+  playing_time?: number;
+  complexity?: number;
+  mechanics?: string[];
+  designers?: string[];
+  themes?: string[];
+  studios?: string[];
+  directors?: string[];
+  pages?: number;
+  isbn?: string;
+  publisher?: string;
   isAwardWinner?: boolean;
   source?: string;
   isDiscovery?: boolean;
@@ -1439,9 +1452,22 @@ export function SwipeMode({
       description: item.description,
       score: item.score,
       ...(item.type === "manga" ? { episodes: item.episodes } : {}),
+      totalSeasons: item.totalSeasons,
       authors: item.authors,
       developers: item.developers,
       platforms: item.platforms,
+      min_players: item.min_players,
+      max_players: item.max_players,
+      playing_time: item.playing_time,
+      complexity: item.complexity,
+      mechanics: item.mechanics,
+      designers: item.designers,
+      themes: item.themes,
+      studios: item.studios,
+      directors: item.directors,
+      pages: item.pages,
+      isbn: item.isbn,
+      publisher: item.publisher,
       why: item.why,
       matchScore: item.matchScore,
       isAwardWinner: item.isAwardWinner,
@@ -1917,14 +1943,6 @@ export function SwipeMode({
                         {genre}
                       </span>
                     ))}
-                  </div>
-                  <div className={isOnboarding ? "mt-4 shrink-0 rounded-[24px] border border-[rgba(230,255,61,0.12)] bg-[rgba(230,255,61,0.055)] p-4" : "mt-4 shrink-0 rounded-[22px] border border-[rgba(230,255,61,0.10)] bg-[rgba(230,255,61,0.045)] p-3.5"}>
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-                      {swipeUi.howItWorks}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-white/64">
-                      {swipeUi.howItWorksBody}
-                    </p>
                   </div>
                   <div className="mt-4 shrink-0 grid grid-cols-3 gap-2 text-center text-xs font-bold text-white/54">
                     <div className="rounded-2xl bg-white/6 px-3 py-3">

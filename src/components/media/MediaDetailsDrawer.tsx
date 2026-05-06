@@ -65,6 +65,7 @@ export interface MediaDetails {
   coverImage?: string;
   year?: number;
   episodes?: number;
+  totalSeasons?: number;
   description?: string;
   genres?: string[];
   source?: string;
