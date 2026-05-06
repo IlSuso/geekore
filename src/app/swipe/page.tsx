@@ -313,7 +313,7 @@ export default function SwipePage() {
       // Solo se la queue è davvero vuota facciamo bootstrap. Questo è un caso raro
       // e non deve partire quando esiste già un ordine deciso in Supabase.
       try {
-        const res = await fetch(`/api/recommendations?type=all&lang=${locale}`);
+        const res = await fetch(`/api/swipe/discovery?type=all&lang=${locale}`);
         if (res.ok) {
           const json = await res.json();
           const freshRecs = (
@@ -349,7 +349,7 @@ export default function SwipePage() {
             fetch("/api/swipe/queue", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ queue: "all", rows }),
+              body: JSON.stringify({ queue: "all", rows, mirrorByType: true }),
             }).catch(() => null);
           }
 
@@ -566,7 +566,7 @@ export default function SwipePage() {
       try {
         const apiFilter = filter === "all" ? "all" : filter;
         const res = await fetch(
-          `/api/recommendations?type=${apiFilter}&refresh=1&lang=${locale}`,
+          `/api/swipe/discovery?type=${apiFilter}&lang=${locale}`,
         );
         if (!res.ok)
           return existingRows.map((row: any) => rowToSwipeItem(row, locale));
@@ -620,6 +620,7 @@ export default function SwipePage() {
             body: JSON.stringify({
               queue: filter === "all" ? "all" : filter,
               rows,
+              mirrorByType: filter === "all",
             }),
           }).catch(() => null);
         }
