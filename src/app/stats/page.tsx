@@ -154,21 +154,25 @@ export default function StatsPage() {
 
     load()
 
-    const CH = 'stats-media-changes'
-    const existingCh = supabase.getChannels().find(c => c.topic === `realtime:${CH}`)
-    const channel = existingCh ?? supabase
-      .channel(CH)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_media_entries' },
-        () => {
-          if (userId) statsCache.delete(userId)
-          load(true)
-        }
-      )
-      .subscribe()
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (userId) statsCache.delete(userId)
+      load(true)
+    }
 
-    return () => { if (!existingCh) supabase.removeChannel(channel) }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshIfVisible()
+    }
+
+    window.addEventListener('focus', refreshIfVisible)
+    window.addEventListener('pageshow', refreshIfVisible)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible)
+      window.removeEventListener('pageshow', refreshIfVisible)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = useMemo<Stats>(() => {

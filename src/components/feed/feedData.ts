@@ -84,47 +84,13 @@ function formatPost(
   }
 }
 
-async function attachMediaPreviews(supabase: SupabaseClient, posts: any[]): Promise<Map<string, FeedMediaPreview>> {
+async function attachMediaPreviews(_supabase: SupabaseClient, posts: any[]): Promise<Map<string, FeedMediaPreview>> {
+  // Scalability hardening: il feed non deve più aprire user_media_entries per ogni pagina.
+  // I post categorizzati devono avere media_preview salvato alla pubblicazione o via backfill SQL.
   const result = new Map<string, FeedMediaPreview>()
   for (const post of posts) {
     const stored = normalizeMediaPreview(post.media_preview)
     if (stored) result.set(post.id, stored)
-  }
-
-  const wanted = posts
-    .map(post => ({ post, title: parseCategoryTitle(post.category) }))
-    .filter(item => item.title.length > 0 && !result.has(item.post.id))
-
-  if (wanted.length === 0) return result
-
-  const userIds = Array.from(new Set(wanted.map(item => item.post.user_id).filter(Boolean)))
-  if (userIds.length === 0) return result
-
-  const { data } = await supabase
-    .from('user_media_entries')
-    .select('user_id, external_id, title, title_en, type, cover_image, rating, status, current_episode, episodes')
-    .in('user_id', userIds)
-    .limit(1000)
-
-  const byKey = new Map<string, FeedMediaPreview>()
-  for (const row of data || []) {
-    const preview: FeedMediaPreview = {
-      external_id: row.external_id,
-      title: row.title,
-      type: row.type,
-      cover_image: row.cover_image,
-      rating: row.rating,
-      status: row.status,
-      current_episode: row.current_episode,
-      episodes: row.episodes,
-    }
-    byKey.set(buildPreviewKey(row.user_id, row.title), preview)
-    if (row.title_en) byKey.set(buildPreviewKey(row.user_id, row.title_en), preview)
-  }
-
-  for (const { post, title } of wanted) {
-    const preview = byKey.get(buildPreviewKey(post.user_id, title))
-    if (preview) result.set(post.id, preview)
   }
   return result
 }

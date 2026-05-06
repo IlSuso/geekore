@@ -53,6 +53,7 @@ async function getTrending(): Promise<{ byAdditions: TrendingItem[]; byRating: T
     .gte('created_at', oneWeekAgo)
     .not('cover_image', 'is', null)
     .not('title', 'is', null)
+    .limit(1000)
 
   if (error || !Array.isArray(data)) return { byAdditions: [], byRating: [] }
 

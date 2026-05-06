@@ -5,6 +5,8 @@ import { Suspense } from 'react'
 import { ArrowRight, BookOpen, Film, Gamepad2, Layers, Sparkles, Tv, Users, Zap } from 'lucide-react'
 import { getServerLocale, type Locale } from '@/lib/i18n/serverLocale'
 
+export const revalidate = 3600
+
 async function getCommunityStats() {
   const supabase = await createClient()
   const [{ count: userCount }, { count: mediaCount }] = await Promise.all([

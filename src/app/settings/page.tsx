@@ -886,6 +886,8 @@ function LanguageCard() {
       <div className="grid grid-cols-2 gap-2" data-no-swipe="true">
         {(["it", "en"] as const).map((lang) => {
           const active = locale === lang;
+          const label = lang === "it" ? copy.settings.italian : copy.settings.english;
+
           return (
             <button
               key={lang}
@@ -893,13 +895,25 @@ function LanguageCard() {
               data-no-swipe="true"
               onClick={() => setLocale(lang)}
               aria-pressed={active}
-              className={`flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black transition-all ${
-                active
-                  ? "border-[rgba(230,255,61,0.55)] bg-[rgba(230,255,61,0.14)] text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(230,255,61,0.08),0_0_24px_rgba(230,255,61,0.08)]"
-                  : "border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-[rgba(230,255,61,0.22)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
-              }`}
+              className="group flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black transition-all"
+              style={{
+                background: active ? "rgba(230,255,61,0.13)" : "var(--bg-secondary)",
+                borderColor: active ? "rgba(230,255,61,0.55)" : "var(--border)",
+                boxShadow: active
+                  ? "0 0 0 1px rgba(230,255,61,0.08), 0 0 22px rgba(230,255,61,0.07)"
+                  : "none",
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
+              }}
             >
-              <span>{lang === "it" ? copy.settings.italian : copy.settings.english}</span>
+              <span
+                className="transition-colors group-hover:text-[var(--text-primary)]"
+                style={{
+                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                  WebkitTextFillColor: active ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                {label}
+              </span>
             </button>
           );
         })}

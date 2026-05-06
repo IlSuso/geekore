@@ -245,7 +245,6 @@ export default function Navbar() {
                 type="button"
                 data-no-swipe="true"
                 data-testid={`nav-${item.href.replace('/', '')}`}
-                onMouseEnter={item.href === '/for-you' && !isActive ? () => fetch('/api/recommendations?type=all', { credentials: 'include' }).catch(() => {}) : undefined}
                 onClick={() => navigateToTab(item.href)}
                 className="relative flex h-10 w-full items-center gap-3 overflow-hidden rounded-2xl px-3 text-left text-[13px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
                 style={isActive

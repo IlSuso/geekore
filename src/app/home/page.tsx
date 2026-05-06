@@ -162,22 +162,9 @@ export default function FeedPage() {
   }, [authUser, authLoading, isActive]) // eslint-disable-line
 
 
-  // Realtime: si iscrive solo quando il tab è visibile.
-  // Quando l'utente swippa su un altro tab, il canale viene rimosso.
-  // Così il feed non consuma risorse durante lo swipe e non causa lag.
-  useEffect(() => {
-    if (!isActive) return // non attivo → non aprire il canale
-    const CHANNEL_NAME = 'feed:posts:live'
-    const existing = supabase.getChannels().find(c => c.topic === `realtime:${CHANNEL_NAME}`)
-    if (existing) return
-    const channel = supabase.channel(CHANNEL_NAME)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
-        const newId = payload.new?.id
-        if (!newId || newId === latestPostIdRef.current) return
-        setNewPostsCount(prev => prev + 1)
-      }).subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
+  // PERF: niente Realtime sul feed. La tabella posts non è pubblicata in supabase_realtime
+  // e aprire comunque un canale crea traffico inutile. Nuovi post arrivano con pull-to-refresh,
+  // reload manuale o rientro nella pagina.
 
   useEffect(() => {
     if (posts.length > 0) latestPostIdRef.current = posts[0].id

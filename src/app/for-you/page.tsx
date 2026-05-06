@@ -1369,28 +1369,14 @@ export default function ForYouPage() {
 
   useEffect(() => {
     let cancelled = false
-    let profileChannel: ReturnType<typeof supabase.channel> | null = null
-
     const init = async () => {
       // PERF: i panel montati ma nascosti non devono caricare raccomandazioni.
       if (!isActive || authLoading) return
       if (!authUser || cancelled) { if (!authUser) router.push('/login'); return }
       const userId = authUser.id
 
-      // Realtime: aggiorna entry_count solo se il panel è attivo.
-      // Controlla getChannels() per evitare doppia subscribe (StrictMode).
-      if (isActive) {
-        const chName = `profile-entry-count-${userId}`
-        const existing = supabase.getChannels().find(c => c.topic === `realtime:${chName}`)
-        if (!existing) {
-          profileChannel = supabase
-            .channel(chName)
-            .on('postgres_changes', {
-              event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}`,
-            }, (payload: any) => { setTotalEntries(payload.new?.entry_count ?? 0) })
-            .subscribe()
-        }
-      }
+      // PERF: niente Realtime su profiles. Il contatore viene ricavato dalle query leggere
+      // su user_media_entries già presenti sotto, evitando canali morti e consumo Realtime.
 
       // ── Cache hit: mostra tutto immediatamente solo se è della stessa lingua ──
       if (forYouCache.recommendations !== null && forYouCache.locale !== locale) {
@@ -1474,7 +1460,6 @@ export default function ForYouPage() {
     init()
     return () => {
       cancelled = true
-      if (profileChannel) supabase.removeChannel(profileChannel)
     }
   }, [locale, isActive, authUser?.id, authLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
