@@ -57,7 +57,7 @@ type ProfileCacheEntry = {
 }
 const profileCache: Record<string, ProfileCacheEntry> = {}
 const PROFILE_CACHE_TTL = 5 * 60 * 1000 // 5 minuti
-const PROFILE_INITIAL_MEDIA_LIMIT = 360
+const PROFILE_INITIAL_MEDIA_LIMIT = 80
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -843,6 +843,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
         .select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id', { count: 'exact' })
         .eq('user_id', profileData.id)
         .order('display_order', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false })
         .limit(PROFILE_INITIAL_MEDIA_LIMIT),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileData.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileData.id),
@@ -921,6 +922,7 @@ export default function ProfilePage({ usernameOverride }: { usernameOverride?: s
       .select('id, title, title_en, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id', { count: 'exact' })
       .eq('user_id', userId)
       .order('display_order', { ascending: false, nullsFirst: false })
+      .order('updated_at', { ascending: false })
       .limit(PROFILE_INITIAL_MEDIA_LIMIT)
     if (error) {
       if (process.env.NODE_ENV === 'development') {

@@ -301,6 +301,7 @@ type StatusFilter = 'all' | 'completed' | 'watching' | 'paused' | 'dropped' | 'w
 
 
 const PAGE_SIZE = 48
+const MEDIA_SELECT = 'id, title, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id, achievement_data'
 
 
 // ─── Steam cover ──────────────────────────────────────────────────────────────
@@ -625,6 +626,9 @@ export default function ProfileTypePage() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set())
   const [openMobileId, setOpenMobileId] = useState<string | null>(null)
+  const [hasMoreServerItems, setHasMoreServerItems] = useState(false)
+  const [loadingMoreServerItems, setLoadingMoreServerItems] = useState(false)
+  const [mediaTotalCount, setMediaTotalCount] = useState(0)
 
   const typeLabels = { anime: t.profile.categories.anime, manga: t.profile.categories.manga, game: t.profile.categories.games, tv: t.profile.categories.tv, movie: t.profile.categories.movies, boardgame: t.profile.categories.boardgames } as Record<string, string>
   const typeLabel = typeLabels[type] || type
@@ -651,18 +655,51 @@ export default function ProfileTypePage() {
       setProfileId(profile.id)
       setIsOwner(user?.id === profile.id)
 
-      const { data } = await supabase
+      const { data, count } = await supabase
         .from('user_media_entries')
-        .select('id, title, type, cover_image, current_episode, current_season, season_episodes, episodes, display_order, updated_at, is_steam, import_source, appid, rating, status, notes, genres, external_id, achievement_data')
+        .select(MEDIA_SELECT, { count: 'exact' })
         .eq('user_id', profile.id)
         .eq('type', type)
         .order('display_order', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false })
+        .range(0, PAGE_SIZE - 1)
 
       setMediaList(data || [])
+      setMediaTotalCount(count ?? data?.length ?? 0)
+      setHasMoreServerItems((count ?? 0) > (data?.length ?? 0))
       setLoading(false)
     }
     load()
   }, [username, type])
+
+  const loadMoreServerItems = useCallback(async () => {
+    if (!profileId || loadingMoreServerItems || !hasMoreServerItems) return
+    setLoadingMoreServerItems(true)
+    const from = mediaList.length
+    const to = from + PAGE_SIZE - 1
+    try {
+      const { data, count } = await supabase
+        .from('user_media_entries')
+        .select(MEDIA_SELECT, { count: 'exact' })
+        .eq('user_id', profileId)
+        .eq('type', type)
+        .order('display_order', { ascending: false, nullsFirst: false })
+        .order('updated_at', { ascending: false })
+        .range(from, to)
+
+      if (data?.length) {
+        setMediaList(prev => {
+          const seen = new Set(prev.map(item => item.id))
+          return [...prev, ...data.filter((item: UserMedia) => !seen.has(item.id))]
+        })
+      }
+      const total = count ?? mediaTotalCount
+      if (count != null) setMediaTotalCount(count)
+      setHasMoreServerItems(from + (data?.length || 0) < total)
+    } finally {
+      setLoadingMoreServerItems(false)
+    }
+  }, [profileId, loadingMoreServerItems, hasMoreServerItems, mediaList.length, supabase, type, mediaTotalCount])
 
   const handleRating = async (mediaId: string, rating: number) => {
     const res = await fetch('/api/collection', {
@@ -867,13 +904,16 @@ export default function ProfileTypePage() {
       (entries) => {
         if (entries[0].isIntersecting) {
           setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filtered.length))
+          if (visibleCount >= filtered.length && hasMoreServerItems) {
+            loadMoreServerItems()
+          }
         }
       },
       { rootMargin: '600px' }
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [filtered.length])
+  }, [filtered.length, visibleCount, hasMoreServerItems, loadMoreServerItems])
 
   // Stats rapide
   const completed = mediaList.filter(m => m.status === 'completed').length
@@ -910,7 +950,7 @@ export default function ProfileTypePage() {
             </div>
             <h1 className="text-4xl font-black tracking-tighter">{typeLabel}</h1>
             <p className="text-zinc-500 mt-1 text-sm">
-              {t.profile.titlesCount(mediaList.length)}
+              {t.profile.titlesCount(mediaTotalCount || mediaList.length)}
               {completed > 0 && ` · ${t.profile.completedCount(completed)}`}
               {avgRating && ` · ${t.profile.averageRating(avgRating)}`}
             </p>
@@ -1051,6 +1091,7 @@ export default function ProfileTypePage() {
           <p className="text-center text-zinc-700 text-xs mt-8">
             {t.profile.resultsCounter(Math.min(visibleCount, filtered.length), filtered.length)}
             {filtered.length !== mediaList.length && ` ${t.profile.filteredCounter(filtered.length, mediaList.length)}`}
+            {loadingMoreServerItems && ' ...'}
           </p>
         )}
       </div>

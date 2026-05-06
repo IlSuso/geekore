@@ -17,8 +17,6 @@ import {
   MessageCircleQuestion, Tag, MonitorPlay, AlertCircle, Layers,
   Dices, Compass, List, Shuffle,
 } from 'lucide-react'
-import { SwipeMode } from '@/components/for-you/SwipeMode'
-import type { SwipeItem } from '@/components/for-you/SwipeMode'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { useLocale } from '@/lib/locale'
@@ -1083,150 +1081,6 @@ function resetForYouCacheForLocale(locale: 'it' | 'en') {
   forYouCache.locale = locale
 }
 
-// Inline swipe mode wrapper — carica le raccomandazioni dalla cache e le passa a SwipeMode
-function SwipeModeWrapper({ onClose }: { onClose: () => void }) {
-  const { locale } = useLocale()
-  const supabase = createClient()
-  const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const [items, setItems] = useState<SwipeItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const userIdRef = useRef<string | null>(null)
-  const swipeAddedIdsRef = useRef<Set<string>>(new Set())
-
-  useEffect(() => {
-    async function init() {
-      if (authLoading) return
-      if (!user) { router.push('/login'); return }
-      userIdRef.current = user.id
-      // Try queue first
-      const { data: queueRows } = await supabase
-        .from('swipe_queue_all').select('*').eq('user_id', user.id)
-        .order('inserted_at', { ascending: true })
-      if (queueRows && queueRows.length >= 5) {
-        const rawItems = queueRows.map((r: any) => ({
-          id: r.external_id, title: r.title, type: r.type,
-          coverImage: r.cover_image, cover_image: r.cover_image, year: r.year, genres: r.genres || [],
-          score: r.score, description: r.description, why: r.why,
-          matchScore: r.match_score || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
-          source: r.source,
-        }))
-        const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true, mode: 'full' }).catch(() => rawItems)
-        setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
-        setLoading(false)
-        return
-      }
-      // Fall back to recommendations API
-      try {
-        const res = await fetch(`/api/recommendations?type=all&lang=${locale}`)
-        if (res.ok) {
-          const json = await res.json()
-          const all = (Object.values(json.recommendations || {}) as any[][]).flat()
-          const rawItems = all.map((r: any) => ({
-            id: r.id, title: r.title, type: r.type,
-            coverImage: r.coverImage, cover_image: r.coverImage, year: r.year, genres: r.genres || [],
-            score: r.score, description: r.description, why: r.why,
-            matchScore: r.matchScore || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
-            source: r.source,
-          }))
-          const localizedItems = await localizeMediaRows(rawItems, locale, FOR_YOU_MEDIA_LOCALIZATION_OPTIONS, { force: true, mode: 'full' }).catch(() => rawItems)
-          setItems(localizedItems.map((item: any) => ({ ...item, coverImage: item.coverImage || item.cover_image })))
-        }
-      } catch { }
-      setLoading(false)
-    }
-    init()
-  }, [locale, user?.id, authLoading]) // eslint-disable-line
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-    </div>
-  )
-
-  const sendSwipeFeedback = async (item: SwipeItem, action: FeedbackAction, rating?: number) => {
-    await fetch('/api/recommendations/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rec_id: item.id, rec_type: item.type, rec_genres: item.genres || [], action }),
-    }).catch(() => null)
-
-    if (action === 'already_seen' || action === 'added') {
-      const collectionPayload: any = {
-        external_id: item.id,
-        title: item.title,
-        type: item.type,
-        cover_image: item.coverImage,
-        genres: item.genres || [],
-        status: 'completed',
-        display_order: Date.now(),
-        upsert: true,
-      }
-      if (item.type === 'manga' && item.episodes != null) collectionPayload.episodes = item.episodes
-      if (rating != null) collectionPayload.rating = rating
-
-      const res = await fetch('/api/collection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(collectionPayload),
-      }).catch(() => null)
-      if (res?.ok) {
-        swipeAddedIdsRef.current.add(item.id)
-        profileInvalidateBridge.invalidate()
-      }
-    }
-
-    if ((action === 'already_seen' || action === 'added') && (item.genres || []).length > 0) {
-      triggerTasteDelta({
-        action: 'rating',
-        mediaId: item.id,
-        mediaType: item.type,
-        genres: item.genres || [],
-        rating: rating || item.score || 3.5,
-      })
-    }
-  }
-
-  const handleSwipeUndo = async (item: SwipeItem) => {
-    if (!swipeAddedIdsRef.current.has(item.id)) return
-    const res = await fetch('/api/collection', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ external_id: item.id }),
-    }).catch(() => null)
-    if (res?.ok) {
-      swipeAddedIdsRef.current.delete(item.id)
-      profileInvalidateBridge.invalidate()
-    }
-  }
-
-  const requestMore = async (): Promise<SwipeItem[]> => {
-    const res = await fetch(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { credentials: 'include' }).catch(() => null)
-    if (!res?.ok) return []
-    const json = await res.json()
-    const all = (Object.values(json.recommendations || {}) as any[][]).flat()
-    return all.map((r: any) => ({
-      id: r.id, title: r.title, type: r.type,
-      coverImage: r.coverImage, year: r.year, genres: r.genres || [],
-      score: r.score, description: r.description, why: r.why,
-      matchScore: r.matchScore || 0, episodes: r.type === 'manga' ? r.episodes : undefined,
-      source: r.source,
-    }))
-  }
-
-  return (
-    <SwipeMode
-      items={items}
-      userId={userIdRef.current || undefined}
-      onSeen={(item, rating) => sendSwipeFeedback(item, 'already_seen', rating ?? undefined)}
-      onSkip={(item) => sendSwipeFeedback(item, 'not_interested')}
-      onUndo={handleSwipeUndo}
-      onClose={onClose}
-      onRequestMore={requestMore}
-    />
-  )
-}
-
 export default function ForYouPage() {
   const pathname = usePathname()
   const { scrollToTop } = useScrollPanel()
@@ -1254,7 +1108,6 @@ export default function ForYouPage() {
   const [detailItem, setDetailItem] = useState<Recommendation | null>(null)
   const [similarSection, setSimilarSection] = useState<{ sourceTitle: string; sourceType: MediaType; items: Recommendation[] } | null>(null)
   const [showNewRecsBadge, setShowNewRecsBadge] = useState(false)
-  const [viewMode, setViewMode] = useState<'lista' | 'swipe'>('lista')
   const addedTitlesRef = useRef<Set<string>>(forYouCache.addedTitles)
 
   const fetchRecommendations = useCallback(async (force = false) => {

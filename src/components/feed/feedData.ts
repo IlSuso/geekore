@@ -110,6 +110,8 @@ export async function fetchPinnedPosts(supabase: SupabaseClient, userId: string)
     `)
     .gte('created_at', since)
     .order('created_at', { ascending: false })
+    .limit(20, { foreignTable: 'likes' })
+    .limit(3, { foreignTable: 'comments' })
     .limit(50)
 
   if (error || !data) return []
@@ -153,6 +155,7 @@ async function fetchDiscoveryPosts(
     `)
     .ilike('category', `${topAffinity.category}:%`)
     .gte('created_at', since)
+    .limit(20, { foreignTable: 'likes' })
     .limit(50)
 
   if (!data) return []
@@ -184,6 +187,8 @@ async function fetchTrendingPosts(supabase: SupabaseClient, userId: string, from
       )
     `)
     .gte('created_at', since)
+    .limit(20, { foreignTable: 'likes' })
+    .limit(3, { foreignTable: 'comments' })
     .limit(80)
 
   const ranked = (data || [])
@@ -216,6 +221,8 @@ async function fetchPureDiscoveryPosts(supabase: SupabaseClient, userId: string,
       )
     `)
     .order('created_at', { ascending: false })
+    .limit(20, { foreignTable: 'likes' })
+    .limit(3, { foreignTable: 'comments' })
     .limit(100)
 
   const candidates = (data || [])
@@ -277,6 +284,8 @@ export async function fetchFeedPostsPage({
       )
     `)
     .order('created_at', { ascending: false })
+    .limit(20, { foreignTable: 'likes' })
+    .limit(3, { foreignTable: 'comments' })
     .range(from, to)
 
   if (filter === 'following' && followingIds.length > 0) {

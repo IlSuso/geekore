@@ -685,22 +685,26 @@ export default function FriendsPage() {
       else next.add(profileId);
       return next;
     });
-    const result = isFollowing
-      ? await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_id", authUser.id)
-          .eq("following_id", profileId)
-      : await supabase
-          .from("follows")
-          .insert({ follower_id: authUser.id, following_id: profileId });
-    if (result.error)
+    const result = await fetch("/api/social/follow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        target_id: profileId,
+        action: isFollowing ? "unfollow" : "follow",
+      }),
+    }).catch(() => null);
+    if (!result?.ok)
       setFollowingIds((prev) => {
         const next = new Set(prev);
         if (isFollowing) next.add(profileId);
         else next.delete(profileId);
         return next;
       });
+    else if (friendsPageCache.userId === authUser.id) {
+      if (isFollowing) friendsPageCache.followingIds.delete(profileId);
+      else friendsPageCache.followingIds.add(profileId);
+    }
     setPendingFollowId(null);
   }
 

@@ -10,8 +10,8 @@ export const revalidate = 3600
 async function getCommunityStats() {
   const supabase = await createClient()
   const [{ count: userCount }, { count: mediaCount }] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('user_media_entries').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('user_media_entries').select('id', { count: 'exact', head: true }),
   ])
   return { userCount: userCount || 0, mediaCount: mediaCount || 0 }
 }
