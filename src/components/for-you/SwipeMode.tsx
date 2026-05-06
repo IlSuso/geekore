@@ -1167,7 +1167,6 @@ export function SwipeMode({
   const skippedIdsRef = useRef<Set<string>>(new Set());
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const loadingRef = useRef(false);
-  const emptyDeckRetryRef = useRef<number | null>(null);
   const categoryQueues = useRef<Partial<Record<CategoryFilter, SwipeItem[]>>>(
     {},
   );
@@ -1267,7 +1266,15 @@ export function SwipeMode({
       }
 
       // ── Slow path: fetch from network ─────────────────────────────────────────
-      setIsLoadingMore(true);
+      // Il loader deve essere visibile SOLO quando non c'è davvero nessuna card
+      // mostrabile per il filtro attivo. Se il deck ha ancora card, il refill è
+      // background/invisibile e le nuove card vengono appese in fondo.
+      const visibleNow = (filter === "all"
+        ? queueRef.current
+        : queueRef.current.filter((item) => item.type === filter)
+      ).filter((item) => !skipped.has(item.id));
+      const shouldShowBlockingLoader = visibleNow.length === 0;
+      if (shouldShowBlockingLoader) setIsLoadingMore(true);
       try {
         const items = await onRequestMore(filter);
         const fresh = items.filter(
@@ -1306,42 +1313,27 @@ export function SwipeMode({
 
   useEffect(() => {
     if (!didArmAutoRefillRef.current) return;
-    if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current) {
+    if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
       loadMore(activeFilter);
-    }
-  }, [filteredQueue.length, activeFilter, loadMore]);
+  }, [filteredQueue.length, activeFilter]); // eslint-disable-line
 
-  // Fallback anti-deck vuoto: se l'utente swipa più veloce del refill,
-  // non mostrare mai uno stato terminale. Resta in loading e continua a
-  // riprovare finché il parent riesce a riscrivere/ritornare nuove card.
+  // Se l'utente finisce il deck prima del refill, non mostrare mai uno stato
+  // “finito”: tieni il loader e continua a chiedere card finché Supabase/API
+  // non restituisce nuove righe. Questo vale anche per l'onboarding.
   useEffect(() => {
-    if (emptyDeckRetryRef.current) {
-      window.clearTimeout(emptyDeckRetryRef.current);
-      emptyDeckRetryRef.current = null;
-    }
+    if (!didArmAutoRefillRef.current) return;
+    if (filteredQueue.length !== 0) return;
+    if (!onRequestMore) return;
 
-    if (filteredQueue.length > 0) return;
-
-    let cancelled = false;
-
-    const retryUntilFilled = () => {
-      if (cancelled) return;
-      if (!loadingRef.current) {
+    loadMore(activeFilter);
+    const retry = window.setInterval(() => {
+      if (queueRef.current.filter((item) => activeFilter === "all" || item.type === activeFilter).length === 0) {
         loadMore(activeFilter);
       }
-      emptyDeckRetryRef.current = window.setTimeout(retryUntilFilled, 1800);
-    };
+    }, 1800);
 
-    retryUntilFilled();
-
-    return () => {
-      cancelled = true;
-      if (emptyDeckRetryRef.current) {
-        window.clearTimeout(emptyDeckRetryRef.current);
-        emptyDeckRetryRef.current = null;
-      }
-    };
-  }, [filteredQueue.length, activeFilter, loadMore]);
+    return () => window.clearInterval(retry);
+  }, [filteredQueue.length, activeFilter, onRequestMore, loadMore]);
 
   const handleFilterChange = useCallback(
     (filter: CategoryFilter) => {

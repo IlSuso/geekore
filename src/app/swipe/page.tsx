@@ -149,6 +149,32 @@ function rowToSwipeItem(row: any, locale: "it" | "en"): SwipeItem {
   };
 }
 
+
+const SWIPE_BOOT_CACHE_PREFIX = "gk:swipe:boot:";
+
+function readSwipeBootCache(locale: "it" | "en"): SwipeItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(`${SWIPE_BOOT_CACHE_PREFIX}${locale}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.items)) return [];
+    return parsed.items.filter((item: any) => item?.id && item?.title && item?.type).slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+
+function writeSwipeBootCache(locale: "it" | "en", items: SwipeItem[]) {
+  if (typeof window === "undefined" || items.length === 0) return;
+  try {
+    window.sessionStorage.setItem(
+      `${SWIPE_BOOT_CACHE_PREFIX}${locale}`,
+      JSON.stringify({ savedAt: Date.now(), items: items.slice(0, 50) }),
+    );
+  } catch {}
+}
+
 function toQueueRow(r: any, userId: string) {
   return {
     user_id: userId,
@@ -213,8 +239,8 @@ export default function SwipePage() {
   const addedIdsRef = useRef<Set<string>>(new Set());
   const requestSeqRef = useRef(0);
   const userIdRef = useRef<string | null>(null);
-  const [initialItems, setInitialItems] = useState<SwipeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialItems, setInitialItems] = useState<SwipeItem[]>(() => readSwipeBootCache(locale));
+  const [loading, setLoading] = useState(() => readSwipeBootCache(locale).length === 0);
 
   useEffect(() => {
     document.body.classList.toggle("gk-swipe-route-active", isTabActive);
@@ -278,10 +304,12 @@ export default function SwipePage() {
       const existingItems = existingRows.map((row: any) => rowToSwipeItem(row, locale));
 
       // Fast path vero: se la queue esiste, Swipe deve solo leggerla e basta.
-      // Niente /api/recommendations, niente /api/media/localize, niente refill al mount.
-      // Il master pool/queue generation è il punto corretto in cui preparare mixing e asset lingua.
+      // Niente /api/recommendations, niente /api/media/localize, niente refill bloccante al mount.
+      // In più salviamo una mini-cache di sessione: quando l'utente rientra nella Swipe,
+      // le card già pronte compaiono subito mentre Supabase risponde in background.
       if (existingItems.length > 0) {
         if (requestSeq !== requestSeqRef.current) return;
+        writeSwipeBootCache(locale, existingItems);
         setInitialItems(existingItems);
         setLoading(false);
         return;
@@ -366,6 +394,7 @@ export default function SwipePage() {
                 merged.push(item);
               }
             }
+            writeSwipeBootCache(locale, merged);
             return merged;
           });
         }
@@ -540,7 +569,7 @@ export default function SwipePage() {
       const existingDiversity = typeDiversity(existingRows);
       const allQueueIsDiverseEnough = filter !== "all" || existingDiversity >= 4;
 
-      if (existingRows.length > REFILL_TRIGGER && allQueueIsDiverseEnough) {
+      if (existingRows.length >= REFILL_TRIGGER && allQueueIsDiverseEnough) {
         return existingRows.map((row: any) => rowToSwipeItem(row, locale));
       }
 
