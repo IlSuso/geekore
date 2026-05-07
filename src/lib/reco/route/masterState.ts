@@ -6,6 +6,7 @@ import {
   MASTER_POOL_MAX_AGE_DAYS,
   MASTER_POOL_MIN_HEALTHY_SIZE,
   MASTER_POOL_MIN_UNSEEN_ITEMS,
+  MASTER_POOL_SIZE_PER_TYPE,
   computeRegenDelta,
 } from '@/lib/reco/pool'
 import type { SupabaseClient } from './context'
@@ -82,7 +83,10 @@ export async function loadMasterPoolState({
 
     masterHealthByType.set(type, {
       missing: !row || items.length === 0,
-      tooSmall: !!row && items.length > 0 && items.length < MASTER_POOL_MIN_HEALTHY_SIZE && ageHours >= 24,
+      tooSmall: !!row && items.length > 0 && (
+        (items.length < MASTER_POOL_MIN_HEALTHY_SIZE && ageHours >= 24) ||
+        (items.length < MASTER_POOL_SIZE_PER_TYPE && ageHours >= 12)
+      ),
       expired: !!row && (!row.generated_at || new Date(row.generated_at).getTime() < new Date(masterPoolCutoff).getTime()),
       invalidated: row?.collection_size === -1,
       depleted: !!row && items.length > 0 && (unseenCount < MASTER_POOL_MIN_UNSEEN_ITEMS || shownRatio >= MASTER_POOL_DEPLETED_SHOWN_RATIO),

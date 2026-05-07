@@ -11,6 +11,7 @@ import { MASTER_POOL_SIZE_PER_TYPE } from '../pool'
 import { buildTieredPool } from '../pool-builder'
 import type { Recommendation, TasteProfile } from '../types'
 import type { ExposurePolicy } from './exposure-policy'
+import { fetchCatalogBackfillCandidates } from './catalog-backfill'
 import { mergeStableMasterPool, type StableMergeDiagnostics } from './merge'
 import { buildRecruitmentSlots, type RecruitmentSlotPlan } from './planner'
 
@@ -35,6 +36,7 @@ export interface GeneratedMasterPool {
     slotPlan: RecruitmentSlotPlan['diagnostics']
     exposure?: ExposurePolicy['diagnostics']
     rawCandidates: number
+    catalogCandidates?: number
     rawUnseenCandidates?: number
     tierUnseenCandidates?: number
     finalUnseenCandidates?: number
@@ -118,10 +120,19 @@ export async function generateMasterPoolForType(options: {
   }
 
   const rawCandidates = await fetchCandidatesForType(type, slotPlan.slots, exposurePolicy, context)
+  const catalogCandidates = await fetchCatalogBackfillCandidates({
+    supabase: context.supabase,
+    type,
+    tasteProfile: context.tasteProfile,
+    isAlreadyOwned: context.isAlreadyOwned,
+    exposurePolicy,
+    existingItems: rawCandidates,
+    targetSize,
+  }).catch(() => [])
   const historicalShownIds = exposurePolicy?.historicalShownIds || new Set<string>()
   const isHistoricallyUnseen = (rec: Recommendation) => !historicalShownIds.has(rec.id)
   const continuityIds = new Set(continuityRecs.map(rec => rec.id))
-  const candidates = rawCandidates.filter(rec => !continuityIds.has(rec.id))
+  const candidates = [...rawCandidates, ...catalogCandidates].filter(rec => !continuityIds.has(rec.id))
   const { items: tieredItems, diagnostics: tier } = buildTieredPool(
     candidates,
     type,
@@ -152,6 +163,7 @@ export async function generateMasterPoolForType(options: {
       slotPlan: slotPlan.diagnostics,
       exposure: exposurePolicy?.diagnostics,
       rawCandidates: rawCandidates.length,
+      catalogCandidates: catalogCandidates.length,
       rawUnseenCandidates: rawCandidates.filter(isHistoricallyUnseen).length,
       tierUnseenCandidates: tieredItems.filter(isHistoricallyUnseen).length,
       finalUnseenCandidates: items.filter(isHistoricallyUnseen).length,

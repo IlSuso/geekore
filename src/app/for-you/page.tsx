@@ -110,7 +110,7 @@ interface RecommendationRail {
   id: string
   title: string
   subtitle: string
-  kind: 'top-match' | 'continue' | 'social' | 'fresh' | 'discovery' | 'genre' | 'because-title' | 'quick-picks' | 'hidden-gems'
+  kind: 'top-match' | 'continue' | 'social' | 'fresh' | 'discovery' | 'media-type' | 'genre' | 'because-title' | 'quick-picks' | 'hidden-gems'
   items: Recommendation[]
   badge?: string
   priority?: number
@@ -592,6 +592,7 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
   social: Users,
   fresh: Flame,
   discovery: Compass,
+  'media-type': List,
   genre: Tag,
   'because-title': Brain,
   'quick-picks': Zap,
@@ -604,6 +605,7 @@ const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
   social: 'var(--type-anime)',
   fresh: 'var(--type-movie)',
   discovery: 'var(--type-game)',
+  'media-type': '#0ea5e9',
   genre: '#0ea5e9',
   'because-title': '#10b981',
   'quick-picks': 'var(--accent)',

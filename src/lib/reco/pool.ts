@@ -1,9 +1,9 @@
-export const MASTER_POOL_SIZE_PER_TYPE = 200
-export const MASTER_POOL_MIN_HEALTHY_SIZE = 80
+export const MASTER_POOL_SIZE_PER_TYPE = 320
+export const MASTER_POOL_MIN_HEALTHY_SIZE = 120
 export const MASTER_POOL_MAX_AGE_DAYS = 7
 export const SERVE_SIZE_PER_TYPE = 20
 export const FORCE_REGEN_COOLDOWN_MINUTES = 30
-export const MASTER_POOL_MIN_UNSEEN_ITEMS = 50
+export const MASTER_POOL_MIN_UNSEEN_ITEMS = 90
 export const MASTER_POOL_DEPLETED_SHOWN_RATIO = 0.75
 
 export function computeRegenDelta(totalEntries: number): number {

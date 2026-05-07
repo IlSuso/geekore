@@ -6,6 +6,7 @@ export type RecommendationRailKind =
   | 'social'
   | 'fresh'
   | 'discovery'
+  | 'media-type'
   | 'genre'
   | 'because-title'
   | 'quick-picks'
@@ -25,11 +26,30 @@ interface RailTasteProfile {
   globalGenres?: Array<{ genre: string; score: number }>
   genreToTitles?: TasteProfile['genreToTitles']
   topTitlesForContext?: TasteProfile['topTitlesForContext']
+  collectionSize?: Partial<Record<string, number>>
   nicheUser?: boolean
 }
 
 const MIN_RAIL_ITEMS = 4
-const MAX_RAIL_ITEMS = 20
+const MAX_RAIL_ITEMS = 14
+const MAX_PAGE_RAILS = 6
+const TYPE_LABELS: Record<string, string> = {
+  movie: 'Film consigliati',
+  anime: 'Anime consigliati',
+  tv: 'Serie consigliate',
+  game: 'Videogiochi consigliati',
+  manga: 'Manga consigliati',
+  boardgame: 'Board game consigliati',
+}
+
+const TYPE_BADGES: Record<string, string> = {
+  movie: 'Film',
+  anime: 'Anime',
+  tv: 'Serie',
+  game: 'Game',
+  manga: 'Manga',
+  boardgame: 'Board game',
+}
 
 function uniqueItems(items: Recommendation[]) {
   const seen = new Set<string>()
@@ -45,6 +65,22 @@ function uniqueItems(items: Recommendation[]) {
 
 function takeRail(items: Recommendation[]) {
   return interleaveByType(uniqueItems(items)).slice(0, MAX_RAIL_ITEMS)
+}
+
+function itemKey(item: Recommendation) {
+  return `${item.type}:${item.id}`
+}
+
+function takeRailExclusive(
+  items: Recommendation[],
+  used: Map<string, number>,
+  options: { maxRepeats?: number; limit?: number } = {},
+) {
+  const maxRepeats = options.maxRepeats ?? 1
+  const limit = options.limit ?? MAX_RAIL_ITEMS
+  const picked = takeRail(items.filter(item => (used.get(itemKey(item)) || 0) < maxRepeats)).slice(0, limit)
+  for (const item of picked) used.set(itemKey(item), (used.get(itemKey(item)) || 0) + 1)
+  return picked
 }
 
 function interleaveByType(items: Recommendation[]) {
@@ -84,6 +120,7 @@ export function composeRecommendationRails(
   if (allItems.length === 0) return []
 
   const rails: RecommendationRail[] = []
+  const used = new Map<string, number>()
   const byScore = [...allItems].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
   const topGenre = tasteProfile?.globalGenres?.[0]?.genre
   const lovedTitle = tasteProfile?.topTitlesForContext?.[0]
@@ -102,20 +139,40 @@ export function composeRecommendationRails(
     title: 'Scelte fortissime per te',
     subtitle: 'I match piu alti del tuo profilo, mescolati tra tutti i media',
     kind: 'top-match',
-    items: takeRail(byScore.filter(item => (item.matchScore || 0) >= topMatchThreshold)),
+    items: takeRailExclusive(byScore.filter(item => (item.matchScore || 0) >= topMatchThreshold), used, { limit: 10 }),
     badge: 'Top match',
     priority: 100,
   })
 
+  const continuityItems = takeRailExclusive(byScore.filter(item => item.isContinuity), used, { maxRepeats: 2, limit: 10 })
   pushRail(rails, {
     id: 'continue',
     title: 'Continua il viaggio',
     subtitle: 'Sequel, spin-off e capitoli collegati a cio che hai gia finito',
     kind: 'continue',
-    items: takeRail(byScore.filter(item => item.isContinuity)),
+    items: continuityItems,
     badge: 'Next up',
     priority: 98,
   })
+
+  const fallbackTypeOrder = ['movie', 'anime', 'tv', 'game', 'manga', 'boardgame']
+  const typeOrder = [...fallbackTypeOrder].sort((a, b) => {
+    const sizeDelta = (tasteProfile?.collectionSize?.[b] || 0) - (tasteProfile?.collectionSize?.[a] || 0)
+    if (sizeDelta !== 0) return sizeDelta
+    return fallbackTypeOrder.indexOf(a) - fallbackTypeOrder.indexOf(b)
+  })
+  for (const type of typeOrder) {
+    const items = takeRailExclusive(byScore.filter(item => item.type === type), used, { limit: 12 })
+    pushRail(rails, {
+      id: `type-${type}`,
+      title: TYPE_LABELS[type] || `${type} consigliati`,
+      subtitle: 'Una selezione personale senza ripetere i titoli delle altre righe',
+      kind: 'media-type',
+      items,
+      badge: TYPE_BADGES[type] || type,
+      priority: 92 - typeOrder.indexOf(type),
+    })
+  }
 
   if (lovedTitle && lovedTitleGenres.length > 0) {
     pushRail(rails, {
@@ -123,7 +180,7 @@ export function composeRecommendationRails(
       title: `Perche hai amato ${lovedTitle.title}`,
       subtitle: 'Stessa energia, segnali simili e compatibilita alta',
       kind: 'because-title',
-      items: takeRail(byScore.filter(item => item.genres?.some(genre => lovedTitleGenres.includes(genre)))),
+      items: takeRailExclusive(byScore.filter(item => item.genres?.some(genre => lovedTitleGenres.includes(genre))), used, { maxRepeats: 2, limit: 10 }),
       badge: 'Because',
       priority: 94,
     })
@@ -134,7 +191,7 @@ export function composeRecommendationRails(
     title: 'Piacciono a persone simili a te',
     subtitle: 'Segnali social e amici con gusti compatibili',
     kind: 'social',
-    items: takeRail(byScore.filter(item => item.socialBoost || item.friendWatching)),
+    items: takeRailExclusive(byScore.filter(item => item.socialBoost || item.friendWatching), used, { maxRepeats: 2, limit: 10 }),
     badge: 'Taste twins',
     priority: 90,
   })
@@ -144,7 +201,7 @@ export function composeRecommendationRails(
     title: 'Caldi adesso nei tuoi gusti',
     subtitle: 'Titoli recenti, stagionali o premiati che entrano bene nel tuo profilo',
     kind: 'fresh',
-    items: takeRail(byScore.filter(item => item.isSeasonal || item.isAwardWinner || (item.year && item.year >= new Date().getFullYear() - 1))),
+    items: takeRailExclusive(byScore.filter(item => item.isSeasonal || item.isAwardWinner || (item.year && item.year >= new Date().getFullYear() - 1)), used, { limit: 10 }),
     badge: 'Fresh',
     priority: 82,
   })
@@ -154,11 +211,11 @@ export function composeRecommendationRails(
     title: 'Perfetti per stasera',
     subtitle: 'Film, serie brevi, anime compatti e giochi da tavolo non infiniti',
     kind: 'quick-picks',
-    items: takeRail(byScore.filter(item =>
+    items: takeRailExclusive(byScore.filter(item =>
       item.type === 'movie' ||
       (item.episodes && item.episodes <= 12) ||
       (item.playing_time && item.playing_time <= 90)
-    )),
+    ), used, { limit: 10 }),
     badge: 'Easy start',
     priority: 76,
   })
@@ -168,7 +225,7 @@ export function composeRecommendationRails(
     title: 'Fuori dalla bolla, ma non a caso',
     subtitle: 'Scoperte vicine ai tuoi gusti senza ripetere sempre lo stesso genere',
     kind: 'discovery',
-    items: takeRail(byScore.filter(item => item.isDiscovery || item.isSerendipity)),
+    items: takeRailExclusive(byScore.filter(item => item.isDiscovery || item.isSerendipity), used, { limit: 10 }),
     badge: 'Discovery',
     priority: 72,
   })
@@ -178,12 +235,12 @@ export function composeRecommendationRails(
     title: tasteProfile?.nicheUser ? 'Gemme strane, esattamente il tuo campo' : 'Gemme nascoste da provare',
     subtitle: 'Titoli meno ovvi che restano sopra la soglia di compatibilita',
     kind: 'hidden-gems',
-    items: takeRail(byScore.filter(item =>
+    items: takeRailExclusive(byScore.filter(item =>
       (item.matchScore || 0) >= 68 &&
       !item.isAwardWinner &&
       !item.isSeasonal &&
       !item.isContinuity
-    ).slice(4)),
+    ).slice(4), used, { limit: 10 }),
     badge: 'Hidden gem',
     priority: 66,
   })
@@ -194,7 +251,7 @@ export function composeRecommendationRails(
       title: `Perche ami ${topGenre}`,
       subtitle: 'Una riga costruita sul tuo segnale dominante',
       kind: 'genre',
-      items: takeRail(byScore.filter(item => item.genres?.includes(topGenre))),
+      items: takeRailExclusive(byScore.filter(item => item.genres?.includes(topGenre)), used, { maxRepeats: 2, limit: 10 }),
       badge: topGenre,
       priority: 62,
     })
@@ -206,7 +263,7 @@ export function composeRecommendationRails(
       title: 'Il meglio del tuo pool',
       subtitle: 'Una selezione mista ordinata per compatibilita',
       kind: 'top-match',
-      items: takeRail(byScore),
+      items: takeRailExclusive(byScore, used, { maxRepeats: 2 }),
       badge: 'Best of',
       priority: 1,
     })
@@ -214,5 +271,5 @@ export function composeRecommendationRails(
 
   return rails
     .sort((a, b) => b.priority - a.priority)
-    .slice(0, 8)
+    .slice(0, MAX_PAGE_RAILS)
 }
