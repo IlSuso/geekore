@@ -1164,6 +1164,7 @@ export function SwipeMode({
   // Traccia quali item nello storico erano stati aggiunti alla wishlist
   const wishlistHistoryRef = useRef<Set<string>>(new Set());
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [autoRefillArmed, setAutoRefillArmed] = useState(false);
   const skippedIdsRef = useRef<Set<string>>(new Set());
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const loadingRef = useRef(false);
@@ -1285,20 +1286,19 @@ export function SwipeMode({
 
   // Non precaricare tutte le categorie al mount: aprire Swipe deve leggere solo la queue.
   // Il refill parte solo quando il deck diventa quasi vuoto mentre l'utente sta usando Swipe.
-  const didArmAutoRefillRef = useRef(false);
   useEffect(() => {
-    didArmAutoRefillRef.current = false;
+    setAutoRefillArmed(false);
     const timer = window.setTimeout(() => {
-      didArmAutoRefillRef.current = true;
+      setAutoRefillArmed(true);
     }, 2500);
     return () => window.clearTimeout(timer);
   }, [locale]);
 
   useEffect(() => {
-    if (!didArmAutoRefillRef.current) return;
+    if (!autoRefillArmed) return;
     if (filteredQueue.length > 0 && filteredQueue.length <= REFILL_THRESHOLD && !loadingRef.current)
       loadMore(activeFilter);
-  }, [filteredQueue.length, activeFilter]); // eslint-disable-line
+  }, [autoRefillArmed, filteredQueue.length, activeFilter, loadMore]);
 
   const handleFilterChange = useCallback(
     (filter: CategoryFilter) => {

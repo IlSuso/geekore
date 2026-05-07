@@ -64,15 +64,15 @@ const STALE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 6500
 const BGG_TIMEOUT_MS = 8500
 const PER_SECTION_LIMIT = 60
-const TRENDING_CACHE_VERSION = 'v6-locale-covers'
+const TRENDING_CACHE_VERSION = 'v7-cursor-depth'
 
 const memoryCache = new Map<string, CacheEntry>()
 let cachedIgdbToken: { token: string; expiresAt: number } | null = null
 
 const ANILIST_TRENDING_QUERY = `
-query ($type: MediaType, $perPage: Int) {
-  Page(page: 1, perPage: $perPage) {
-    media(type: $type, sort: TRENDING_DESC, isAdult: false) {
+query ($type: MediaType, $page: Int, $perPage: Int, $sort: [MediaSort]) {
+  Page(page: $page, perPage: $perPage) {
+    media(type: $type, sort: $sort, isAdult: false) {
       id
       type
       format
@@ -91,30 +91,30 @@ function normalizeLocale(value: string | null | undefined): Locale {
   return value === 'en' || value === 'en-US' ? 'en' : 'it'
 }
 
-function cacheKey(section: Section, locale: Locale) {
-  return `${TRENDING_CACHE_VERSION}:${section}:${locale}`
+function cacheKey(section: Section, locale: Locale, cursor: number) {
+  return `${TRENDING_CACHE_VERSION}:${section}:${locale}:${cursor}`
 }
 
 function now() {
   return Date.now()
 }
 
-function getFresh(section: Section, locale: Locale): CacheEntry | null {
-  const entry = memoryCache.get(cacheKey(section, locale))
+function getFresh(section: Section, locale: Locale, cursor: number): CacheEntry | null {
+  const entry = memoryCache.get(cacheKey(section, locale, cursor))
   if (!entry) return null
   if (entry.expiresAt > now()) return entry
   return null
 }
 
-function getStale(section: Section, locale: Locale): CacheEntry | null {
-  const entry = memoryCache.get(cacheKey(section, locale))
+function getStale(section: Section, locale: Locale, cursor: number): CacheEntry | null {
+  const entry = memoryCache.get(cacheKey(section, locale, cursor))
   if (!entry) return null
   if (entry.staleUntil > now()) return entry
   return null
 }
 
-function setCache(section: Section, locale: Locale, items: TrendingItem[], source: string) {
-  memoryCache.set(cacheKey(section, locale), {
+function setCache(section: Section, locale: Locale, cursor: number, items: TrendingItem[], source: string) {
+  memoryCache.set(cacheKey(section, locale, cursor), {
     items,
     source,
     fetchedAt: now(),
@@ -220,12 +220,18 @@ function anilistTitle(title: any) {
   return cleanString(title?.english) || cleanString(title?.romaji) || cleanString(title?.native) || 'Untitled'
 }
 
-async function fetchAniListTrending(type: 'anime' | 'manga'): Promise<TrendingItem[]> {
+async function fetchAniListTrending(type: 'anime' | 'manga', cursor: number): Promise<TrendingItem[]> {
   const mediaType = type === 'anime' ? 'ANIME' : 'MANGA'
+  const page = Math.max(1, cursor + 1)
+  const sort = cursor % 3 === 1
+    ? ['POPULARITY_DESC']
+    : cursor % 3 === 2
+      ? ['SCORE_DESC']
+      : ['TRENDING_DESC']
   const res = await fetch(ANILIST_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: ANILIST_TRENDING_QUERY, variables: { type: mediaType, perPage: PER_SECTION_LIMIT } }),
+    body: JSON.stringify({ query: ANILIST_TRENDING_QUERY, variables: { type: mediaType, page, perPage: PER_SECTION_LIMIT, sort } }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     next: { revalidate: 21600 },
   })
@@ -457,16 +463,17 @@ async function fetchIgdbCuratedFallback(): Promise<TrendingItem[]> {
   return uniqueById(out)
 }
 
-async function fetchIgdbTrending(): Promise<TrendingItem[]> {
+async function fetchIgdbTrending(cursor: number): Promise<TrendingItem[]> {
   resetIgdbDiagnostics()
 
   const fields = 'fields name, summary, storyline, cover.image_id, first_release_date, genres.name, total_rating, aggregated_rating, rating, total_rating_count, hypes;'
   const mainGameWithCover = 'where cover != null & category = 0'
+  const offset = Math.max(0, cursor) * 50
   const queries = [
-    `${fields} ${mainGameWithCover} & total_rating_count > 50; sort total_rating_count desc; limit 50;`,
-    `${fields} ${mainGameWithCover} & hypes > 3; sort hypes desc; limit 50;`,
-    `${fields} ${mainGameWithCover} & rating > 70; sort rating desc; limit 50;`,
-    `${fields} where cover != null & total_rating_count > 100; sort total_rating_count desc; limit 50;`,
+    `${fields} ${mainGameWithCover} & total_rating_count > 50; sort total_rating_count desc; limit 50; offset ${offset};`,
+    `${fields} ${mainGameWithCover} & hypes > 3; sort hypes desc; limit 50; offset ${offset};`,
+    `${fields} ${mainGameWithCover} & rating > 70; sort rating desc; limit 50; offset ${offset};`,
+    `${fields} where cover != null & total_rating_count > 100; sort total_rating_count desc; limit 50; offset ${offset};`,
   ]
 
   const settled = await Promise.allSettled(queries.map((q, index) => igdbGamesRequest(q, `trending:${index + 1}`)))
@@ -557,8 +564,8 @@ async function fetchSteamFallback(locale: Locale): Promise<TrendingItem[]> {
   return uniqueById([...uniqueFeatured, ...staticNamed, ...staticItems])
 }
 
-async function fetchGameTrending(locale: Locale): Promise<{ items: TrendingItem[]; source: string }> {
-  const igdb = await fetchIgdbTrending().catch((error) => {
+async function fetchGameTrending(locale: Locale, cursor: number): Promise<{ items: TrendingItem[]; source: string }> {
+  const igdb = await fetchIgdbTrending(cursor).catch((error) => {
     pushIgdbDiagnostic({ label: 'fetchIgdbTrending', ok: false, error: error?.message || 'mapping_failed' })
     return []
   })
@@ -570,8 +577,11 @@ async function fetchGameTrending(locale: Locale): Promise<{ items: TrendingItem[
   return { items: uniqueById([...igdb, ...steam]), source: igdb.length > 0 ? 'igdb+steam' : 'steam' }
 }
 
-async function fetchBggTrending(): Promise<TrendingItem[]> {
-  const hotRes = await fetch(`${BGG_BASE}/hot?type=boardgame`, {
+async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
+  const endpoint = cursor === 0
+    ? `${BGG_BASE}/hot?type=boardgame`
+    : `${BGG_BASE}/search?query=&type=boardgame&page=${cursor + 1}`
+  const hotRes = await fetch(endpoint, {
     headers: bggHeaders(),
     signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
     next: { revalidate: 21600 },
@@ -624,10 +634,11 @@ async function fetchBggTrending(): Promise<TrendingItem[]> {
   return ids.map(id => byId.get(id)).filter(Boolean) as TrendingItem[]
 }
 
-async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale): Promise<TrendingItem[]> {
+async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale, cursor: number): Promise<TrendingItem[]> {
   if (!hasTmdbConfig()) return []
   const language = locale === 'it' ? 'it-IT' : 'en-US'
-  const pages = await Promise.allSettled([1, 2, 3].map(page =>
+  const startPage = Math.max(1, cursor * 3 + 1)
+  const pages = await Promise.allSettled([startPage, startPage + 1, startPage + 2].map(page =>
     fetch(`${TMDB_BASE}/trending/${section}/week?language=${language}&page=${page}`, {
       headers: tmdbHeaders(),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -667,29 +678,29 @@ async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale): Promi
     }))
 }
 
-async function fetchSectionFresh(section: Section, locale: Locale): Promise<{ items: TrendingItem[]; source: string }> {
-  if (section === 'anime') return { items: await fetchAniListTrending('anime'), source: 'anilist' }
-  if (section === 'manga') return { items: await fetchAniListTrending('manga'), source: 'anilist' }
-  if (section === 'movie' || section === 'tv') return { items: await fetchTmdbTrending(section, locale), source: 'tmdb' }
-  if (section === 'boardgame') return { items: await fetchBggTrending(), source: 'bgg' }
-  return fetchGameTrending(locale)
+async function fetchSectionFresh(section: Section, locale: Locale, cursor: number): Promise<{ items: TrendingItem[]; source: string }> {
+  if (section === 'anime') return { items: await fetchAniListTrending('anime', cursor), source: 'anilist' }
+  if (section === 'manga') return { items: await fetchAniListTrending('manga', cursor), source: 'anilist' }
+  if (section === 'movie' || section === 'tv') return { items: await fetchTmdbTrending(section, locale, cursor), source: 'tmdb' }
+  if (section === 'boardgame') return { items: await fetchBggTrending(cursor), source: 'bgg' }
+  return fetchGameTrending(locale, cursor)
 }
 
-async function getSection(section: Section, locale: Locale): Promise<{ items: TrendingItem[]; source: string; cache: 'fresh' | 'refreshed' | 'stale' | 'empty' }> {
-  const fresh = getFresh(section, locale)
+async function getSection(section: Section, locale: Locale, cursor: number): Promise<{ items: TrendingItem[]; source: string; cache: 'fresh' | 'refreshed' | 'stale' | 'empty' }> {
+  const fresh = getFresh(section, locale, cursor)
   if (fresh) return { items: fresh.items, source: fresh.source, cache: 'fresh' }
 
   try {
-    const { items, source } = await fetchSectionFresh(section, locale)
+    const { items, source } = await fetchSectionFresh(section, locale, cursor)
     if (items.length > 0) {
-      setCache(section, locale, items, source)
+      setCache(section, locale, cursor, items, source)
       return { items, source, cache: 'refreshed' }
     }
   } catch {
     // fallback sotto
   }
 
-  const stale = getStale(section, locale)
+  const stale = getStale(section, locale, cursor)
   if (stale) return { items: stale.items, source: stale.source, cache: 'stale' }
 
   return { items: [], source: 'none', cache: 'empty' }
@@ -719,9 +730,10 @@ export async function GET(request: NextRequest) {
   const explicitLang = searchParams.get('lang')
   const locale = normalizeLocale(explicitLang || await getRequestLocale(request))
   const debug = searchParams.get('debug') === '1'
+  const cursor = Math.max(0, Math.min(30, Number(searchParams.get('cursor') || 0) || 0))
 
   if (requestedSection === 'all') {
-    const settled = await Promise.allSettled(SECTIONS.map(section => getSection(section, locale)))
+    const settled = await Promise.allSettled(SECTIONS.map(section => getSection(section, locale, cursor)))
     const payload: Record<Section, TrendingItem[]> = {
       anime: [], game: [], tv: [], manga: [], movie: [], boardgame: [],
     }
@@ -731,7 +743,7 @@ export async function GET(request: NextRequest) {
       const section = SECTIONS[index]
       if (entry.status === 'fulfilled') {
         payload[section] = entry.value.items
-        meta[section] = { source: entry.value.source, cache: entry.value.cache, count: entry.value.items.length }
+        meta[section] = { source: entry.value.source, cache: entry.value.cache, count: entry.value.items.length, cursor }
       } else {
         meta[section] = { source: 'error', cache: 'empty', count: 0 }
       }
@@ -745,10 +757,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(debug ? buildDebugPayload(requestedSection, locale, []) : [], { headers: jsonHeaders(rl.headers) })
   }
 
-  const result = await getSection(requestedSection as Section, locale)
+  const result = await getSection(requestedSection as Section, locale, cursor)
   const body = debug ? buildDebugPayload(requestedSection, locale, {
     source: result.source,
     cache: result.cache,
+    cursor,
     count: result.items.length,
     sample: result.items.slice(0, 3),
   }) : result.items

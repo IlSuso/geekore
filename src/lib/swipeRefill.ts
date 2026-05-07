@@ -42,6 +42,12 @@ type RefillResult = {
   mirrored?: number
 }
 
+function isActiveQueueRow(row: any, skippedIds: Set<string>, ownedIds: Set<string>, ownedTitles: Set<string>) {
+  return !skippedIds.has(String(row?.external_id || ''))
+    && !ownedIds.has(String(row?.external_id || ''))
+    && !ownedTitles.has(String(row?.title || '').toLowerCase())
+}
+
 function cleanString(value: unknown, max = 300): string | null {
   if (typeof value !== 'string') return null
   const clean = value.trim().slice(0, max)
@@ -135,28 +141,101 @@ async function loadExistingContext(supabase: SupabaseLike, userId: string, queue
     supabase.from('user_media_entries').select('external_id,title').eq('user_id', userId),
   ])
 
-  const skippedIds = new Set((skippedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
-  const ownedIds = new Set((ownedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
-  const ownedTitles = new Set((ownedRows || []).map((row: any) => String(row.title || '').toLowerCase()).filter(Boolean))
-  const activeRows = (queueRows || []).filter((row: any) =>
-    !skippedIds.has(String(row.external_id || '')) &&
-    !ownedIds.has(String(row.external_id || '')) &&
-    !ownedTitles.has(String(row.title || '').toLowerCase())
-  )
+  const skippedIds = new Set<string>((skippedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
+  const ownedIds = new Set<string>((ownedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
+  const ownedTitles = new Set<string>((ownedRows || []).map((row: any) => String(row.title || '').toLowerCase()).filter(Boolean))
+  const activeRows = (queueRows || []).filter((row: any) => isActiveQueueRow(row, skippedIds, ownedIds, ownedTitles))
   const existingIds = new Set(activeRows.map((row: any) => String(row.external_id || '')).filter(Boolean))
   return { activeRows, existingIds, skippedIds, ownedIds, ownedTitles }
 }
 
-async function fetchCandidates(origin: string, queue: SwipeQueueType, locale: 'it' | 'en') {
+async function rebuildAllQueueFromTyped(options: RefillOptions, before: number): Promise<RefillResult> {
+  const target = options.target ?? 50
+  const [{ data: skippedRows }, { data: ownedRows }, ...typedResults] = await Promise.all([
+    options.supabase.from('swipe_skipped').select('external_id').eq('user_id', options.userId),
+    options.supabase.from('user_media_entries').select('external_id,title').eq('user_id', options.userId),
+    ...TYPED_QUEUE_TYPES.map(type =>
+      options.supabase
+        .from(QUEUE_TABLE[type])
+        .select('*')
+        .eq('user_id', options.userId)
+        .order('inserted_at', { ascending: true })
+        .limit(target),
+    ),
+  ])
+
+  const skippedIds = new Set<string>((skippedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
+  const ownedIds = new Set<string>((ownedRows || []).map((row: any) => String(row.external_id || '')).filter(Boolean))
+  const ownedTitles = new Set<string>((ownedRows || []).map((row: any) => String(row.title || '').toLowerCase()).filter(Boolean))
+  const byType = new Map<Exclude<SwipeQueueType, 'all'>, any[]>()
+
+  typedResults.forEach((result: any, index: number) => {
+    const type = TYPED_QUEUE_TYPES[index]
+    byType.set(
+      type,
+      (result?.data || [])
+        .filter((row: any) => isActiveQueueRow(row, skippedIds, ownedIds, ownedTitles))
+        .slice(0, target),
+    )
+  })
+
+  const rows: any[] = []
+  const seen = new Set<string>()
+  while (rows.length < target * TYPED_QUEUE_TYPES.length) {
+    let added = false
+    for (const type of TYPED_QUEUE_TYPES) {
+      const next = byType.get(type)?.shift()
+      if (!next) continue
+      const id = String(next.external_id || '')
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      rows.push({
+        ...next,
+        user_id: options.userId,
+        inserted_at: new Date(Date.now() + rows.length).toISOString(),
+      })
+      added = true
+    }
+    if (!added) break
+  }
+
+  const result = await upsertRows(options.supabase, QUEUE_TABLE.all, rows)
+  return {
+    queue: 'all',
+    before,
+    needed: Math.max(0, target * TYPED_QUEUE_TYPES.length - before),
+    candidates: rows.length,
+    picked: rows.length,
+    inserted: result.inserted,
+    after: rows.length,
+  }
+}
+
+async function fetchCandidates(origin: string, queue: SwipeQueueType, locale: 'it' | 'en', startCursor: number) {
   const section = queue === 'all' ? 'all' : queue
-  const res = await fetch(`${origin}/api/trending?section=${section}&lang=${locale}`, {
-    cache: 'no-store',
-    signal: AbortSignal.timeout(20_000),
-  }).catch(() => null)
-  if (!res?.ok) return []
-  const payload = await res.json().catch(() => null)
-  if (queue === 'all') return Object.values(payload || {}).flat() as any[]
-  return Array.isArray(payload) ? payload : []
+  const candidates: any[] = []
+  const seen = new Set<string>()
+
+  for (let cursor = startCursor; cursor < startCursor + 6; cursor++) {
+    const res = await fetch(`${origin}/api/trending?section=${section}&lang=${locale}&cursor=${cursor}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20_000),
+    }).catch(() => null)
+    if (!res?.ok) continue
+    const payload = await res.json().catch(() => null)
+    const pageItems = queue === 'all'
+      ? Object.values(payload || {}).flat() as any[]
+      : Array.isArray(payload) ? payload : []
+
+    for (const item of pageItems) {
+      const id = String(item?.id || item?.external_id || '')
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      candidates.push(item)
+    }
+  }
+
+  return candidates
 }
 
 function pickCandidates(candidates: any[], queue: SwipeQueueType, existing: Awaited<ReturnType<typeof loadExistingContext>>, limit: number) {
@@ -205,6 +284,13 @@ async function runSwipeQueueRefill(options: RefillOptions): Promise<RefillResult
   const locale = options.locale || 'it'
   const existing = await loadExistingContext(options.supabase, options.userId, queue)
 
+  if (queue === 'all') {
+    for (const type of TYPED_QUEUE_TYPES) {
+      await ensureSwipeQueueRefill({ ...options, queue: type, threshold: target - 1, target })
+    }
+    return rebuildAllQueueFromTyped(options, existing.activeRows.length)
+  }
+
   if (existing.activeRows.length > threshold) {
     return { queue, before: existing.activeRows.length, inserted: 0, after: existing.activeRows.length, skipped: true }
   }
@@ -212,20 +298,11 @@ async function runSwipeQueueRefill(options: RefillOptions): Promise<RefillResult
   const needed = Math.max(0, target - existing.activeRows.length)
   if (needed === 0) return { queue, before: existing.activeRows.length, inserted: 0, after: existing.activeRows.length, skipped: true }
 
-  const candidates = await fetchCandidates(options.origin, queue, locale)
+  const startCursor = Math.floor((existing.skippedIds.size + existing.ownedIds.size) / 45)
+  const candidates = await fetchCandidates(options.origin, queue, locale, startCursor)
   const picked = pickCandidates(candidates, queue, existing, needed)
   const rows = picked.map((item, index) => toQueueRow(item, options.userId, index)).filter(Boolean)
   const primary = await upsertRows(options.supabase, QUEUE_TABLE[queue], rows)
-
-  let mirrored = 0
-  if (queue === 'all' && rows.length > 0) {
-    for (const type of TYPED_QUEUE_TYPES) {
-      const typedRows = rows.filter((row: any) => row.type === type)
-      if (typedRows.length === 0) continue
-      const result = await upsertRows(options.supabase, QUEUE_TABLE[type], typedRows)
-      mirrored += result.inserted
-    }
-  }
 
   return {
     queue,
@@ -234,7 +311,6 @@ async function runSwipeQueueRefill(options: RefillOptions): Promise<RefillResult
     candidates: candidates.length,
     picked: rows.length,
     inserted: primary.inserted,
-    mirrored,
     after: existing.activeRows.length + primary.inserted,
   }
 }

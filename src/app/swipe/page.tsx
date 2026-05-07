@@ -286,6 +286,18 @@ export default function SwipePage() {
       );
 
       const existingItems = existingRows.map((row: any) => rowToSwipeItem(row, locale));
+      const shouldHealQueues = queueResults.some((result: any, index: number) => {
+        const key = QUEUE_KEYS[index];
+        const activeRows = (result?.data || []).filter(
+          (r: any) =>
+            !skippedSet.has(r.external_id) &&
+            !addedIdsRef.current.has(String(r.external_id)) &&
+            !addedTitlesRef.current.has(String(r.title || "").toLowerCase()),
+        );
+        return key === "all"
+          ? activeRows.length < 50 * MIXED_SWIPE_TYPES.length
+          : activeRows.length < 50;
+      });
 
       // Fast path vero: se la queue esiste, Swipe deve solo leggerla e basta.
       // Niente /api/recommendations, niente /api/media/localize, niente refill al mount.
@@ -294,6 +306,13 @@ export default function SwipePage() {
         if (requestSeq !== requestSeqRef.current) return;
         setInitialItems(existingItems);
         setLoading(false);
+        if (shouldHealQueues) {
+          fetch("/api/swipe/refill", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ queue: "all" }),
+          }).catch(() => null);
+        }
         return;
       }
 
