@@ -64,6 +64,7 @@ const STALE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 6500
 const BGG_TIMEOUT_MS = 8500
 const PER_SECTION_LIMIT = 60
+const BGG_DETAIL_BATCH_SIZE = 20
 const TRENDING_CACHE_VERSION = 'v7-cursor-depth'
 
 const memoryCache = new Map<string, CacheEntry>()
@@ -213,6 +214,23 @@ function extractItemChunks(xml: string): string[] {
   let match: RegExpExecArray | null
   while ((match = re.exec(xml)) !== null) chunks.push(match[0])
   return chunks
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.filter(Boolean))]
+}
+
+function extractBggIds(xmlOrHtml: string): string[] {
+  const ids: string[] = []
+  const xmlRe = /<item[^>]*id="(\d+)"/g
+  let xmlMatch: RegExpExecArray | null
+  while ((xmlMatch = xmlRe.exec(xmlOrHtml)) !== null) ids.push(xmlMatch[1])
+
+  const htmlRe = /\/boardgame\/(\d+)(?:\/|["?#])/g
+  let htmlMatch: RegExpExecArray | null
+  while ((htmlMatch = htmlRe.exec(xmlOrHtml)) !== null) ids.push(htmlMatch[1])
+
+  return uniqueStrings(ids)
 }
 
 function anilistTitle(title: any) {
@@ -577,30 +595,107 @@ async function fetchGameTrending(locale: Locale, cursor: number): Promise<{ item
   return { items: uniqueById([...igdb, ...steam]), source: igdb.length > 0 ? 'igdb+steam' : 'steam' }
 }
 
+const BGG_SEARCH_TERMS = [
+  'strategy', 'adventure', 'family', 'cooperative', 'card game', 'deck building',
+  'worker placement', 'civilization', 'fantasy', 'science fiction', 'mystery',
+  'war game', 'party game', 'abstract', 'economic', 'tile placement', 'campaign',
+  'solo', 'eurogame', 'area control', 'deduction', 'horror', 'historical',
+  'puzzle', 'legacy', 'nature', 'city building', 'space', 'negotiation',
+  'engine building', 'dice', 'miniatures', 'exploration', 'trains',
+]
+const BGG_FALLBACK_IDS = [
+  '224517', '342942', '161936', '174430', '397598', '316554', '233078', '115746',
+  '167791', '187645', '162886', '291457', '220308', '12333', '84876', '418059',
+  '338960', '182028', '421006', '193738', '295770', '28720', '246900', '173346',
+  '167355', '169786', '177736', '266507', '124361', '312484', '341169', '205637',
+  '373106', '237182', '120677', '164928', '192135', '266192', '96848', '251247',
+  '321608', '199792', '324856', '183394', '284378', '521', '366013', '285774',
+  '175914', '247763', '244521', '178900', '55690', '230802', '209010', '185343',
+  '146021', '4098', '68448', '28143', '35677', '70323', '3076', '9209',
+  '148228', '172386', '126163', '146508', '176494', '159675', '284083', '266810',
+]
+
+async function fetchBggIdsFromHot(): Promise<string[]> {
+  const res = await fetch(`${BGG_BASE}/hot?type=boardgame`, {
+    headers: bggHeaders(),
+    signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
+    next: { revalidate: 21600 },
+  }).catch(() => null)
+  if (!res?.ok) return []
+  return extractBggIds(await res.text())
+}
+
+async function fetchBggIdsFromBrowse(page: number): Promise<string[]> {
+  const res = await fetch(`https://boardgamegeek.com/browse/boardgame/page/${page}`, {
+    headers: bggHeaders(),
+    signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
+    next: { revalidate: 86400 },
+  }).catch(() => null)
+  if (!res?.ok) return []
+  return extractBggIds(await res.text())
+}
+
+async function fetchBggIdsFromSearch(term: string): Promise<string[]> {
+  const res = await fetch(`${BGG_BASE}/search?query=${encodeURIComponent(term)}&type=boardgame`, {
+    headers: bggHeaders(),
+    signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
+    next: { revalidate: 86400 },
+  }).catch(() => null)
+  if (!res?.ok) return []
+  return extractBggIds(await res.text())
+}
+
+async function fetchBggDetails(ids: string[]): Promise<string> {
+  const batches: string[][] = []
+  for (let i = 0; i < ids.length; i += BGG_DETAIL_BATCH_SIZE) {
+    batches.push(ids.slice(i, i + BGG_DETAIL_BATCH_SIZE))
+  }
+
+  const xml: string[] = []
+  for (const batch of batches) {
+    const chunk = await fetch(`${BGG_BASE}/thing?id=${batch.join(',')}&stats=1`, {
+      headers: bggHeaders(),
+      signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
+      next: { revalidate: 21600 },
+    }).then(res => res.ok ? res.text() : '').catch(() => '')
+    if (chunk) xml.push(chunk)
+  }
+
+  return xml.join('\n')
+}
+
 async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
-  const endpoint = cursor === 0
-    ? `${BGG_BASE}/hot?type=boardgame`
-    : `${BGG_BASE}/search?query=&type=boardgame&page=${cursor + 1}`
-  const hotRes = await fetch(endpoint, {
-    headers: bggHeaders(),
-    signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
-    next: { revalidate: 21600 },
-  })
-  if (!hotRes.ok) return []
+  const ids: string[] = []
+  if (cursor === 0) ids.push(...await fetchBggIdsFromHot())
 
-  const hotXml = await hotRes.text()
-  const hotChunks = extractItemChunks(hotXml)
-  const ids = hotChunks.map(chunk => extractAttr(chunk, 'item', 'id')).filter(Boolean).slice(0, PER_SECTION_LIMIT)
-  if (ids.length === 0) return []
+  const browseStart = Math.max(1, cursor * 5 + 1)
+  const browsePages = [browseStart, browseStart + 1, browseStart + 2, browseStart + 3, browseStart + 4]
+  const browseResults = await Promise.allSettled(browsePages.map(fetchBggIdsFromBrowse))
+  for (const result of browseResults) {
+    if (result.status === 'fulfilled') ids.push(...result.value)
+  }
 
-  const detailsRes = await fetch(`${BGG_BASE}/thing?id=${ids.join(',')}&stats=1`, {
-    headers: bggHeaders(),
-    signal: AbortSignal.timeout(BGG_TIMEOUT_MS),
-    next: { revalidate: 21600 },
-  })
-  if (!detailsRes.ok) return []
+  if (uniqueStrings(ids).length < PER_SECTION_LIMIT) {
+    const termStart = (cursor * 8) % BGG_SEARCH_TERMS.length
+    const terms = Array.from({ length: 8 }, (_, index) => BGG_SEARCH_TERMS[(termStart + index) % BGG_SEARCH_TERMS.length])
+    const searchResults = await Promise.allSettled(terms.map(fetchBggIdsFromSearch))
+    for (const result of searchResults) {
+      if (result.status === 'fulfilled') ids.push(...result.value)
+    }
+  }
 
-  const detailsXml = await detailsRes.text()
+  if (uniqueStrings(ids).length < PER_SECTION_LIMIT) {
+    const fallbackStart = (cursor * PER_SECTION_LIMIT) % BGG_FALLBACK_IDS.length
+    ids.push(...Array.from({ length: PER_SECTION_LIMIT }, (_, index) =>
+      BGG_FALLBACK_IDS[(fallbackStart + index) % BGG_FALLBACK_IDS.length],
+    ))
+  }
+
+  const uniqueIds = uniqueStrings(ids).slice(0, PER_SECTION_LIMIT)
+  if (uniqueIds.length === 0) return []
+
+  const detailsXml = await fetchBggDetails(uniqueIds)
+  if (!detailsXml) return []
   const detailChunks = extractItemChunks(detailsXml)
   const byId = new Map<string, TrendingItem>()
 
@@ -631,7 +726,7 @@ async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
     })
   }
 
-  return ids.map(id => byId.get(id)).filter(Boolean) as TrendingItem[]
+  return uniqueIds.map(id => byId.get(id)).filter(Boolean) as TrendingItem[]
 }
 
 async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale, cursor: number): Promise<TrendingItem[]> {
