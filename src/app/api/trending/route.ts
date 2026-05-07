@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import { apiMessage } from '@/lib/i18n/apiErrors'
+import { createClient } from '@/lib/supabase/server'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -48,6 +49,20 @@ type TrendingItem = {
   genres?: string[]
   score?: number
   source: 'anilist' | 'tmdb' | 'igdb' | 'steam' | 'bgg'
+}
+
+type BGGCatalogRow = {
+  bgg_id: number
+  title: string
+  year_published: number | null
+  rank: number | null
+  average_rating: number | string | null
+  users_rated: number | null
+  categories: string[] | null
+  mechanics: string[] | null
+  image_url: string | null
+  thumbnail_url: string | null
+  description: string | null
 }
 
 type CacheEntry = {
@@ -614,6 +629,82 @@ const BGG_FALLBACK_IDS = [
   '146021', '4098', '68448', '28143', '35677', '70323', '3076', '9209',
   '148228', '172386', '126163', '146508', '176494', '159675', '284083', '266810',
 ]
+const BGG_TRASH_TITLE_BITS = [
+  'adoption game',
+  'cabbage patch',
+  'promo',
+  'promotional',
+  'expansion',
+  'booster',
+  'starter set',
+  'starter deck',
+  'travel edition',
+  'junior',
+  'kids',
+]
+
+function isSwipeQualityBoardgame(row: Pick<BGGCatalogRow, 'title' | 'rank' | 'average_rating' | 'users_rated' | 'image_url' | 'thumbnail_url' | 'categories'>) {
+  const title = cleanString(row.title)?.toLowerCase() || ''
+  if (!title) return false
+  if (BGG_TRASH_TITLE_BITS.some(bit => title.includes(bit))) return false
+  if (!row.image_url && !row.thumbnail_url) return false
+
+  const rank = Number(row.rank || 999999)
+  const rating = Number(row.average_rating || 0)
+  const usersRated = Number(row.users_rated || 0)
+  const categories = (row.categories || []).map(category => category.toLowerCase())
+  const isChildrensGame = categories.includes("children's game")
+
+  if (isChildrensGame && (rating < 7.4 || usersRated < 1500)) return false
+  return rank <= 5000 && rating >= 6.8 && usersRated >= 100
+}
+
+function mapBggCatalogRow(row: BGGCatalogRow): TrendingItem | null {
+  if (!row.bgg_id || !isSwipeQualityBoardgame(row)) return null
+  const cover = row.image_url || row.thumbnail_url || undefined
+  return {
+    id: `bgg-${row.bgg_id}`,
+    external_id: `bgg-${row.bgg_id}`,
+    title: row.title,
+    title_original: row.title,
+    title_en: row.title,
+    type: 'boardgame',
+    coverImage: cover,
+    cover_image: cover,
+    year: row.year_published || undefined,
+    genres: Array.isArray(row.categories) ? row.categories.slice(0, 12) : [],
+    score: Number(row.average_rating || 0) ? Math.round(Number(row.average_rating) * 10) : undefined,
+    description: cleanString(row.description),
+    description_en: cleanString(row.description),
+    localized: { en: { title: row.title, description: cleanString(row.description), coverImage: cover }, it: { title: row.title, description: cleanString(row.description), coverImage: cover } },
+    source: 'bgg',
+  }
+}
+
+async function fetchBggCatalogTrending(cursor: number): Promise<TrendingItem[]> {
+  const supabase = await createClient()
+  const pageSize = PER_SECTION_LIMIT
+  const from = Math.max(0, cursor) * pageSize
+  const to = from + pageSize - 1
+
+  const { data, error } = await supabase
+    .from('bgg_catalog')
+    .select('bgg_id,title,year_published,rank,average_rating,users_rated,categories,mechanics,image_url,thumbnail_url,description')
+    .not('title', 'is', null)
+    .not('image_url', 'is', null)
+    .lte('rank', 5000)
+    .gte('average_rating', 6.8)
+    .gte('users_rated', 100)
+    .order('rank', { ascending: true, nullsFirst: false })
+    .range(from, to)
+
+  if (error || !Array.isArray(data)) return []
+  return uniqueById(
+    (data as BGGCatalogRow[])
+      .map(mapBggCatalogRow)
+      .filter((item): item is TrendingItem => Boolean(item)),
+  )
+}
 
 async function fetchBggIdsFromHot(): Promise<string[]> {
   const res = await fetch(`${BGG_BASE}/hot?type=boardgame`, {
@@ -665,6 +756,9 @@ async function fetchBggDetails(ids: string[]): Promise<string> {
 }
 
 async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
+  const catalogItems = await fetchBggCatalogTrending(cursor)
+  if (catalogItems.length >= PER_SECTION_LIMIT) return catalogItems
+
   const ids: string[] = []
   if (cursor === 0) ids.push(...await fetchBggIdsFromHot())
 
@@ -726,7 +820,10 @@ async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
     })
   }
 
-  return uniqueIds.map(id => byId.get(id)).filter(Boolean) as TrendingItem[]
+  return uniqueById([
+    ...catalogItems,
+    ...uniqueIds.map(id => byId.get(id)).filter(Boolean) as TrendingItem[],
+  ]).slice(0, PER_SECTION_LIMIT)
 }
 
 async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale, cursor: number): Promise<TrendingItem[]> {
