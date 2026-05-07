@@ -3,6 +3,7 @@ import { apiMessage } from '@/lib/i18n/apiErrors'
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { createClient } from '@/lib/supabase/server'
+import { loadSwipeExclusions } from '@/lib/swipeExclusions'
 
 const TYPES = ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'] as const
 type SwipeType = typeof TYPES[number]
@@ -146,14 +147,7 @@ export async function GET(request: NextRequest) {
     : TYPES.filter(type => type === requested)
   if (types.length === 0) return NextResponse.json({ recommendations: {}, source: 'swipe_discovery' }, { headers: rl.headers })
 
-  const [{ data: entries }, { data: skipped }] = await Promise.all([
-    supabase.from('user_media_entries').select('external_id,title').eq('user_id', user.id),
-    supabase.from('swipe_skipped').select('external_id').eq('user_id', user.id),
-  ])
-
-  const ownedIds = new Set((entries || []).map((entry: any) => String(entry.external_id || '')))
-  const ownedTitles = new Set((entries || []).map((entry: any) => String(entry.title || '').toLowerCase()).filter(Boolean))
-  const skippedIds = new Set((skipped || []).map((entry: any) => String(entry.external_id || '')))
+  const { ownedIds, ownedTitles, skippedIds } = await loadSwipeExclusions(supabase, user.id)
   const origin = request.nextUrl.origin
   const cookie = request.headers.get('cookie')
 

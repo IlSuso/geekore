@@ -23,6 +23,7 @@ import {
 import { SwipeMode } from "@/components/for-you/SwipeMode";
 import type { SwipeItem } from "@/components/for-you/SwipeMode";
 import { useLocale } from "@/lib/locale";
+import { loadSwipeSkippedIds } from "@/lib/swipeExclusions";
 
 const TOTAL_STEPS = 4;
 
@@ -919,13 +920,7 @@ export default function OnboardingPage() {
       if (!user) return [];
       const uid = user.id;
       const table = getQueueTable(filter);
-      const { data: skippedRows } = await supabase
-        .from("swipe_skipped")
-        .select("external_id")
-        .eq("user_id", uid);
-      const skippedSet = new Set(
-        (skippedRows || []).map((r: any) => r.external_id as string),
-      );
+      const skippedSet = await loadSwipeSkippedIds(supabase, uid);
       const sessionProcessedSet = getOnboardingSessionProcessedIds();
       const excludedSet = new Set<string>([
         ...skippedSet,

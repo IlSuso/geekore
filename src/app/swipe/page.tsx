@@ -10,6 +10,7 @@ import { useLocale } from "@/lib/locale";
 import { useTabActive } from "@/context/TabActiveContext";
 import { useAuth } from "@/context/AuthContext";
 import { cleanDescriptionForDisplay } from "@/lib/text/descriptionCleanup";
+import { loadSwipeExclusions, loadSwipeSkippedIds } from "@/lib/swipeExclusions";
 
 const SWIPE_PAGE_COPY = {
   it: {
@@ -255,15 +256,8 @@ export default function SwipePage() {
       addedTitlesRef.current = new Set();
       addedIdsRef.current = new Set();
 
-      const [{ data: entries }, { data: skippedRows }, ...queueResults] = await Promise.all([
-        supabase
-          .from("user_media_entries")
-          .select("external_id, title")
-          .eq("user_id", user.id),
-        supabase
-          .from("swipe_skipped")
-          .select("external_id")
-          .eq("user_id", user.id),
+      const [exclusions, ...queueResults] = await Promise.all([
+        loadSwipeExclusions(supabase, user.id),
         ...QUEUE_KEYS.map((queueKey) =>
           supabase
             .from(QUEUE_TABLE_MAP[queueKey])
@@ -280,16 +274,9 @@ export default function SwipePage() {
         queueResults.flatMap((result: any) => result?.data || []),
       );
 
-      for (const e of entries || []) {
-        if (e.title)
-          addedTitlesRef.current.add((e.title as string).toLowerCase());
-        if ((e as any).external_id)
-          addedIdsRef.current.add(String((e as any).external_id));
-      }
-
-      const skippedSet = new Set(
-        (skippedRows || []).map((r: any) => r.external_id as string),
-      );
+      addedTitlesRef.current = exclusions.ownedTitles;
+      addedIdsRef.current = exclusions.ownedIds;
+      const skippedSet = exclusions.skippedIds;
 
       const existingRows = (queueRows || []).filter(
         (r: any) =>
@@ -540,13 +527,7 @@ export default function SwipePage() {
       const TARGET = 50;
       const REFILL_TRIGGER = 20;
 
-      const { data: skippedRows } = await supabase
-        .from("swipe_skipped")
-        .select("external_id")
-        .eq("user_id", user.id);
-      const skippedSet = new Set(
-        (skippedRows || []).map((r: any) => r.external_id as string),
-      );
+      const skippedSet = await loadSwipeSkippedIds(supabase, user.id);
 
       const { data: queueRows } = await supabase
         .from(table)
