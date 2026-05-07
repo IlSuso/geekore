@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiMessage } from '@/lib/i18n/apiErrors'
 import { logger } from '@/lib/logger'
 import { createServiceClient } from '@/lib/supabase/service'
+import { warmMediaCatalog } from '@/lib/catalog/catalogWarmup'
 
 export const maxDuration = 60
 
@@ -152,6 +153,21 @@ export async function GET(request: NextRequest) {
       .lt('created_at', cutoff7)
 
     results.expiredPendingRegenJobs = expiredPendingRegenJobs || 0
+
+    // â”€â”€ 8. Scalda il catalogo globale media con poche chiamate controllate â”€â”€â”€â”€â”€
+    // Non aggiungiamo un cron separato: restiamo compatibili con setup free e facciamo
+    // crescere il catalogo globale a batch piccoli, senza legarlo a un singolo utente.
+    try {
+      results.mediaCatalogWarmup = await warmMediaCatalog({
+        supabase,
+        origin: request.nextUrl.origin,
+        locale: 'it',
+        maxSections: 3,
+      })
+    } catch (error: any) {
+      logger.warn('cron.taste', 'media catalog warmup failed', { error: String(error?.message || error) })
+      results.mediaCatalogWarmup = { error: String(error?.message || error) }
+    }
 
     const elapsed = Date.now() - startTime
     logger.info('cron.taste', `Maintenance completed in ${elapsed}ms`, results)

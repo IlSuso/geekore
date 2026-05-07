@@ -40,6 +40,12 @@ type RefillResult = {
   candidates?: number
   picked?: number
   mirrored?: number
+  cursorsChecked?: number
+}
+
+type FetchCandidatesResult = {
+  candidates: any[]
+  cursorsChecked: number
 }
 
 function isActiveQueueRow(row: any, skippedIds: Set<string>, ownedIds: Set<string>, ownedTitles: Set<string>) {
@@ -211,12 +217,20 @@ async function rebuildAllQueueFromTyped(options: RefillOptions, before: number):
   }
 }
 
-async function fetchCandidates(origin: string, queue: SwipeQueueType, locale: 'it' | 'en', startCursor: number) {
+async function fetchCandidateWindow(
+  origin: string,
+  queue: SwipeQueueType,
+  locale: 'it' | 'en',
+  startCursor: number,
+  cursorCount: number,
+  seen: Set<string>,
+): Promise<FetchCandidatesResult> {
   const section = queue === 'all' ? 'all' : queue
   const candidates: any[] = []
-  const seen = new Set<string>()
+  let cursorsChecked = 0
 
-  for (let cursor = startCursor; cursor < startCursor + 6; cursor++) {
+  for (let cursor = startCursor; cursor < startCursor + cursorCount; cursor++) {
+    cursorsChecked++
     const res = await fetch(`${origin}/api/trending?section=${section}&lang=${locale}&cursor=${cursor}`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(20_000),
@@ -235,7 +249,42 @@ async function fetchCandidates(origin: string, queue: SwipeQueueType, locale: 'i
     }
   }
 
-  return candidates
+  return { candidates, cursorsChecked }
+}
+
+async function gatherEnoughCandidates(
+  origin: string,
+  queue: SwipeQueueType,
+  locale: 'it' | 'en',
+  startCursor: number,
+  existing: Awaited<ReturnType<typeof loadExistingContext>>,
+  needed: number,
+) {
+  const allCandidates: any[] = []
+  const seen = new Set<string>()
+  let cursorsChecked = 0
+  let picked: any[] = []
+
+  // Go deeper when a user has skipped a lot. Keep a cap so a single refill stays
+  // cheap on free plans and does not hammer external APIs.
+  const maxCursorWindows = queue === 'boardgame' ? 8 : 5
+  const cursorWindowSize = queue === 'boardgame' ? 3 : 4
+
+  for (let windowIndex = 0; windowIndex < maxCursorWindows; windowIndex++) {
+    const windowStart = startCursor + windowIndex * cursorWindowSize
+    const result = await fetchCandidateWindow(origin, queue, locale, windowStart, cursorWindowSize, seen)
+    cursorsChecked += result.cursorsChecked
+    allCandidates.push(...result.candidates)
+    picked = pickCandidates(allCandidates, queue, existing, needed)
+    if (picked.length >= needed) break
+    if (result.candidates.length === 0 && windowIndex >= 1) break
+  }
+
+  return {
+    candidates: allCandidates,
+    picked,
+    cursorsChecked,
+  }
 }
 
 function pickCandidates(candidates: any[], queue: SwipeQueueType, existing: Awaited<ReturnType<typeof loadExistingContext>>, limit: number) {
@@ -299,8 +348,7 @@ async function runSwipeQueueRefill(options: RefillOptions): Promise<RefillResult
   if (needed === 0) return { queue, before: existing.activeRows.length, inserted: 0, after: existing.activeRows.length, skipped: true }
 
   const startCursor = Math.floor((existing.skippedIds.size + existing.ownedIds.size) / 45)
-  const candidates = await fetchCandidates(options.origin, queue, locale, startCursor)
-  const picked = pickCandidates(candidates, queue, existing, needed)
+  const { candidates, picked, cursorsChecked } = await gatherEnoughCandidates(options.origin, queue, locale, startCursor, existing, needed)
   const rows = picked.map((item, index) => toQueueRow(item, options.userId, index)).filter(Boolean)
   const primary = await upsertRows(options.supabase, QUEUE_TABLE[queue], rows)
 
@@ -310,6 +358,7 @@ async function runSwipeQueueRefill(options: RefillOptions): Promise<RefillResult
     needed,
     candidates: candidates.length,
     picked: rows.length,
+    cursorsChecked,
     inserted: primary.inserted,
     after: existing.activeRows.length + primary.inserted,
   }

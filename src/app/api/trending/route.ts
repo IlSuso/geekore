@@ -16,11 +16,13 @@
 // - AniList usa coverImage.extraLarge/large;
 // - BGG usa /hot + /thing batch per recuperare image/thumbnail.
 
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { fetchMediaCatalogSection, upsertMediaCatalogItems } from '@/lib/catalog/mediaCatalog'
 
 const ANILIST_API = 'https://graphql.anilist.co'
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -163,6 +165,14 @@ function cleanString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+function compactObject<T extends Record<string, any>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== null && entry !== '')) as Partial<T>
+}
+
+function localeBlock(title: string | undefined, description: string | undefined, coverImage: string | undefined) {
+  return compactObject({ title, description, coverImage })
+}
+
 function tmdbHeaders() {
   const token = process.env.TMDB_API_KEY || process.env.TMDB_READ_ACCESS_TOKEN
   return {
@@ -281,22 +291,24 @@ async function fetchAniListTrending(type: 'anime' | 'manga', cursor: number): Pr
     })
     .map((m: any) => {
       const title = anilistTitle(m.title)
+      const titleEn = cleanString(m.title?.english)
       const cover = m.coverImage?.extraLarge || m.coverImage?.large
+      const description = cleanString(m.description)
       return {
         id: `anilist-${type}-${m.id}`,
         external_id: `anilist-${type}-${m.id}`,
         title,
         title_original: cleanString(m.title?.romaji) || title,
-        title_en: title,
+        title_en: titleEn,
         type,
         coverImage: cover,
         cover_image: cover,
         year: m.seasonYear || undefined,
         genres: Array.isArray(m.genres) ? m.genres : [],
         score: typeof m.averageScore === 'number' ? m.averageScore : undefined,
-        description: cleanString(m.description),
-        description_en: cleanString(m.description),
-        localized: { en: { title, description: cleanString(m.description), coverImage: cover }, it: { title, description: cleanString(m.description), coverImage: cover } },
+        description,
+        description_en: description,
+        localized: { en: localeBlock(titleEn || title, description, cover) },
         source: 'anilist',
       } as TrendingItem
     }))
@@ -437,6 +449,7 @@ function mapIgdbGame(game: any): TrendingItem | null {
 
   const scoreRaw = Number(game?.total_rating ?? game?.aggregated_rating ?? game?.rating ?? 0)
   const score = Number.isFinite(scoreRaw) && scoreRaw > 0 ? Math.round(scoreRaw) : undefined
+  const description = cleanString(game?.summary) || cleanString(game?.storyline)
 
   return {
     id: `igdb-${id}`,
@@ -450,9 +463,9 @@ function mapIgdbGame(game: any): TrendingItem | null {
     year,
     genres,
     score,
-    description: cleanString(game?.summary) || cleanString(game?.storyline),
-    description_en: cleanString(game?.summary) || cleanString(game?.storyline),
-    localized: { en: { title, description: cleanString(game?.summary) || cleanString(game?.storyline), coverImage: cover }, it: { title, description: cleanString(game?.summary) || cleanString(game?.storyline), coverImage: cover } },
+    description,
+    description_en: description,
+    localized: { en: localeBlock(title, description, cover) },
     source: 'igdb',
   }
 }
@@ -662,6 +675,7 @@ function isSwipeQualityBoardgame(row: Pick<BGGCatalogRow, 'title' | 'rank' | 'av
 function mapBggCatalogRow(row: BGGCatalogRow): TrendingItem | null {
   if (!row.bgg_id || !isSwipeQualityBoardgame(row)) return null
   const cover = row.image_url || row.thumbnail_url || undefined
+  const description = cleanString(row.description)
   return {
     id: `bgg-${row.bgg_id}`,
     external_id: `bgg-${row.bgg_id}`,
@@ -674,9 +688,9 @@ function mapBggCatalogRow(row: BGGCatalogRow): TrendingItem | null {
     year: row.year_published || undefined,
     genres: Array.isArray(row.categories) ? row.categories.slice(0, 12) : [],
     score: Number(row.average_rating || 0) ? Math.round(Number(row.average_rating) * 10) : undefined,
-    description: cleanString(row.description),
-    description_en: cleanString(row.description),
-    localized: { en: { title: row.title, description: cleanString(row.description), coverImage: cover }, it: { title: row.title, description: cleanString(row.description), coverImage: cover } },
+    description,
+    description_en: description,
+    localized: { en: localeBlock(row.title, description, cover) },
     source: 'bgg',
   }
 }
@@ -815,7 +829,7 @@ async function fetchBggTrending(cursor: number): Promise<TrendingItem[]> {
       score: average ? Math.round(Number(average) * 10) : undefined,
       description: extractText(chunk, 'description') || undefined,
       description_en: extractText(chunk, 'description') || undefined,
-      localized: { en: { title, description: extractText(chunk, 'description') || undefined, coverImage: cover }, it: { title, description: extractText(chunk, 'description') || undefined, coverImage: cover } },
+      localized: { en: localeBlock(title, extractText(chunk, 'description') || undefined, cover) },
       source: 'bgg',
     })
   }
@@ -870,7 +884,14 @@ async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale, cursor
     }))
 }
 
-async function fetchSectionFresh(section: Section, locale: Locale, cursor: number): Promise<{ items: TrendingItem[]; source: string }> {
+async function fetchSectionFresh(section: Section, locale: Locale, cursor: number, forceExternal = false): Promise<{ items: TrendingItem[]; source: string }> {
+  if (!forceExternal && section !== 'boardgame') {
+    const catalog = await fetchMediaCatalogSection(await createClient(), section, cursor, PER_SECTION_LIMIT, locale)
+    if (catalog.length >= Math.floor(PER_SECTION_LIMIT * 0.75)) {
+      return { items: catalog as TrendingItem[], source: 'media_catalog' }
+    }
+  }
+
   if (section === 'anime') return { items: await fetchAniListTrending('anime', cursor), source: 'anilist' }
   if (section === 'manga') return { items: await fetchAniListTrending('manga', cursor), source: 'anilist' }
   if (section === 'movie' || section === 'tv') return { items: await fetchTmdbTrending(section, locale, cursor), source: 'tmdb' }
@@ -878,13 +899,35 @@ async function fetchSectionFresh(section: Section, locale: Locale, cursor: numbe
   return fetchGameTrending(locale, cursor)
 }
 
-async function getSection(section: Section, locale: Locale, cursor: number): Promise<{ items: TrendingItem[]; source: string; cache: 'fresh' | 'refreshed' | 'stale' | 'empty' }> {
+function scheduleCatalogUpsert(items: TrendingItem[]) {
+  if (items.length === 0) return
+  after(async () => {
+    try {
+      const service = createServiceClient('media-catalog:trending-ingest')
+      await upsertMediaCatalogItems(service, items)
+    } catch (error) {
+      console.warn('[media_catalog] background ingest skipped', error)
+    }
+  })
+}
+
+async function getSection(section: Section, locale: Locale, cursor: number, forceExternal = false): Promise<{ items: TrendingItem[]; source: string; cache: 'fresh' | 'refreshed' | 'stale' | 'empty' }> {
+  if (forceExternal) {
+    const { items, source } = await fetchSectionFresh(section, locale, cursor, true)
+    if (items.length > 0) {
+      scheduleCatalogUpsert(items)
+      setCache(section, locale, cursor, items, source)
+      return { items, source, cache: 'refreshed' }
+    }
+  }
+
   const fresh = getFresh(section, locale, cursor)
   if (fresh) return { items: fresh.items, source: fresh.source, cache: 'fresh' }
 
   try {
     const { items, source } = await fetchSectionFresh(section, locale, cursor)
     if (items.length > 0) {
+      if (source !== 'media_catalog') scheduleCatalogUpsert(items)
       setCache(section, locale, cursor, items, source)
       return { items, source, cache: 'refreshed' }
     }
@@ -923,9 +966,10 @@ export async function GET(request: NextRequest) {
   const locale = normalizeLocale(explicitLang || await getRequestLocale(request))
   const debug = searchParams.get('debug') === '1'
   const cursor = Math.max(0, Math.min(30, Number(searchParams.get('cursor') || 0) || 0))
+  const forceExternal = searchParams.get('refreshCatalog') === '1'
 
   if (requestedSection === 'all') {
-    const settled = await Promise.allSettled(SECTIONS.map(section => getSection(section, locale, cursor)))
+    const settled = await Promise.allSettled(SECTIONS.map(section => getSection(section, locale, cursor, forceExternal)))
     const payload: Record<Section, TrendingItem[]> = {
       anime: [], game: [], tv: [], manga: [], movie: [], boardgame: [],
     }
@@ -949,7 +993,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(debug ? buildDebugPayload(requestedSection, locale, []) : [], { headers: jsonHeaders(rl.headers) })
   }
 
-  const result = await getSection(requestedSection as Section, locale, cursor)
+  const result = await getSection(requestedSection as Section, locale, cursor, forceExternal)
   const body = debug ? buildDebugPayload(requestedSection, locale, {
     source: result.source,
     cache: result.cache,
