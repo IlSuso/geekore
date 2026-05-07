@@ -795,6 +795,29 @@ function coverFor(item: MediaLike, locale: Locale): string | undefined {
     || clean(item.coverImage_it)
 }
 
+function strictCoverForLocale(item: MediaLike, locale: Locale): string | undefined {
+  return clean(item.localized?.[locale]?.coverImage)
+    || clean(item.localized?.[locale]?.cover_image)
+    || clean(item[`cover_image_${locale}`])
+    || clean(item[`coverImage_${locale}`])
+}
+
+function tmdbLocaleAssetsNeedRefresh(item: MediaLike, locale: Locale, mode: 'basic' | 'full') {
+  if (!isTmdbTitleType(item)) return false
+  if (!mediaLocaleItemIsComplete(item, locale, mode)) return true
+
+  const strictCover = strictCoverForLocale(item, locale)
+  if (!strictCover) return true
+
+  if (locale === 'en') {
+    const italianCover = strictCoverForLocale(item, 'it')
+    const genericCover = clean(item.cover_image) || clean(item.coverImage) || clean(item.media_cover)
+    return Boolean((italianCover && strictCover === italianCover) || (genericCover && strictCover === genericCover && !clean(item.localized?.en?.coverImage)))
+  }
+
+  return false
+}
+
 function candidateDescription(item: MediaLike): { text?: string; sourceLocale: Locale } {
   const en = clean(item.localized?.en?.description) || clean(item.description_en)
   if (en) return { text: en, sourceLocale: 'en' }
@@ -846,7 +869,7 @@ export async function POST(request: NextRequest) {
   })
 
   const tmdbTitleItems = out
-    .filter((item: MediaLike) => !mediaLocaleItemIsComplete(item, locale, mode) && isTmdbTitleType(item))
+    .filter((item: MediaLike) => tmdbLocaleAssetsNeedRefresh(item, locale, mode))
     .slice(0, 80)
 
   if (tmdbTitleItems.length > 0) {

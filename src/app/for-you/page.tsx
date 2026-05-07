@@ -599,6 +599,8 @@ const RAIL_ICONS: Record<RecommendationRail['kind'], React.ElementType> = {
   'hidden-gems': Trophy,
 }
 
+const RAIL_TYPE_ICONS: Record<MediaType, React.ElementType> = TYPE_ICONS
+
 const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
   'top-match': 'var(--accent)',
   continue: '#f59e0b',
@@ -610,6 +612,15 @@ const RAIL_COLORS: Record<RecommendationRail['kind'], string> = {
   'because-title': '#10b981',
   'quick-picks': 'var(--accent)',
   'hidden-gems': 'var(--type-board)',
+}
+
+const RAIL_TYPE_COLORS: Record<MediaType, string> = TYPE_COLORS as Record<MediaType, string>
+
+function railMediaType(rail: RecommendationRail): MediaType | null {
+  const fromId = String(rail.id || '').replace(/^type-/, '')
+  if (fromId === 'anime' || fromId === 'manga' || fromId === 'movie' || fromId === 'tv' || fromId === 'game' || fromId === 'boardgame') return fromId
+  const firstType = rail.items[0]?.type
+  return firstType || null
 }
 
 const NetflixRailSection = memo(function NetflixRailSection({
@@ -634,25 +645,22 @@ const NetflixRailSection = memo(function NetflixRailSection({
   const visible = rail.items.filter(i => !dismissedIds.has(i.id))
   if (!visible.length) return null
 
-  const Icon = RAIL_ICONS[rail.kind] || Sparkles
+  const mediaType = rail.kind === 'media-type' ? railMediaType(rail) : null
+  const Icon = mediaType ? (RAIL_TYPE_ICONS[mediaType] || Sparkles) : (RAIL_ICONS[rail.kind] || Sparkles)
+  const iconColor = mediaType ? (RAIL_TYPE_COLORS[mediaType] || RAIL_COLORS[rail.kind]) : RAIL_COLORS[rail.kind]
   const shown = visible.slice(0, visibleCount)
   const hasMore = visible.length > visibleCount
 
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: RAIL_COLORS[rail.kind] }}>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg" style={{ background: iconColor }}>
           <Icon size={16} className={rail.kind === 'quick-picks' || rail.kind === 'top-match' ? 'text-black' : 'text-white'} />
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-bold text-white">{rail.title}</h2>
           <p className="text-[10px] text-zinc-500 line-clamp-1">{rail.subtitle}</p>
         </div>
-        {rail.badge && (
-          <span className="ml-auto hidden sm:inline-flex text-[10px] font-semibold text-zinc-300 bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded-full">
-            {rail.badge}
-          </span>
-        )}
       </div>
       <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
         {shown.map(item => (
@@ -994,18 +1002,43 @@ const FOR_YOU_MEDIA_LOCALIZATION_OPTIONS = {
   requireDescription: true,
 }
 
-function normalizeRecommendationForLocalization(item: Recommendation): Recommendation & { external_id: string; cover_image?: string } {
+function normalizeRecommendationForLocalization(item: Recommendation, locale: 'it' | 'en'): Recommendation & { external_id: string; cover_image?: string } {
   return {
     ...item,
     external_id: (item as any).external_id || item.id,
-    cover_image: (item as any).cover_image || item.coverImage,
+    cover_image: localeCover(item, locale) || (item as any).cover_image || item.coverImage,
   }
+}
+
+function localeCover(item: any, locale: 'it' | 'en'): string | undefined {
+  const localized = item?.localized && typeof item.localized === 'object' ? item.localized : {}
+  if (locale === 'it') {
+    return localized?.it?.coverImage
+      || localized?.it?.cover_image
+      || item?.cover_image_it
+      || item?.coverImage_it
+      || localized?.en?.coverImage
+      || localized?.en?.cover_image
+      || item?.cover_image_en
+      || item?.coverImage_en
+      || item?.coverImage
+      || item?.cover_image
+  }
+
+  return localized?.en?.coverImage
+    || localized?.en?.cover_image
+    || item?.cover_image_en
+    || item?.coverImage_en
+    || item?.coverImage
+    || item?.cover_image
+    || item?.cover_image_it
+    || item?.coverImage_it
 }
 
 async function localizeRecommendationItems(items: Recommendation[], locale: 'it' | 'en'): Promise<Recommendation[]> {
   if (!Array.isArray(items) || items.length === 0) return items
   const localized = await localizeMediaRows(
-    items.map(normalizeRecommendationForLocalization),
+    items.map(item => normalizeRecommendationForLocalization(item, locale)),
     locale,
     FOR_YOU_MEDIA_LOCALIZATION_OPTIONS,
     { mode: 'full' },
@@ -1015,7 +1048,7 @@ async function localizeRecommendationItems(items: Recommendation[], locale: 'it'
     ...item,
     id: items[index].id,
     type: items[index].type,
-    coverImage: item.coverImage || (item as any).cover_image || items[index].coverImage,
+    coverImage: localeCover(item, locale) || localeCover(items[index], locale) || item.coverImage || (item as any).cover_image || items[index].coverImage,
     description: item.description || items[index].description,
   }))
 }
@@ -1056,7 +1089,7 @@ async function localizeForYouPayload(
     if (!Array.isArray(items) || items.length === 0) continue
     merged[type] = items.map((item: any) => ({
       ...item,
-      coverImage: item.coverImage || item.cover_image,
+      coverImage: localeCover(item, locale) || item.coverImage || item.cover_image,
       description: item.description,
     })) as Recommendation[]
   }
@@ -1066,7 +1099,7 @@ async function localizeForYouPayload(
     ...rail,
     items: (rail.items || []).map((item: any) => ({
       ...item,
-      coverImage: item.coverImage || item.cover_image,
+      coverImage: localeCover(item, locale) || item.coverImage || item.cover_image,
       description: item.description,
     })),
   }))

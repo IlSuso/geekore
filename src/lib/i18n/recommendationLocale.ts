@@ -472,7 +472,7 @@ function railCopy(rail: any, locale: Locale) {
         tv: 'Serie consigliate',
         game: 'Videogiochi consigliati',
         manga: 'Manga consigliati',
-        boardgame: 'Board game consigliati',
+        boardgame: 'Giochi da tavolo consigliati',
       }
       return { title: titles[type] || rail.title, subtitle: rail.subtitle || 'Una riga mirata su un media, filtrata dai tuoi gusti', badge: rail.badge }
     }

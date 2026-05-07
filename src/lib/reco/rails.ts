@@ -32,23 +32,24 @@ interface RailTasteProfile {
 
 const MIN_RAIL_ITEMS = 4
 const MAX_RAIL_ITEMS = 14
-const MAX_PAGE_RAILS = 6
+const MAX_PAGE_RAILS = 7
+const MEDIA_TYPE_ORDER = ['movie', 'anime', 'tv', 'game', 'manga', 'boardgame']
 const TYPE_LABELS: Record<string, string> = {
   movie: 'Film consigliati',
   anime: 'Anime consigliati',
   tv: 'Serie consigliate',
   game: 'Videogiochi consigliati',
   manga: 'Manga consigliati',
-  boardgame: 'Board game consigliati',
+  boardgame: 'Giochi da tavolo consigliati',
 }
 
 const TYPE_BADGES: Record<string, string> = {
   movie: 'Film',
   anime: 'Anime',
   tv: 'Serie',
-  game: 'Game',
+  game: 'Videogiochi',
   manga: 'Manga',
-  boardgame: 'Board game',
+  boardgame: 'Giochi da tavolo',
 }
 
 function uniqueItems(items: Recommendation[]) {
@@ -80,6 +81,41 @@ function takeRailExclusive(
   const limit = options.limit ?? MAX_RAIL_ITEMS
   const picked = takeRail(items.filter(item => (used.get(itemKey(item)) || 0) < maxRepeats)).slice(0, limit)
   for (const item of picked) used.set(itemKey(item), (used.get(itemKey(item)) || 0) + 1)
+  return picked
+}
+
+function takeMixedTopMatches(
+  items: Recommendation[],
+  used: Map<string, number>,
+  options: { threshold: number; limit?: number } = { threshold: 68 },
+) {
+  const limit = options.limit ?? 10
+  const candidates = uniqueItems([
+    ...items.filter(item => (item.matchScore || 0) >= options.threshold),
+    ...MEDIA_TYPE_ORDER
+      .map(type => items.find(item => item.type === type && (item.matchScore || 0) >= Math.max(55, options.threshold - 18)))
+      .filter((item): item is Recommendation => Boolean(item)),
+  ]).filter(item => (used.get(itemKey(item)) || 0) < 1)
+
+  const buckets = new Map<string, Recommendation[]>()
+  for (const type of MEDIA_TYPE_ORDER) {
+    buckets.set(type, candidates.filter(item => item.type === type))
+  }
+
+  const picked: Recommendation[] = []
+  while (picked.length < limit) {
+    let moved = false
+    for (const type of MEDIA_TYPE_ORDER) {
+      const next = buckets.get(type)?.shift()
+      if (!next) continue
+      picked.push(next)
+      used.set(itemKey(next), (used.get(itemKey(next)) || 0) + 1)
+      moved = true
+      if (picked.length >= limit) break
+    }
+    if (!moved) break
+  }
+
   return picked
 }
 
@@ -139,7 +175,7 @@ export function composeRecommendationRails(
     title: 'Scelte fortissime per te',
     subtitle: 'I match piu alti del tuo profilo, mescolati tra tutti i media',
     kind: 'top-match',
-    items: takeRailExclusive(byScore.filter(item => (item.matchScore || 0) >= topMatchThreshold), used, { limit: 10 }),
+    items: takeMixedTopMatches(byScore, used, { threshold: topMatchThreshold, limit: 10 }),
     badge: 'Top match',
     priority: 100,
   })
@@ -152,10 +188,10 @@ export function composeRecommendationRails(
     kind: 'continue',
     items: continuityItems,
     badge: 'Next up',
-    priority: 98,
+    priority: 80,
   })
 
-  const fallbackTypeOrder = ['movie', 'anime', 'tv', 'game', 'manga', 'boardgame']
+  const fallbackTypeOrder = MEDIA_TYPE_ORDER
   const typeOrder = [...fallbackTypeOrder].sort((a, b) => {
     const sizeDelta = (tasteProfile?.collectionSize?.[b] || 0) - (tasteProfile?.collectionSize?.[a] || 0)
     if (sizeDelta !== 0) return sizeDelta
@@ -170,7 +206,7 @@ export function composeRecommendationRails(
       kind: 'media-type',
       items,
       badge: TYPE_BADGES[type] || type,
-      priority: 92 - typeOrder.indexOf(type),
+      priority: 95 - typeOrder.indexOf(type),
     })
   }
 
@@ -182,7 +218,7 @@ export function composeRecommendationRails(
       kind: 'because-title',
       items: takeRailExclusive(byScore.filter(item => item.genres?.some(genre => lovedTitleGenres.includes(genre))), used, { maxRepeats: 2, limit: 10 }),
       badge: 'Because',
-      priority: 94,
+      priority: 78,
     })
   }
 
@@ -193,7 +229,7 @@ export function composeRecommendationRails(
     kind: 'social',
     items: takeRailExclusive(byScore.filter(item => item.socialBoost || item.friendWatching), used, { maxRepeats: 2, limit: 10 }),
     badge: 'Taste twins',
-    priority: 90,
+    priority: 76,
   })
 
   pushRail(rails, {
@@ -203,7 +239,7 @@ export function composeRecommendationRails(
     kind: 'fresh',
     items: takeRailExclusive(byScore.filter(item => item.isSeasonal || item.isAwardWinner || (item.year && item.year >= new Date().getFullYear() - 1)), used, { limit: 10 }),
     badge: 'Fresh',
-    priority: 82,
+    priority: 74,
   })
 
   pushRail(rails, {
@@ -217,7 +253,7 @@ export function composeRecommendationRails(
       (item.playing_time && item.playing_time <= 90)
     ), used, { limit: 10 }),
     badge: 'Easy start',
-    priority: 76,
+    priority: 72,
   })
 
   pushRail(rails, {
@@ -227,7 +263,7 @@ export function composeRecommendationRails(
     kind: 'discovery',
     items: takeRailExclusive(byScore.filter(item => item.isDiscovery || item.isSerendipity), used, { limit: 10 }),
     badge: 'Discovery',
-    priority: 72,
+    priority: 70,
   })
 
   pushRail(rails, {
@@ -242,7 +278,7 @@ export function composeRecommendationRails(
       !item.isContinuity
     ).slice(4), used, { limit: 10 }),
     badge: 'Hidden gem',
-    priority: 66,
+    priority: 68,
   })
 
   if (topGenre) {

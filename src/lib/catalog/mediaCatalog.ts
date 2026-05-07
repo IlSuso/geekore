@@ -125,7 +125,7 @@ function preferredDescription(row: any, locale: Locale) {
 
 function preferredCover(row: any, locale: Locale) {
   if (locale === 'it') return row.cover_image_it || row.cover_image_en || row.cover_image
-  return row.cover_image_en || row.cover_image || row.cover_image_it
+  return row.cover_image_en || row.localized?.en?.coverImage || row.localized?.en?.cover_image || row.cover_image || row.cover_image_it
 }
 
 function rowToTrendingItem(row: any, locale: Locale) {
