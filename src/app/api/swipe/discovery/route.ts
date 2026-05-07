@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
         .map(normalizeItem)
         .filter((item: SwipeDiscoveryItem | null): item is SwipeDiscoveryItem => Boolean(item))
         .filter(item => !ownedIds.has(item.id) && !skippedIds.has(item.id) && !ownedTitles.has(item.title.toLowerCase()))
-        .slice(0, 12)
+        .slice(0, 20)
     }
     const mixed = interleaveByType(byType, 60)
     for (const item of mixed) {
@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
       .map(normalizeItem)
       .filter((item: SwipeDiscoveryItem | null): item is SwipeDiscoveryItem => Boolean(item))
       .filter(item => !ownedIds.has(item.id) && !skippedIds.has(item.id) && !ownedTitles.has(item.title.toLowerCase()))
-      .slice(0, 24)
+      .slice(0, 60)
   }
 
   return NextResponse.json({

@@ -63,7 +63,7 @@ const FRESH_TTL_MS = 6 * 60 * 60 * 1000
 const STALE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 6500
 const BGG_TIMEOUT_MS = 8500
-const PER_SECTION_LIMIT = 10
+const PER_SECTION_LIMIT = 60
 const TRENDING_CACHE_VERSION = 'v6-locale-covers'
 
 const memoryCache = new Map<string, CacheEntry>()
@@ -225,7 +225,7 @@ async function fetchAniListTrending(type: 'anime' | 'manga'): Promise<TrendingIt
   const res = await fetch(ANILIST_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: ANILIST_TRENDING_QUERY, variables: { type: mediaType, perPage: 18 } }),
+    body: JSON.stringify({ query: ANILIST_TRENDING_QUERY, variables: { type: mediaType, perPage: PER_SECTION_LIMIT } }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     next: { revalidate: 21600 },
   })
@@ -627,15 +627,18 @@ async function fetchBggTrending(): Promise<TrendingItem[]> {
 async function fetchTmdbTrending(section: 'movie' | 'tv', locale: Locale): Promise<TrendingItem[]> {
   if (!hasTmdbConfig()) return []
   const language = locale === 'it' ? 'it-IT' : 'en-US'
-  const res = await fetch(`${TMDB_BASE}/trending/${section}/week?language=${language}`, {
-    headers: tmdbHeaders(),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    next: { revalidate: 21600 },
-  })
-
-  if (!res.ok) return []
-  const json = await res.json().catch(() => null)
-  const results: any[] = json?.results || []
+  const pages = await Promise.allSettled([1, 2, 3].map(page =>
+    fetch(`${TMDB_BASE}/trending/${section}/week?language=${language}&page=${page}`, {
+      headers: tmdbHeaders(),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      next: { revalidate: 21600 },
+    }).then(res => res.ok ? res.json() : null),
+  ))
+  const results: any[] = pages.flatMap(result =>
+    result.status === 'fulfilled' && Array.isArray(result.value?.results)
+      ? result.value.results
+      : [],
+  )
 
   return uniqueById(results
     .filter((r: any) => r?.poster_path)

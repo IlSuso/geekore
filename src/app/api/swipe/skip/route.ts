@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { apiMessage } from '@/lib/i18n/apiErrors'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
+import { getRequestLocale } from '@/lib/i18n/serverLocale'
+import { ensureSwipeQueueRefill, type SwipeQueueType } from '@/lib/swipeRefill'
+import { logger } from '@/lib/logger'
 
 const QUEUE_TYPES = new Set(['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'])
+type TypedQueueType = Exclude<SwipeQueueType, 'all'>
 
 function cleanString(value: unknown, max: number): string | null {
   if (typeof value !== 'string') return null
@@ -42,6 +47,36 @@ export async function POST(request: NextRequest) {
     supabase.from('swipe_queue_all').delete().eq('user_id', user.id).eq('external_id', externalId),
     supabase.from(`swipe_queue_${type}`).delete().eq('user_id', user.id).eq('external_id', externalId),
   ])
+
+  const locale = await getRequestLocale(request, supabase, user.id).catch(() => 'it' as const)
+  const queueType = type as TypedQueueType
+  after(async () => {
+    try {
+      const service = createServiceClient('swipe:refill-after-skip')
+      await Promise.allSettled([
+        ensureSwipeQueueRefill({
+          supabase: service,
+          userId: user.id,
+          queue: 'all',
+          origin: request.nextUrl.origin,
+          locale,
+          threshold: 20,
+          target: 50,
+        }),
+        ensureSwipeQueueRefill({
+          supabase: service,
+          userId: user.id,
+          queue: queueType,
+          origin: request.nextUrl.origin,
+          locale,
+          threshold: 20,
+          target: 50,
+        }),
+      ])
+    } catch (error: any) {
+      logger.warn('swipe.skip', 'background refill failed', { userId: user.id, error: String(error?.message || error) })
+    }
+  })
 
   return NextResponse.json({ success: true }, { headers: rl.headers })
 }

@@ -521,122 +521,30 @@ export default function SwipePage() {
     async (filter: string = "all"): Promise<SwipeItem[]> => {
       const uid = userIdRef.current;
       if (!uid) return [];
-      const user = { id: uid };
-
       const table = QUEUE_TABLE_MAP[filter] ?? "swipe_queue_all";
-      const TARGET = 50;
-      const REFILL_TRIGGER = 20;
 
-      const skippedSet = await loadSwipeSkippedIds(supabase, user.id);
+      await fetch("/api/swipe/refill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queue: filter === "all" ? "all" : filter }),
+      }).catch(() => null);
+
+      const skippedSet = await loadSwipeSkippedIds(supabase, uid);
 
       const { data: queueRows } = await supabase
         .from(table)
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .order("inserted_at", { ascending: true });
+
       const existingRows = (queueRows || []).filter(
-        (r: any) => !skippedSet.has(r.external_id),
+        (r: any) =>
+          !skippedSet.has(r.external_id) &&
+          !addedIdsRef.current.has(String(r.external_id)) &&
+          !addedTitlesRef.current.has(String(r.title || "").toLowerCase()),
       );
-      const existingIds = new Set(
-        existingRows.map((r: any) => r.external_id as string),
-      );
 
-      const existingDiversity = typeDiversity(existingRows);
-      const allQueueIsDiverseEnough = filter !== "all" || existingDiversity >= 4;
-
-      try {
-        const apiFilter = filter === "all" ? "all" : filter;
-        const res = await fetch(
-          `/api/swipe/discovery?type=${apiFilter}&lang=${locale}`,
-        );
-        if (!res.ok)
-          return existingRows.map((row: any) => rowToSwipeItem(row, locale));
-        const json = await res.json();
-
-        let freshRecs: any[] = [];
-        if (filter === "all") {
-          freshRecs = (
-            Object.values(json.recommendations || {}) as any[][]
-          ).flat();
-        } else {
-          const typed = (json.recommendations?.[filter] || []) as any[];
-          freshRecs =
-            typed.length > 0
-              ? typed
-              : (Object.values(json.recommendations || {}) as any[][])
-                  .flat()
-                  .filter((r: any) => r.type === filter);
-        }
-
-        const validTypes = [
-          "anime",
-          "manga",
-          "movie",
-          "tv",
-          "game",
-          "boardgame",
-        ];
-        const candidateRecs = freshRecs.filter(
-          (r: any) =>
-            validTypes.includes(r.type) &&
-            !skippedSet.has(r.id) &&
-            !existingIds.has(r.id) &&
-            !addedIdsRef.current.has(String(r.id)) &&
-            !addedTitlesRef.current.has((r.title as string)?.toLowerCase()),
-        );
-        const newRecs =
-          filter === "all"
-            ? prioritizeFreshForAll(
-                candidateRecs,
-                existingRows,
-                allQueueIsDiverseEnough ? Math.max(0, TARGET - existingRows.length) : TARGET,
-              )
-            : candidateRecs.slice(0, TARGET - existingRows.length);
-
-        if (newRecs.length > 0) {
-          const rows = newRecs.map((r: any) => toQueueRow(r, user.id));
-          await fetch("/api/swipe/queue", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              queue: filter === "all" ? "all" : filter,
-              rows,
-              mirrorByType: filter === "all",
-            }),
-          }).catch(() => null);
-        }
-
-        return [
-          ...existingRows.map((row: any) => rowToSwipeItem(row, locale)),
-          ...newRecs.map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            title_original: r.title_original,
-            title_en: r.title_en,
-            title_it: r.title_it,
-            type: r.type as SwipeItem["type"],
-            coverImage: r.coverImage,
-            year: r.year,
-            genres: r.genres || [],
-            score: r.score,
-            description: r.description,
-            description_en: r.description_en,
-            description_it: r.description_it,
-            localized: r.localized,
-            why: r.why,
-            matchScore: r.matchScore || 0,
-            episodes: r.episodes,
-            authors: r.authors,
-            developers: r.developers,
-            platforms: r.platforms,
-            isAwardWinner: r.isAwardWinner,
-            isDiscovery: r.isDiscovery,
-            source: r.source,
-          })),
-        ];
-      } catch {
-        return existingRows.map((row: any) => rowToSwipeItem(row, locale));
-      }
+      return existingRows.map((row: any) => rowToSwipeItem(row, locale));
     },
     [supabase, locale],
   );

@@ -177,7 +177,7 @@ const SWIPE_COMPLETE_RATIO = 0.32;
 const SWIPE_FLING_MIN_DISTANCE = 82;
 const SWIPE_FLING_VELOCITY = 1.15; // px/ms: solo un gesto veloce e intenzionale completa sotto soglia
 const ROTATION_FACTOR = 0.08;
-const REFILL_THRESHOLD = 25;
+const REFILL_THRESHOLD = 20;
 const PRELOAD_TARGET = 50;
 // GPU-friendly: text-shadow via CSS class, no filter: drop-shadow (each one = offscreen GPU buffer)
 // TEXT_SHADOW kept as lightweight single shadow only (no stacked multi-shadow)
@@ -1402,7 +1402,14 @@ export function SwipeMode({
       // Notifica il parent (per onboarding)
       onUndoWishlist?.(last);
     }
-    if (!isOnboarding) removeSkip(last);
+    if (!isOnboarding) {
+      removeSkip(last);
+      fetch("/api/swipe/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queue: "all", rows: [last], mirrorByType: true }),
+      }).catch(() => { });
+    }
     // Notifica il parent dell'undo (usato dall'onboarding per rimuovere da acceptedItemsRef)
     onUndoCallback?.(last);
     // Animazione entrata: carta appare da sotto → poi si porta in posizione normale

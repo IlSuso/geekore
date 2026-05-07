@@ -122,6 +122,37 @@ export async function GET(request: NextRequest) {
 
     results.deletedStaleTasteProfiles = deletedTasteProfiles || 0
 
+    // ── 7. Pulisci storico operativo recommendation/regen ─────────────────
+    const cutoff180 = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
+    const { count: deletedOldExposures } = await supabase
+      .from('recommendations_shown')
+      .delete({ count: 'exact' })
+      .lt('shown_at', cutoff180)
+
+    results.deletedOldRecommendationExposures = deletedOldExposures || 0
+
+    const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const { count: deletedRegenJobs } = await supabase
+      .from('regen_jobs')
+      .delete({ count: 'exact' })
+      .in('status', ['done', 'failed'])
+      .lt('completed_at', cutoff14)
+
+    results.deletedOldRegenJobs = deletedRegenJobs || 0
+
+    const cutoff7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { count: expiredPendingRegenJobs } = await supabase
+      .from('regen_jobs')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        error_msg: 'Expired pending job',
+      }, { count: 'exact' })
+      .eq('status', 'pending')
+      .lt('created_at', cutoff7)
+
+    results.expiredPendingRegenJobs = expiredPendingRegenJobs || 0
+
     const elapsed = Date.now() - startTime
     logger.info('cron.taste', `Maintenance completed in ${elapsed}ms`, results)
 
