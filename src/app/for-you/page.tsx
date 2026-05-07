@@ -1343,11 +1343,13 @@ export default function ForYouPage() {
     setShowNewRecsBadge(false)
     const user = authUser
     const [lightJson] = await Promise.all([
-      fetchForYouJson(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' }),
+      fetchForYouJson(`/api/recommendations?source=refresh_pool&type=all&lang=${locale}`, { cache: 'no-store' }),
       user ? fetchFriends(user.id) : Promise.resolve(),
     ])
 
-    let json = lightJson
+    const json = lightJson?.recommendations && Object.keys(lightJson.recommendations).length > 0
+      ? lightJson
+      : await fetchForYouJson(`/api/recommendations?type=all&lang=${locale}&refresh=1`, { cache: 'no-store' })
 
     if (json && json.recommendations) {
       const { recommendations: incoming, rails: nextRails } = await localizeForYouPayload(json, locale)

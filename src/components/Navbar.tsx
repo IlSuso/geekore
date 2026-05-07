@@ -61,7 +61,7 @@ function writeOwnProfileCache(data: OwnProfileCache) {
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { setActiveTab } = useActiveTab()
+  const { activeTab, setActiveTab } = useActiveTab()
   const supabase = createClient()
   const { t, locale } = useLocale()
   const copy = appCopy(locale)
@@ -75,11 +75,13 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
 
   const navigateToTab = useCallback((href: string) => {
+    setPendingHref(href)
     const tab = pathnameToTab(href)
     if (tab) setActiveTab(tab)
     router.push(href)
@@ -96,6 +98,14 @@ export default function Navbar() {
     { href: '/discover', label: t.nav.discover, icon: Compass },
     { href: '/friends', label: copy.nav.friends, icon: Users },
   ]
+
+  useEffect(() => {
+    for (const item of NAV_ITEMS) router.prefetch(item.href)
+  }, [router]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
 
   const SECONDARY_NAV = [
     { href: '/trending', label: copy.nav.trending, icon: TrendingUp },
@@ -181,9 +191,13 @@ export default function Navbar() {
   }
 
   const isRouteActive = useCallback((href: string) => {
+    if (pendingHref === href) return true
+    const hrefTab = pathnameToTab(href)
+    const currentPathTab = pathnameToTab(pathname)
+    if (hrefTab && currentPathTab && activeTab === hrefTab) return true
     if (href === '/home') return pathname === '/home' || pathname === '/'
     return pathname === href || pathname.startsWith(`${href}/`)
-  }, [pathname])
+  }, [activeTab, pathname, pendingHref])
 
   const navbarVisible = !(
     isAuthPage ||

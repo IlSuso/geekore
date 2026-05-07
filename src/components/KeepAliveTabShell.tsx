@@ -166,6 +166,22 @@ export function KeepAliveTabShell({ children }: { children: ReactNode }) {
   // Questo evita che entrando in /swipe partano anche For You/Discover con fetch pesanti.
 
   useEffect(() => {
+    const preloadTabs = () => {
+      for (const Page of [FeedPage, ForYouPage, SwipePage, DiscoverPage, FriendsPage]) {
+        ;(Page as any).preload?.()
+      }
+    }
+    const requestIdle = (window as any).requestIdleCallback as undefined | ((cb: () => void, opts?: { timeout?: number }) => number)
+    const cancelIdle = (window as any).cancelIdleCallback as undefined | ((id: number) => void)
+    if (requestIdle) {
+      const id = requestIdle(preloadTabs, { timeout: 2500 })
+      return () => cancelIdle?.(id)
+    }
+    const id = window.setTimeout(preloadTabs, 1200)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  useEffect(() => {
     if (pathnameTab !== null) setActiveTab(pathnameTab)
   }, [pathname, pathnameTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
