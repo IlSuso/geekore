@@ -124,6 +124,13 @@ function rowToSwipeItem(row: any, locale: "it" | "en"): SwipeItem {
     || cleanDescriptionForDisplay(row.description)
     || cleanDescriptionForDisplay(fallbackNode.description)
     || cleanDescriptionForDisplay(locale === "it" ? row.description_en : row.description_it);
+  const coverImage = localeNode.coverImage
+    || localeNode.cover_image
+    || (locale === "it" ? row.cover_image_it : row.cover_image_en)
+    || row.cover_image
+    || fallbackNode.coverImage
+    || fallbackNode.cover_image
+    || (locale === "it" ? row.cover_image_en : row.cover_image_it);
 
   return {
     id: row.external_id,
@@ -132,7 +139,9 @@ function rowToSwipeItem(row: any, locale: "it" | "en"): SwipeItem {
     title_en: row.title_en,
     title_it: row.title_it,
     type: row.type as SwipeItem["type"],
-    coverImage: localeNode.coverImage || localeNode.cover_image || row.cover_image,
+    coverImage,
+    cover_image_en: row.cover_image_en,
+    cover_image_it: row.cover_image_it,
     year: row.year,
     genres: row.genres || [],
     score: row.score,
@@ -165,6 +174,18 @@ function mergeQueueRowsById(rows: any[]): any[] {
 }
 
 function toQueueRow(r: any, userId: string) {
+  const localized = {
+    ...(r.localized || {}),
+    en: {
+      ...(r.localized?.en || {}),
+      ...(r.cover_image_en ? { coverImage: r.cover_image_en } : {}),
+    },
+    it: {
+      ...(r.localized?.it || {}),
+      ...(r.cover_image_it ? { coverImage: r.cover_image_it } : {}),
+    },
+  };
+
   return {
     user_id: userId,
     external_id: r.id,
@@ -180,7 +201,7 @@ function toQueueRow(r: any, userId: string) {
     description: cleanDescriptionForDisplay(r.description) ?? null,
     description_en: cleanDescriptionForDisplay(r.description_en || r.localized?.en?.description) ?? null,
     description_it: cleanDescriptionForDisplay(r.description_it || r.localized?.it?.description) ?? null,
-    localized: r.localized || {},
+    localized,
     why: r.why ?? null,
     match_score: r.matchScore || 0,
     episodes: r.episodes ?? null,
@@ -198,16 +219,29 @@ async function localizeSwipeItems(
   locale: string,
 ): Promise<SwipeItem[]> {
   if (items.length === 0) return items;
-  const res = await fetch(`/api/media/localize?lang=${locale}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items, mode: "basic" }),
-  }).catch(() => null);
-  if (!res?.ok) return items;
-  const json = await res.json().catch(() => null);
-  const localized = Array.isArray(json?.items) ? json.items : items;
+  const chunks: SwipeItem[][] = [];
+  for (let index = 0; index < items.length; index += 80) chunks.push(items.slice(index, index + 80));
+  const localized = (
+    await Promise.all(chunks.map(async (chunk) => {
+      const res = await fetch(`/api/media/localize?lang=${locale}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: chunk, mode: "basic" }),
+      }).catch(() => null);
+      if (!res?.ok) return chunk;
+      const json = await res.json().catch(() => null);
+      return Array.isArray(json?.items) ? json.items : chunk;
+    }))
+  ).flat();
+
   return localized.map((item: any) => ({
     ...item,
+    coverImage: item.localized?.[locale]?.coverImage
+      || item.localized?.[locale]?.cover_image
+      || (locale === "it" ? item.cover_image_it : item.cover_image_en)
+      || item.coverImage
+      || item.cover_image
+      || (locale === "it" ? item.cover_image_en : item.cover_image_it),
     description: cleanDescriptionForDisplay(item.localized?.[locale]?.description)
       || cleanDescriptionForDisplay(locale === "it" ? item.description_it : item.description_en)
       || cleanDescriptionForDisplay(item.description)
@@ -215,6 +249,13 @@ async function localizeSwipeItems(
     description_en: cleanDescriptionForDisplay(item.description_en),
     description_it: cleanDescriptionForDisplay(item.description_it),
   }));
+}
+
+function needsSwipeLocaleHydration(item: SwipeItem, locale: "it" | "en") {
+  if (item.localized?.[locale]?.coverImage || item.localized?.[locale]?.cover_image) return false;
+  if (locale === "it" && item.cover_image_it) return false;
+  if (locale === "en" && item.cover_image_en) return false;
+  return item.type === "movie" || item.type === "tv" || item.type === "anime" || item.type === "boardgame";
 }
 
 export default function SwipePage() {
@@ -303,8 +344,11 @@ export default function SwipePage() {
       // Niente /api/recommendations, niente /api/media/localize, niente refill al mount.
       // Il master pool/queue generation è il punto corretto in cui preparare mixing e asset lingua.
       if (existingItems.length > 0) {
+        const hydratedItems = existingItems.some((item) => needsSwipeLocaleHydration(item, locale))
+          ? await localizeSwipeItems(existingItems, locale)
+          : existingItems;
         if (requestSeq !== requestSeqRef.current) return;
-        setInitialItems(existingItems);
+        setInitialItems(hydratedItems);
         setLoading(false);
         if (shouldHealQueues) {
           fetch("/api/swipe/refill", {
@@ -563,7 +607,10 @@ export default function SwipePage() {
           !addedTitlesRef.current.has(String(r.title || "").toLowerCase()),
       );
 
-      return existingRows.map((row: any) => rowToSwipeItem(row, locale));
+      const items = existingRows.map((row: any) => rowToSwipeItem(row, locale));
+      return items.some((item) => needsSwipeLocaleHydration(item, locale))
+        ? localizeSwipeItems(items, locale)
+        : items;
     },
     [supabase, locale],
   );

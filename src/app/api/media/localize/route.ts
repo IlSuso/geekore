@@ -771,12 +771,28 @@ function titleFor(item: MediaLike, locale: Locale): string | undefined {
 }
 
 function coverFor(item: MediaLike, locale: Locale): string | undefined {
-  return clean(item.localized?.[locale]?.coverImage)
+  const localized = clean(item.localized?.[locale]?.coverImage)
     || clean(item[`cover_image_${locale}`])
     || clean(item[`coverImage_${locale}`])
+  if (localized) return localized
+
+  if (locale === 'it') {
+    return clean(item.localized?.en?.coverImage)
+      || clean(item.cover_image_en)
+      || clean(item.coverImage_en)
+      || clean(item.coverImage)
+      || clean(item.cover_image)
+      || clean(item.media_cover)
+  }
+
+  return clean(item.localized?.en?.coverImage)
+    || clean(item.cover_image_en)
+    || clean(item.coverImage_en)
     || clean(item.coverImage)
     || clean(item.cover_image)
     || clean(item.media_cover)
+    || clean(item.cover_image_it)
+    || clean(item.coverImage_it)
 }
 
 function candidateDescription(item: MediaLike): { text?: string; sourceLocale: Locale } {

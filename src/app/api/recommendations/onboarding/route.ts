@@ -8,6 +8,7 @@ import { rateLimitAsync } from '@/lib/rateLimit'
 import { logger } from '@/lib/logger'
 import { getRequestLocale } from '@/lib/i18n/serverLocale'
 import { localizeRecommendationPayload } from '@/lib/i18n/recommendationLocale'
+import { fetchMediaCatalogSection } from '@/lib/catalog/mediaCatalog'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const ANILIST_GQL = 'https://graphql.anilist.co'
@@ -213,6 +214,16 @@ async function fetchGameQuick(clientId: string, secret: string): Promise<any[]> 
   return results.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true }).slice(0, TARGET_PER_TYPE)
 }
 
+async function fetchBoardgameQuick(supabase: Awaited<ReturnType<typeof createClient>>, locale: 'it' | 'en'): Promise<any[]> {
+  const items = await fetchMediaCatalogSection(supabase, 'boardgame', 0, TARGET_PER_TYPE, locale)
+  return items.map((item: any) => ({
+    ...item,
+    why: locale === 'it' ? 'Board game solido da scoprire' : 'Solid board game to discover',
+    matchScore: Math.max(45, Math.min(82, Number(item.matchScore || item.score || 60))),
+    isDiscovery: true,
+  }))
+}
+
 export async function GET(request: NextRequest) {
   const rl = await rateLimitAsync(request, { limit: 20, windowMs: 60_000, prefix: 'recommendations:onboarding' })
   if (!rl.ok) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: rl.headers })
@@ -226,8 +237,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const typesParam = searchParams.get('types')
     const requestedTypes = typesParam
-      ? typesParam.split(',').filter(t => ['anime', 'manga', 'movie', 'tv', 'game'].includes(t))
-      : ['anime', 'manga', 'movie', 'tv', 'game']
+      ? typesParam.split(',').filter(t => ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame'].includes(t))
+      : ['anime', 'manga', 'movie', 'tv', 'game', 'boardgame']
 
     const tmdbToken = process.env.TMDB_API_KEY || ''
     const igdbClientId = process.env.IGDB_CLIENT_ID || ''
@@ -239,6 +250,7 @@ export async function GET(request: NextRequest) {
       movie: () => fetchMovieQuick(tmdbToken, locale),
       tv: () => fetchTvQuick(tmdbToken, locale),
       game: () => fetchGameQuick(igdbClientId, igdbClientSecret),
+      boardgame: () => fetchBoardgameQuick(supabase, locale),
     }
 
     const fetchers = requestedTypes.map(type => fetchMap[type]().then(items => ({ type, items })))

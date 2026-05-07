@@ -85,7 +85,7 @@ function pickPoster(posters: any[], preferredLanguage: 'it' | 'en'): string | un
   return tmdbImage(ranked[0]?.file_path)
 }
 
-async function fetchOfficialTmdbLocaleAssets(item: any, locale: Locale): Promise<{ title?: string; coverImage?: string }> {
+async function fetchOfficialTmdbLocaleAssets(item: any, locale: Locale): Promise<{ title?: string; description?: string; coverImage?: string }> {
   const token = process.env.TMDB_API_KEY
   if (!token || !isTmdbTitleType(item)) return {}
 
@@ -112,6 +112,7 @@ async function fetchOfficialTmdbLocaleAssets(item: any, locale: Locale): Promise
 
     return {
       title: cleanText(details?.title || details?.name),
+      description: cleanDescription(details?.overview),
       coverImage: pickPoster(images?.posters || [], locale),
     }
   } catch {
@@ -149,8 +150,9 @@ async function ensureOfficialTitlesLocale<T extends Recommendation>(
   for (const result of results) {
     if (result.status !== 'fulfilled') continue
     const title = cleanText(result.value.title)
+    const description = cleanDescription(result.value.description)
     const coverImage = cleanText(result.value.coverImage)
-    if (!title && !coverImage) continue
+    if (!title && !description && !coverImage) continue
 
     const mutable = result.value.item as any
 
@@ -166,13 +168,19 @@ async function ensureOfficialTitlesLocale<T extends Recommendation>(
       mutable.cover_image = coverImage
     }
 
+    if (description) {
+      mutable[`description_${locale}`] = description
+      mutable.description = description
+    }
+
     mutable.localized = {
       ...(mutable.localized || {}),
       [locale]: {
         ...(mutable.localized?.[locale] || {}),
         ...(title ? { title } : {}),
+        ...(description ? { description } : {}),
         ...(coverImage ? { coverImage } : {}),
-        ...(cleanText(mutable.localized?.[locale]?.description)
+        ...(!description && cleanText(mutable.localized?.[locale]?.description)
           ? { description: mutable.localized[locale].description }
           : {}),
       },
@@ -220,6 +228,39 @@ function getLocalizedField(item: any, locale: Locale, field: 'title' | 'descript
 
   return cleanDescription(item?.description_en)
     || cleanDescription(item?.localized?.en?.description)
+}
+
+function getLocalizedCover(item: any, locale: Locale): string | undefined {
+  const localized = item?.localized
+  if (localized && typeof localized === 'object') {
+    const fromJson = cleanText(localized?.[locale]?.coverImage)
+      || cleanText(localized?.[locale]?.cover_image)
+    if (fromJson) return fromJson
+  }
+
+  const direct = cleanText(item?.[`cover_image_${locale}`])
+    || cleanText(item?.[`coverImage_${locale}`])
+  if (direct) return direct
+
+  if (locale === 'it') {
+    return cleanText(item?.cover_image_it)
+      || cleanText(item?.coverImage_it)
+      || cleanText(item?.localized?.en?.coverImage)
+      || cleanText(item?.localized?.en?.cover_image)
+      || cleanText(item?.cover_image_en)
+      || cleanText(item?.coverImage_en)
+      || cleanText(item?.coverImage)
+      || cleanText(item?.cover_image)
+  }
+
+  return cleanText(item?.cover_image_en)
+    || cleanText(item?.coverImage_en)
+    || cleanText(item?.localized?.en?.coverImage)
+    || cleanText(item?.localized?.en?.cover_image)
+    || cleanText(item?.coverImage)
+    || cleanText(item?.cover_image)
+    || cleanText(item?.cover_image_it)
+    || cleanText(item?.coverImage_it)
 }
 
 function fallbackDescriptionCandidate(item: any, locale: Locale): string | undefined {
@@ -271,11 +312,13 @@ function localizeWhy(why: unknown, locale: Locale): string {
 export function localizeRecommendationItem<T extends Recommendation>(item: T, locale: Locale): T {
   const title = getLocalizedField(item, locale, 'title') || item.title
   const description = getLocalizedField(item, locale, 'description') || cleanDescription(item.description) || item.description
+  const coverImage = getLocalizedCover(item, locale)
 
   return {
     ...item,
     title,
     description,
+    ...(coverImage ? { coverImage, cover_image: coverImage } : {}),
     why: localizeWhy(item.why, locale),
   }
 }
@@ -385,6 +428,18 @@ function railCopy(rail: any, locale: Locale) {
         return { title: rail.badge ? `Because you love ${rail.badge}` : 'Because of your top genre', subtitle: 'A row built from your strongest signal', badge: rail.badge }
       case 'because-title':
         return { title: rail.title?.replace(/^Perche hai amato /i, 'Because you loved ').replace(/^Perché hai amato /i, 'Because you loved '), subtitle: 'Same energy, similar signals and high compatibility', badge: 'Because' }
+      case 'media-type': {
+        const type = String(rail.id || '').replace(/^type-/, '') || rail.type || rail.badge || ''
+        const titles: Record<string, string> = {
+          movie: 'Recommended movies',
+          anime: 'Recommended anime',
+          tv: 'Recommended TV shows',
+          game: 'Recommended games',
+          manga: 'Recommended manga',
+          boardgame: 'Recommended board games',
+        }
+        return { title: titles[type] || rail.title, subtitle: rail.subtitle || 'A focused row from one medium, filtered by your taste', badge: rail.badge }
+      }
       default:
         return { title: rail.title, subtitle: rail.subtitle, badge: rail.badge }
     }
@@ -409,6 +464,18 @@ function railCopy(rail: any, locale: Locale) {
       return { title: rail.badge ? `Perché ami ${rail.badge}` : 'Per il tuo genere dominante', subtitle: 'Una riga costruita sul tuo segnale dominante', badge: rail.badge }
     case 'because-title':
       return { title: rail.title?.replace(/^Because you loved /i, 'Perché hai amato '), subtitle: 'Stessa energia, segnali simili e compatibilità alta', badge: 'Because' }
+    case 'media-type': {
+      const type = String(rail.id || '').replace(/^type-/, '') || rail.type || rail.badge || ''
+      const titles: Record<string, string> = {
+        movie: 'Film consigliati',
+        anime: 'Anime consigliati',
+        tv: 'Serie consigliate',
+        game: 'Videogiochi consigliati',
+        manga: 'Manga consigliati',
+        boardgame: 'Board game consigliati',
+      }
+      return { title: titles[type] || rail.title, subtitle: rail.subtitle || 'Una riga mirata su un media, filtrata dai tuoi gusti', badge: rail.badge }
+    }
     default:
       return { title: rail.title, subtitle: rail.subtitle, badge: rail.badge }
   }

@@ -29,6 +29,7 @@ type CatalogRow = {
   quality_score?: number | null
   popularity_score?: number | null
   source?: string | null
+  localized?: Record<string, any> | null
 }
 
 const CATALOG_SCAN_LIMIT: Record<MediaType, number> = {
@@ -102,7 +103,7 @@ function rowToRecommendation(
   if (isStrongQuality) matchScore = Math.min(100, matchScore + 5)
   if (matchScore < 35 && !isStrongQuality) return null
 
-  return {
+  const rec: Recommendation = {
     id: recId,
     title,
     type: row.media_type,
@@ -117,12 +118,26 @@ function rowToRecommendation(
     isSerendipity: matchScore < 52 && isStrongQuality,
     isAwardWinner: quality >= 82 || Number(row.score || 0) >= 82,
   }
+
+  return Object.assign(rec, {
+    external_id: row.external_id,
+    title_original: row.title_original || undefined,
+    title_en: row.title_en || undefined,
+    title_it: row.title_it || undefined,
+    description_en: row.description_en || undefined,
+    description_it: row.description_it || undefined,
+    cover_image: cover,
+    cover_image_en: row.cover_image_en || undefined,
+    cover_image_it: row.cover_image_it || undefined,
+    localized: row.localized || {},
+    source: row.source || undefined,
+  }) as Recommendation
 }
 
 async function fetchCatalogWindow(supabase: SupabaseLike, type: MediaType, from: number, limit: number) {
   const { data, error } = await supabase
     .from('media_catalog')
-    .select('media_type,external_id,title,title_original,title_en,title_it,description,description_en,description_it,cover_image,cover_image_en,cover_image_it,year,genres,score,quality_score,popularity_score,source')
+    .select('media_type,external_id,title,title_original,title_en,title_it,description,description_en,description_it,cover_image,cover_image_en,cover_image_it,year,genres,score,quality_score,popularity_score,source,localized')
     .eq('media_type', type)
     .gte('quality_score', 25)
     .order('quality_score', { ascending: false })

@@ -23,7 +23,18 @@ function toQueueRow(row: any, userId: string) {
   const core = normalizeMediaCore(row)
   if (!core) return null
 
-  const localized = row?.localized && typeof row.localized === 'object' ? row.localized : {}
+  const localizedBase = row?.localized && typeof row.localized === 'object' ? row.localized : {}
+  const localized = {
+    ...localizedBase,
+    en: {
+      ...(localizedBase?.en || {}),
+      ...(row?.cover_image_en || row?.coverImage_en ? { coverImage: row.cover_image_en || row.coverImage_en } : {}),
+    },
+    it: {
+      ...(localizedBase?.it || {}),
+      ...(row?.cover_image_it || row?.coverImage_it ? { coverImage: row.cover_image_it || row.coverImage_it } : {}),
+    },
+  }
   const sourceLocale = row?.sourceLocale === 'it' || row?.locale === 'it' || row?.language === 'it'
     ? 'it'
     : row?.sourceLocale === 'en' || row?.locale === 'en' || row?.language === 'en'

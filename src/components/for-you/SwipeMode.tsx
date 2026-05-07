@@ -92,13 +92,15 @@ export interface SwipeItem {
   title_it?: string;
   type: SwipeMediaType;
   coverImage?: string;
+  cover_image_en?: string;
+  cover_image_it?: string;
   year?: number;
   genres: string[];
   score?: number;
   description?: string;
   description_en?: string;
   description_it?: string;
-  localized?: Record<string, { title?: string; description?: string; coverImage?: string }>;
+  localized?: Record<string, { title?: string; description?: string; coverImage?: string; cover_image?: string }>;
   why?: string;
   matchScore: number;
   episodes?: number;
@@ -226,6 +228,18 @@ function localizedDescriptionForSwipe(item: SwipeItem, locale: "it" | "en"): str
     || cleanDescriptionForDisplay(locale === "it" ? item.description_it : item.description_en)
     || cleanDescriptionForDisplay(item.description)
     || cleanDescriptionForDisplay(locale === "it" ? item.description_en : item.description_it);
+}
+
+function localizedCoverForSwipe(item: SwipeItem, locale: "it" | "en"): string | undefined {
+  const localeNode = item.localized?.[locale];
+  const fallbackNode = item.localized?.[locale === "it" ? "en" : "it"];
+  return localeNode?.coverImage
+    || localeNode?.cover_image
+    || (locale === "it" ? item.cover_image_it : item.cover_image_en)
+    || item.coverImage
+    || fallbackNode?.coverImage
+    || fallbackNode?.cover_image
+    || (locale === "it" ? item.cover_image_en : item.cover_image_it);
 }
 
 // L'ordine della Swipe NON viene più rimescolato nel client.
@@ -541,6 +555,7 @@ function SwipeCard({
   const commonUi = appCopy[locale].common;
   const displayGenres = cleanDisplayGenres(item.genres).map((g) => genreLabel(g, locale));
   const episodeCount = normalizePositiveNumber(item.episodes);
+  const coverImage = localizedCoverForSwipe(item, locale);
 
   // Bottoni: glow immediato su touchstart
   const undoPress = useTouchPress();
@@ -612,9 +627,9 @@ function SwipeCard({
       }}
     >
       <div className="gk-swipe-card relative w-full h-full rounded-[28px] overflow-hidden bg-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.42)] ring-1 ring-white/8">
-        {item.coverImage ? (
+        {coverImage ? (
           <img
-            src={optimizeCover(item.coverImage, "swipe-card")}
+            src={optimizeCover(coverImage, "swipe-card")}
             alt={item.title}
             className="absolute inset-0 w-full h-full object-cover"
             draggable={false}
@@ -1638,7 +1653,7 @@ export function SwipeMode({
     isOnboarding,
   ]);
 
-  const topCoverImage = filteredQueue[0]?.coverImage;
+  const topCoverImage = filteredQueue[0] ? localizedCoverForSwipe(filteredQueue[0], locale) : undefined;
 
   const isFullscreenSwipe = standalone || isOnboarding;
   const isMirrorOnboardingLayout = standalone && !isOnboarding;

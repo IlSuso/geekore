@@ -3,7 +3,6 @@
 
 import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { useLocale } from '@/lib/locale'
 
 export default function Error({
   error,
@@ -12,7 +11,7 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const { locale } = useLocale()
+  const locale = typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'it'
   const copy = locale === 'en'
     ? { title: 'Something went wrong', body: 'An unexpected error occurred. You can try again or go back home.', retry: 'Try again', home: 'Back home' }
     : { title: 'Qualcosa è andato storto', body: 'Si è verificato un errore inaspettato. Puoi riprovare o tornare alla home.', retry: 'Riprova', home: 'Torna alla home' }

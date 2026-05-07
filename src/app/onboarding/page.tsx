@@ -283,6 +283,8 @@ function recToSwipeItem(r: any): SwipeItem {
     title_it: r.title_it,
     type: r.type as SwipeItem["type"],
     coverImage: r.coverImage,
+    cover_image_en: r.cover_image_en,
+    cover_image_it: r.cover_image_it,
     year: r.year,
     genres: r.genres || [],
     score: r.score,
@@ -307,14 +309,30 @@ async function localizeSwipeItems(
   locale: string,
 ): Promise<SwipeItem[]> {
   if (items.length === 0) return items;
-  const res = await fetch(`/api/media/localize?lang=${locale}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
-  }).catch(() => null);
-  if (!res?.ok) return items;
-  const json = await res.json().catch(() => null);
-  return Array.isArray(json?.items) ? json.items : items;
+  const chunks: SwipeItem[][] = [];
+  for (let index = 0; index < items.length; index += 80) chunks.push(items.slice(index, index + 80));
+  const localized = (
+    await Promise.all(chunks.map(async (chunk) => {
+      const res = await fetch(`/api/media/localize?lang=${locale}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: chunk, mode: "basic" }),
+      }).catch(() => null);
+      if (!res?.ok) return chunk;
+      const json = await res.json().catch(() => null);
+      return Array.isArray(json?.items) ? json.items : chunk;
+    }))
+  ).flat();
+
+  return localized.map((item: any) => ({
+    ...item,
+    coverImage: item.localized?.[locale]?.coverImage
+      || item.localized?.[locale]?.cover_image
+      || (locale === "it" ? item.cover_image_it : item.cover_image_en)
+      || item.coverImage
+      || item.cover_image
+      || (locale === "it" ? item.cover_image_en : item.cover_image_it),
+  }));
 }
 
 function interleavedMix(
@@ -632,32 +650,60 @@ export default function OnboardingPage() {
       game: "swipe_queue_game",
       boardgame: "swipe_queue_boardgame",
     })[filter] ?? "swipe_queue_all";
-  const rowToSwipeItem = (row: any): SwipeItem => ({
-    id: row.external_id,
-    title: row.title,
-    title_original: row.title_original,
-    title_en: row.title_en,
-    title_it: row.title_it,
-    type: row.type as SwipeItem["type"],
-    coverImage: row.cover_image,
-    year: row.year,
-    genres: row.genres || [],
-    score: row.score,
-    description: row.description_it || row.description_en || row.description,
-    description_en: row.description_en,
-    description_it: row.description_it,
-    localized: row.localized,
-    why: row.why,
-    matchScore: row.match_score || 0,
-    episodes: row.episodes,
-    authors: row.authors,
-    developers: row.developers,
-    platforms: row.platforms,
-    isAwardWinner: row.is_award_winner,
-    isDiscovery: row.is_discovery,
-    source: row.source,
-  });
-  const toQueueRow = (r: any, uid: string) => ({
+  const rowToSwipeItem = (row: any): SwipeItem => {
+    const localized = row?.localized && typeof row.localized === "object" ? row.localized : {};
+    const localeNode = localized?.[locale] || {};
+    const fallbackNode = localized?.[locale === "it" ? "en" : "it"] || {};
+    const coverImage = localeNode.coverImage
+      || localeNode.cover_image
+      || (locale === "it" ? row.cover_image_it : row.cover_image_en)
+      || row.cover_image
+      || fallbackNode.coverImage
+      || fallbackNode.cover_image
+      || (locale === "it" ? row.cover_image_en : row.cover_image_it);
+
+    return {
+      id: row.external_id,
+      title: localeNode.title || (locale === "it" ? row.title_it : row.title_en) || row.title,
+      title_original: row.title_original,
+      title_en: row.title_en,
+      title_it: row.title_it,
+      type: row.type as SwipeItem["type"],
+      coverImage,
+      cover_image_en: row.cover_image_en,
+      cover_image_it: row.cover_image_it,
+      year: row.year,
+      genres: row.genres || [],
+      score: row.score,
+      description: localeNode.description || (locale === "it" ? row.description_it : row.description_en) || row.description || fallbackNode.description || (locale === "it" ? row.description_en : row.description_it),
+      description_en: row.description_en,
+      description_it: row.description_it,
+      localized,
+      why: row.why,
+      matchScore: row.match_score || 0,
+      episodes: row.episodes,
+      authors: row.authors,
+      developers: row.developers,
+      platforms: row.platforms,
+      isAwardWinner: row.is_award_winner,
+      isDiscovery: row.is_discovery,
+      source: row.source,
+    };
+  };
+  const toQueueRow = (r: any, uid: string) => {
+    const localized = {
+      ...(r.localized || {}),
+      en: {
+        ...(r.localized?.en || {}),
+        ...(r.cover_image_en ? { coverImage: r.cover_image_en } : {}),
+      },
+      it: {
+        ...(r.localized?.it || {}),
+        ...(r.cover_image_it ? { coverImage: r.cover_image_it } : {}),
+      },
+    };
+
+    return {
     user_id: uid,
     external_id: r.id,
     title: r.title,
@@ -672,7 +718,7 @@ export default function OnboardingPage() {
     description: r.description ?? null,
     description_en: r.description_en || r.localized?.en?.description || null,
     description_it: r.description_it || r.localized?.it?.description || null,
-    localized: r.localized || {},
+    localized,
     why: r.why ?? null,
     match_score: r.matchScore || 0,
     episodes: r.episodes ?? null,
@@ -682,7 +728,8 @@ export default function OnboardingPage() {
     is_award_winner: r.isAwardWinner || false,
     is_discovery: r.isDiscovery || false,
     source: r.source ?? null,
-  });
+    };
+  };
 
   const mergeSwipeItemsById = (base: SwipeItem[], extra: SwipeItem[]) => {
     const seen = new Set(base.map((item) => item.id));

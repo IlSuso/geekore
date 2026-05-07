@@ -93,7 +93,18 @@ function toQueueRow(raw: any, userId: string, index: number) {
   })
   if (!core) return null
 
-  const localized = raw?.localized && typeof raw.localized === 'object' ? raw.localized : {}
+  const localizedBase = raw?.localized && typeof raw.localized === 'object' ? raw.localized : {}
+  const localized = {
+    ...localizedBase,
+    en: {
+      ...(localizedBase?.en || {}),
+      ...(raw?.cover_image_en || raw?.coverImage_en ? { coverImage: raw.cover_image_en || raw.coverImage_en } : {}),
+    },
+    it: {
+      ...(localizedBase?.it || {}),
+      ...(raw?.cover_image_it || raw?.coverImage_it ? { coverImage: raw.cover_image_it || raw.coverImage_it } : {}),
+    },
+  }
   return {
     user_id: userId,
     ...core,
