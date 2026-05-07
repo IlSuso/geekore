@@ -1,9 +1,11 @@
-import { after, NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { FORCE_REGEN_COOLDOWN_MINUTES } from '@/lib/reco/pool'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
+import { enqueueRegenJob } from '@/lib/reco/regen-jobs'
 import { refreshFromMasterPool, serveFromSavedPool } from '@/lib/reco/serving'
 import type { SupabaseClient } from './context'
 import type { Locale } from '@/lib/i18n/serverLocale'
+import type { MediaType } from '@/lib/reco/engine-types'
 import { localizeRecommendationPayload } from '@/lib/i18n/recommendationLocale'
 
 export async function handlePoolOnlyFastPath({
@@ -43,13 +45,11 @@ export async function handlePoolOnlyFastPath({
 }
 
 export async function handleRefreshPoolFastPath({
-  request,
   searchParams,
   supabase,
   userId,
   locale,
 }: {
-  request: NextRequest
   searchParams: URLSearchParams
   supabase: SupabaseClient
   userId: string
@@ -63,28 +63,18 @@ export async function handleRefreshPoolFastPath({
   const regenKey = `${userId}:depleted-refresh:${depletedTypes.sort().join(',')}`
 
   if (depletedTypes.length > 0 && await tryStartRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : request.nextUrl.origin)
-
-    after(async () => {
-      try {
-        await fetch(`${appUrl}/api/recommendations?type=all&types=${encodeURIComponent(depletedTypes.join(','))}&onboarding=1&lang=${locale}`, {
-          headers: {
-            'X-Service-User-Id': userId,
-            'X-Service-Secret': process.env.CRON_SECRET || '',
-            'x-lang': locale,
-          },
-          signal: AbortSignal.timeout(20_000),
-        })
-      } finally {
-        await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
-      }
+    const enqueued = await enqueueRegenJob({
+      userId,
+      mediaTypes: depletedTypes as MediaType[],
+      forceRefresh: true,
+      reason: 'depleted-refresh',
     })
+    if (!enqueued) await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
 
     payload.recommendationDiagnostics = {
       ...payload.recommendationDiagnostics,
       source: payload.recommendationDiagnostics?.source || 'refresh_pool',
-      backgroundRegenQueued: depletedTypes,
+      backgroundRegenQueued: enqueued ? depletedTypes : [],
     }
   }
 

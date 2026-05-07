@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const poolOnlyResponse = await handlePoolOnlyFastPath({ searchParams, forceRefresh, supabase, userId, locale })
     if (poolOnlyResponse) return poolOnlyResponse
 
-    const refreshPoolResponse = await handleRefreshPoolFastPath({ request, searchParams, supabase, userId, locale })
+    const refreshPoolResponse = await handleRefreshPoolFastPath({ searchParams, supabase, userId, locale })
     if (refreshPoolResponse) return refreshPoolResponse
 
     if (!forceRefresh && !similarToId && !isServiceCall) {

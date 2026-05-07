@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { checkOrigin } from '@/lib/csrf'
 import { rateLimitAsync } from '@/lib/rateLimit'
+import { enqueueRegenJob } from '@/lib/reco/regen-jobs'
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY
 const RATE_LIMIT_MAX = 3        // max utilizzi
@@ -312,12 +313,16 @@ export async function POST(request: NextRequest) {
         }
 
         const enrichedCount = games.filter((g: any) => g.genres.length > 0).length
+        const regenQueued = games.length > 0
+          ? await enqueueRegenJob({ userId: user.id, mediaTypes: ['game'], reason: 'import-steam' })
+          : false
 
         send({
           type: 'done',
           success: true,
           count: games.length,
           enriched_count: enrichedCount,
+          regenQueued,
           core_power: corePower,
           games,
           message: `${games.length} giochi Steam importati`,

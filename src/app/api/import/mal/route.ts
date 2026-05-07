@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/server'
 import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { upsertWithMerge } from '@/lib/importMerge'
+import { enqueueRegenJob } from '@/lib/reco/regen-jobs'
+import type { MediaType } from '@/lib/reco/engine-types'
 
 // ── Costanti ──────────────────────────────────────────────────────────────────
 
@@ -438,11 +440,16 @@ export async function POST(request: NextRequest) {
         }
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, toInsert, user.id, '[MAL Import]')
+        const regenTypes = [...new Set(toInsert.map(item => item.type).filter(Boolean))] as MediaType[]
+        const regenQueued = imported + merged > 0
+          ? await enqueueRegenJob({ userId: user.id, mediaTypes: regenTypes, reason: 'import-mal' })
+          : false
 
         send({
           type:    'done',
           imported, merged, skipped,
           total:   toInsert.length,
+          regenQueued,
           anime:   parsed.animeList.length,
           manga:   parsed.mangaList.length,
           posters: { fromCache, fromApi, notFound, total: fromCache + fromApi },

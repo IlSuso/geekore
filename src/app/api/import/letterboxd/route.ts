@@ -20,6 +20,7 @@ import { rateLimitAsync } from '@/lib/rateLimit'
 import { checkOrigin } from '@/lib/csrf'
 import { logger } from '@/lib/logger'
 import { upsertWithMerge } from '@/lib/importMerge'
+import { enqueueRegenJob } from '@/lib/reco/regen-jobs'
 
 // ── Costanti TMDB ─────────────────────────────────────────────────────────────
 
@@ -450,6 +451,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { imported, merged, skipped } = await upsertWithMerge(supabase, allEntries, user.id, '[Letterboxd Import]')
+        const regenQueued = imported + merged > 0
+          ? await enqueueRegenJob({ userId: user.id, mediaTypes: ['movie'], reason: 'import-letterboxd' })
+          : false
 
         // ── Crea lista in "Le mie liste" se è stato importato un file lista ──
         let listCreated = false
@@ -510,6 +514,7 @@ export async function POST(request: NextRequest) {
           merged,
           skipped,
           total:     allEntries.length,
+          regenQueued,
           watched:   watchedRows.length,
           ratings:   ratingsRows.length,
           watchlist: watchlistRows.length,

@@ -1,10 +1,10 @@
 import { logger } from '@/lib/logger'
-import { after } from 'next/server'
 import type { MediaType, UserEntry } from '@/lib/reco/engine-types'
 import type { Recommendation, TasteProfile } from '@/lib/reco/types'
 import { fetchContinuityRecs } from '@/lib/reco/continuity'
 import { FORCE_REGEN_COOLDOWN_MINUTES, MASTER_POOL_SIZE_PER_TYPE } from '@/lib/reco/pool'
 import { finishRegen, tryStartRegen } from '@/lib/reco/regen-lock'
+import { enqueueRegenJob } from '@/lib/reco/regen-jobs'
 import { mergeStableMasterPool } from '@/lib/reco/recruitment/merge'
 import { generateMasterPoolForType, type MasterGeneratorContext } from '@/lib/reco/recruitment/master-generator'
 import type { SupabaseClient } from './context'
@@ -175,20 +175,9 @@ export async function regenerateMasterPoolSync({
 
 
 export async function queueBackgroundMasterRegen({
-  supabase,
   userId,
-  allEntries,
-  ownedIds,
-  tasteProfile,
-  masterGeneratorContext,
-  exposurePolicyByType,
   typesToRegenBackground,
-  masterByType,
-  rowByType,
   collectionHash,
-  totalCollectionSize,
-  locale,
-  includeAlternateLocaleAssets = false,
 }: RegenBaseArgs & {
   typesToRegenBackground: MediaType[]
 }) {
@@ -201,55 +190,21 @@ export async function queueBackgroundMasterRegen({
 
   if (backgroundRegenTypes.length === 0) return backgroundRegenTypes
 
-  after(async () => {
-    const continuityRecsForBg = (backgroundRegenTypes.includes('anime') || backgroundRegenTypes.includes('manga'))
-      ? await fetchContinuityRecs(allEntries, ownedIds, tasteProfile, supabase).catch(() => [])
-      : []
-    const continuityByTypeBg = groupContinuityByType(continuityRecsForBg)
-
-    for (const type of backgroundRegenTypes) {
-      const regenKey = `${userId}:${type}:${collectionHash}`
-      try {
-        const bgMinScore = (type === 'manga' || type === 'boardgame') ? 30 : 40
-        const generated = await generateMasterPoolForType({
-          type,
-          context: masterGeneratorContext,
-          exposurePolicy: exposurePolicyByType.get(type),
-          continuityRecs: continuityByTypeBg.get(type) || [],
-          previousItems: masterByType.get(type) || [],
-          wasInvalidated: rowByType.get(type)?.collection_size === -1,
-          minScore: bgMinScore,
-        })
-
-        if (!generated.items.length) continue
-
-        await supabase.from('master_recommendations_pool').upsert({
-          user_id: userId,
-          media_type: type,
-          data: generated.items,
-          collection_hash: collectionHash,
-          collection_size: totalCollectionSize,
-          generated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,media_type' })
-
-        await persistLocaleAssetsForRecommendationItems(generated.items, locale, {
-          maxSyncTranslations: generated.items.length,
-          maxSyncTitles: Math.min(generated.items.length, 120),
-        })
-        if (includeAlternateLocaleAssets) {
-          const alternate = locale === 'it' ? 'en' : 'it'
-          await persistLocaleAssetsForRecommendationItems(generated.items, alternate, {
-            maxSyncTranslations: generated.items.length,
-            maxSyncTitles: Math.min(generated.items.length, 120),
-          })
-        }
-      } catch {
-        // ignora errori singoli tipi: non blocca gli altri
-      } finally {
-        await finishRegen(regenKey, FORCE_REGEN_COOLDOWN_MINUTES * 60000)
-      }
-    }
+  const enqueued = await enqueueRegenJob({
+    userId,
+    mediaTypes: backgroundRegenTypes,
+    forceRefresh: true,
+    reason: 'background-master',
   })
+
+  if (!enqueued) {
+    await Promise.all(
+      backgroundRegenTypes.map(type =>
+        finishRegen(`${userId}:${type}:${collectionHash}`, FORCE_REGEN_COOLDOWN_MINUTES * 60000),
+      ),
+    )
+    return []
+  }
 
   return backgroundRegenTypes
 }

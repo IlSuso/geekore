@@ -6,7 +6,6 @@ import {
   MASTER_POOL_MAX_AGE_DAYS,
   MASTER_POOL_MIN_HEALTHY_SIZE,
   MASTER_POOL_MIN_UNSEEN_ITEMS,
-  computePoolTTL,
   computeRegenDelta,
 } from '@/lib/reco/pool'
 import type { SupabaseClient } from './context'
@@ -43,15 +42,6 @@ export async function loadMasterPoolState({
   isServiceCall: boolean
   searchParams: URLSearchParams
 }) {
-  // Kept for parity with the original route: this query warms/validates the saved pool context.
-  const dynamicTTL = computePoolTTL(allEntries)
-  void dynamicTTL
-  await supabase
-    .from('recommendations_pool')
-    .select('media_type, data, generated_at, collection_hash')
-    .eq('user_id', userId)
-    .in('media_type', typesToFetch)
-
   const collectionHash = `${allEntries.length}_${lastCollectionUpdate.getTime()}`
 
   const entriesByType = new Map<string, number>()

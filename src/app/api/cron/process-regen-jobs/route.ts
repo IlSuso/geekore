@@ -139,7 +139,18 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient('cron:process-regen-jobs')
-  const batchSize = Math.min(Number(request.nextUrl.searchParams.get('batch') || 1) || 1, 3)
+  const batchSize = Math.min(Number(request.nextUrl.searchParams.get('batch') || 3) || 3, 3)
+  const staleRunningCutoff = new Date(Date.now() - 15 * 60_000).toISOString()
+
+  await supabase
+    .from('regen_jobs')
+    .update({
+      status: 'pending',
+      error_msg: 'Recovered stale running job',
+      started_at: null,
+    })
+    .eq('status', 'running')
+    .lt('started_at', staleRunningCutoff)
 
   const { data: jobs, error } = await supabase
     .from('regen_jobs')
